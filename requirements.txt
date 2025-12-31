@@ -1,0 +1,18 @@
+# MVP Dependencies
+Flask==2.3.3
+Flask-WTF==1.2.1
+WTForms==3.1.0
+python-dotenv==1.0.0
+requests==2.31.0
+tzdata  # Timezone data for zoneinfo (required on Windows)
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Post-MVP Dependencies (commented out for now)
+# Flask-SQLAlchemy==3.0.5
+# Flask-Migrate==4.0.5
+# Flask-Mail
+# email-validator==2.1.0
+

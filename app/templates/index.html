@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Find Your Region - Octopus Pricing Assistant{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h2 class="card-title mb-0">Find Your Energy Region</h2>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                    <div class="alert alert-danger">
+                        {{ error }}
+                    </div>
+                {% endif %}
+                
+                <p class="text-muted">
+                    Enter your UK postcode to automatically determine your Octopus Energy pricing region. 
+                    This helps us show you the most accurate electricity prices for your area.
+                </p>
+                
+                <!-- Combined Form -->
+                <form method="POST" action="{{ url_for('main.index') }}" id="main-form">
+                    {{ postcode_form.hidden_tag() }}
+                    
+                    <!-- 1. Postcode Entry -->
+                    <div class="mb-3">
+                        {{ postcode_form.postcode.label(class="form-label") }}
+                        {{ postcode_form.postcode(
+                            class="form-control" + (" is-invalid" if postcode_form.postcode.errors else ""),
+                            value=submitted_postcode if submitted_postcode else ""
+                        ) }}
+                        {% if postcode_form.postcode.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in postcode_form.postcode.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Enter your postcode - full or partial (e.g., SW1A 1AA or SW1)</small>
+                    </div>
+                    
+                    <!-- 2. Region Selection (if applicable) -->
+                    {% if show_region_dropdown %}
+                    <div class="mb-3">
+                        <label for="region" class="form-label">Region <span class="text-muted">(optional if entering new postcode)</span></label>
+                        {% if error and 'matches multiple regions' in error %}
+                            <p class="text-info mb-2"><small><strong>{{ error }}</strong></small></p>
+                        {% else %}
+                            <small class="text-muted d-block mb-1">Select your region manually, or enter a different postcode above to try again</small>
+                        {% endif %}
+                        <select class="form-select" id="region" name="region">
+                            <option value="">Select a region (optional if entering new postcode)...</option>
+                            {% for r in regions %}
+                            <option value="{{ r.region }}" {% if request.form.get('region') == r.region %}selected{% endif %}>
+                                {{ r.region }} - {{ r.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- 3. Tariff Selection (if applicable) -->
+                    {% if show_product_dropdown %}
+                    <div class="mb-3">
+                        <label for="product" class="form-label">Agile Tariff Version</label>
+                        <small class="text-muted d-block mb-1">Select the Agile tariff version you want to view prices for</small>
+                        <select class="form-select" id="product" name="product" required>
+                            {% for p in agile_products %}
+                            <option value="{{ p.code }}" {% if p.code == selected_product_code or request.form.get('product') == p.code %}selected{% endif %}>
+                                {{ p.code }} — {{ p.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <input type="hidden" name="product" value="{{ selected_product_code }}">
+                    {% if agile_products and selected_product_code %}
+                        <!-- Single product: auto-selected, show info -->
+                        <div class="mb-3">
+                            <p class="mb-0 text-muted"><small><strong>Using tariff:</strong> <span class="text-primary">{{ selected_product_code }} — {{ selected_product_name }}</span></small></p>
+                        </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {{ postcode_form.submit(class="btn btn-primary w-100") }}
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div class="alert alert-info">
+                <h5 class="alert-heading">How it works</h5>
+                <ul class="mb-0">
+                    <li>Enter your UK postcode to automatically detect your energy region</li>
+                    <li>View today's half-hourly Agile Octopus prices</li>
+                    <li>Find the lowest 30-minute price slot</li>
+                    <li>Calculate the cheapest continuous charging block</li>
+                    <li>Estimate your charging costs</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

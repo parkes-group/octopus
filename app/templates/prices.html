@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Prices - Octopus Pricing Assistant{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">Agile Octopus Prices</h1>
+        
+        <!-- Product Info -->
+        {% if product_code and product_name %}
+        <div class="alert alert-info mb-3">
+            <strong>Using tariff:</strong> {{ product_code }} — {{ product_name }}
+        </div>
+        {% endif %}
+        
+        <!-- Region and Controls -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
+                    {% if agile_products and agile_products|length > 1 %}
+                    <div class="col-md-3">
+                        <label for="product" class="form-label">Agile Tariff Version</label>
+                        <select class="form-select" id="product" name="product" required>
+                            {% for p in agile_products %}
+                            <option value="{{ p.code }}" {% if p.code == product_code %}selected{% endif %}>
+                                {{ p.code }} — {{ p.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <input type="hidden" name="product" value="{{ product_code }}">
+                    {% endif %}
+                    
+                    <div class="col-md-3">
+                        <label for="region" class="form-label">Region</label>
+                        <select class="form-select" id="region" name="region" required>
+                            {% for r in regions %}
+                            <option value="{{ r.region }}" {% if r.region == region %}selected{% endif %}>
+                                {{ r.region }} - {{ r.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="duration" class="form-label">Charging Duration (hours)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="duration" 
+                               name="duration" 
+                               value="{{ duration }}" 
+                               step="0.5" 
+                               min="0.5" 
+                               max="6.0" 
+                               required>
+                        <small class="text-muted">Supports decimals (e.g., 3.5)</small>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="capacity" class="form-label">Battery Capacity (kWh) <span class="text-muted">(optional)</span></label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="capacity" 
+                               name="capacity" 
+                               value="{{ capacity if capacity else '' }}" 
+                               step="0.1" 
+                               min="0.1" 
+                               placeholder="e.g., 10.0">
+                    </div>
+                    
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Results -->
+        <div class="row">
+            <!-- Lowest Price -->
+            {% if lowest_price %}
+            <div class="col-md-6 mb-4">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">💰 Lowest 30-Minute Price</h5>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="text-success">{{ "%.2f"|format(lowest_price.price) }} p/kWh</h3>
+                        <p class="mb-0">
+                            <strong>Time:</strong> 
+                            {{ lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
+                            {{ lowest_price.time_to_uk.strftime('%H:%M') }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Cheapest Block -->
+            {% if cheapest_block %}
+            <div class="col-md-6 mb-4">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">⚡ Cheapest {{ duration }} Hour Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <span class="h3 text-primary">{{ "%.2f"|format(cheapest_block.average_price) }} p/kWh</span>
+                            <small class="text-muted">Block Average</small>
+                        </p>
+                        <p class="mb-1">
+                            <strong>Time:</strong> 
+                            {{ cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                            {{ cheapest_block.end_time_uk.strftime('%H:%M') }}
+                        </p>
+                        {% if estimated_cost %}
+                        <p class="mb-0">
+                            <strong>Estimated Cost:</strong> 
+                            <span class="h5 text-primary">£{{ "%.2f"|format(estimated_cost) }}</span>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Price Chart -->
+        {% if chart_data %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Price Chart</h5>
+                <small class="text-muted">
+                    {% if cheapest_block %}
+                        Highlighted: Cheapest {{ duration }} hour block (blue)
+                    {% elif lowest_price %}
+                        Highlighted: Lowest 30-minute price (green)
+                    {% endif %}
+                </small>
+            </div>
+            <div class="card-body">
+                <canvas id="priceChart" height="100"></canvas>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Price Table -->
+        {% if prices %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Prices (Half-Hourly)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Price (p/kWh)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for price in prices %}
+                            {% set is_lowest = lowest_price and price.value_inc_vat == lowest_price.price and price.valid_from == lowest_price.time_from %}
+                            {% set is_in_block = price.valid_from in cheapest_block_times %}
+                            {% if loop.first %}
+                                {% set show_date = True %}
+                            {% else %}
+                                {% set prev_price = prices[loop.index0 - 1] %}
+                                {% set prev_date = prev_price.date_uk %}
+                                {% set show_date = price.date_uk != prev_date %}
+                            {% endif %}
+                            <tr {% if is_in_block %}class="table-info"{% elif is_lowest %}class="table-success"{% endif %}>
+                                <td>
+                                    {% if show_date %}
+                                        <strong>{{ price.date_uk }}</strong><br>
+                                    {% endif %}
+                                    {{ price.time_uk }}
+                                </td>
+                                <td>
+                                    {{ "%.2f"|format(price.value_inc_vat) }}
+                                    {% if is_lowest %}<span class="badge bg-success ms-2">Lowest</span>{% endif %}
+                                    {% if is_in_block %}<span class="badge bg-info ms-2">Cheapest Block</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Render price chart with highlighting
+    {% if chart_data %}
+    const chartData = {{ chart_data | tojson }};
+    const cheapestBlockIndices = chartData.cheapest_block_indices || [];
+    const lowestPriceIndex = chartData.lowest_price_index;
+    const hasDuration = {{ duration|default(0)|float }} > 0;
+    
+    const ctx = document.getElementById('priceChart');
+    if (ctx && chartData.labels && chartData.prices) {
+        // Determine what to highlight
+        const highlightIndices = hasDuration && cheapestBlockIndices.length > 0 
+            ? cheapestBlockIndices 
+            : (lowestPriceIndex !== null ? [lowestPriceIndex] : []);
+        
+        const highlightColor = hasDuration && cheapestBlockIndices.length > 0
+            ? 'rgb(13, 110, 253)'  // Blue for cheapest block
+            : 'rgb(25, 135, 84)';   // Green for lowest price
+        
+        // Create datasets - main line and highlighted points
+        const datasets = [{
+            label: 'Price (p/kWh)',
+            data: chartData.prices,
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1,
+            pointRadius: chartData.prices.map((price, index) => {
+                return highlightIndices.includes(index) ? 0 : 3;  // Hide points that will be highlighted separately
+            }),
+            pointHoverRadius: 5,
+            pointBackgroundColor: 'rgb(75, 192, 192)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+        }];
+        
+        // Add highlighted points as separate dataset for better visibility
+        if (highlightIndices.length > 0) {
+            const highlightedData = chartData.prices.map((price, index) => {
+                return highlightIndices.includes(index) ? price : null;
+            });
+            
+            datasets.push({
+                label: hasDuration && cheapestBlockIndices.length > 0 ? 'Cheapest Block' : 'Lowest Price',
+                data: highlightedData,
+                borderColor: highlightColor,
+                backgroundColor: highlightColor.replace('rgb', 'rgba').replace(')', ', 0.3)'),
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                pointBackgroundColor: highlightColor,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                tension: 0.1,
+                showLine: false  // Only show points, not line
+            });
+        }
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Price (p/kWh)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Time'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' p/kWh';
+                                if (highlightIndices.includes(context.dataIndex)) {
+                                    if (hasDuration && cheapestBlockIndices.length > 0) {
+                                        label += ' (Cheapest Block)';
+                                    } else {
+                                        label += ' (Lowest Price)';
+                                    }
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+</script>
+{% endblock %}
+
