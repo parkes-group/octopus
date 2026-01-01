@@ -2,7 +2,7 @@
 Main application routes.
 MVP: Anonymous usage only, no authentication required.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session, make_response
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
@@ -563,40 +563,13 @@ def about():
 @bp.route('/robots.txt')
 def robots_txt():
     """Serve robots.txt for search engine crawlers."""
-    content = """User-agent: *
-Allow: /
-"""
-    return Response(content, mimetype='text/plain')
+    response = make_response(render_template('robots.txt'))
+    response.mimetype = 'text/plain'
+    return response
 
 @bp.route('/sitemap.xml')
 def sitemap_xml():
-    """Generate sitemap.xml for search engines."""
-    from flask import url_for
-    from app.config import Config
-    
-    site_url = Config.SITE_URL
-    content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>{site_url}/</loc>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>{site_url}/prices</loc>
-        <changefreq>hourly</changefreq>
-        <priority>0.9</priority>
-    </url>
-    <url>
-        <loc>{site_url}/about</loc>
-        <changefreq>monthly</changefreq>
-        <priority>0.7</priority>
-    </url>
-    <url>
-        <loc>{site_url}/regions</loc>
-        <changefreq>hourly</changefreq>
-        <priority>0.8</priority>
-    </url>
-</urlset>
-"""
-    return Response(content, mimetype='application/xml')
+    """Serve sitemap.xml for search engines."""
+    response = make_response(render_template('sitemap.xml'))
+    response.mimetype = 'application/xml'
+    return response
