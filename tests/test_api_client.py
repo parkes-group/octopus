@@ -9,38 +9,6 @@ class TestOctopusAPIClient:
     """Test cases for OctopusAPIClient."""
     
     @patch('app.api_client.requests.get')
-    def test_get_regions_success(self, mock_get):
-        """Test successful region fetching."""
-        mock_response = Mock()
-        # Mock the grid supply points API response structure
-        mock_response.json.return_value = {
-            'results': [
-                {'group_id': '_A'},
-                {'group_id': '_B'}
-            ]
-        }
-        mock_response.status_code = 200
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-        
-        result = OctopusAPIClient.get_regions()
-        
-        assert 'results' in result
-        assert len(result['results']) == 2
-        assert result['results'][0]['region'] == 'A'
-        assert result['results'][0]['name'] == 'Eastern England'
-        mock_get.assert_called_once()
-    
-    @patch('app.api_client.requests.get')
-    def test_get_regions_timeout(self, mock_get):
-        """Test timeout handling."""
-        import requests
-        mock_get.side_effect = requests.exceptions.Timeout()
-        
-        with pytest.raises(requests.exceptions.Timeout):
-            OctopusAPIClient.get_regions()
-    
-    @patch('app.api_client.requests.get')
     def test_get_prices_success(self, mock_get):
         """Test successful price fetching."""
         mock_response = Mock()

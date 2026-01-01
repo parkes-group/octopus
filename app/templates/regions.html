@@ -43,7 +43,12 @@
             <p class="mb-0">
                 <strong>Block Duration:</strong> {{ duration_hours }} hours | 
                 <strong>Regions:</strong> {{ region_summaries|length }} | 
-                <strong>Data:</strong> Today's prices
+                <strong>Data:</strong> 
+                {% if min_date_time_uk and max_date_time_uk %}
+                    {{ min_date_time_uk.strftime('%d/%m %H:%M') }} - {{ max_date_time_uk.strftime('%d/%m %H:%M') }}
+                {% else %}
+                    Today's prices
+                {% endif %}
             </p>
         </div>
         
@@ -75,15 +80,41 @@
                             </p>
                         </div>
                         <div class="col-12">
-                            <p class="mb-0">
+                            <p class="mb-1">
                                 <strong>Cheapest {{ duration_hours }}h Block:</strong> 
                                 <span class="h6">
                                     {{ "%.2f"|format(summary.cheapest_block_average) if summary.cheapest_block_average else "N/A" }} p/kWh
                                 </span>
                                 {% if summary.cheapest_block_start_uk and summary.cheapest_block_end_uk %}
+                                {% set block_start_date = summary.cheapest_block_start_uk.date() %}
+                                {% set block_end_date = summary.cheapest_block_end_uk.date() %}
                                 <br><small class="text-muted">
                                     {{ summary.cheapest_block_start_uk.strftime('%d/%m %H:%M') }} - 
-                                    {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                    {% if block_start_date != block_end_date %}
+                                        {{ summary.cheapest_block_end_uk.strftime('%d/%m %H:%M') }}
+                                    {% else %}
+                                        {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                    {% endif %}
+                                </small>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <p class="mb-0">
+                                <strong>Cheapest Remaining Block:</strong> 
+                                <span class="h6">
+                                    {{ "%.2f"|format(summary.future_block_average) if summary.future_block_average else "N/A" }} p/kWh
+                                </span>
+                                {% if summary.future_block_start_uk and summary.future_block_end_uk %}
+                                {% set future_start_date = summary.future_block_start_uk.date() %}
+                                {% set future_end_date = summary.future_block_end_uk.date() %}
+                                <br><small class="text-muted">
+                                    {{ summary.future_block_start_uk.strftime('%d/%m %H:%M') }} - 
+                                    {% if future_start_date != future_end_date %}
+                                        {{ summary.future_block_end_uk.strftime('%d/%m %H:%M') }}
+                                    {% else %}
+                                        {{ summary.future_block_end_uk.strftime('%H:%M') }}
+                                    {% endif %}
                                 </small>
                                 {% endif %}
                             </p>
@@ -109,6 +140,7 @@
                                     <th scope="col">Region</th>
                                     <th scope="col">Cheapest 30-Min Slot</th>
                                     <th scope="col">Cheapest {{ duration_hours }}h Block</th>
+                                    <th scope="col">Cheapest Remaining Block</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -134,9 +166,34 @@
                                         {% else %}
                                         {{ "%.2f"|format(summary.cheapest_block_average) if summary.cheapest_block_average else "N/A" }} p/kWh
                                         {% if summary.cheapest_block_start_uk and summary.cheapest_block_end_uk %}
+                                        {% set block_start_date = summary.cheapest_block_start_uk.date() %}
+                                        {% set block_end_date = summary.cheapest_block_end_uk.date() %}
                                         <br><small class="text-muted">
                                             {{ summary.cheapest_block_start_uk.strftime('%d/%m %H:%M') }} - 
-                                            {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                            {% if block_start_date != block_end_date %}
+                                                {{ summary.cheapest_block_end_uk.strftime('%d/%m %H:%M') }}
+                                            {% else %}
+                                                {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                            {% endif %}
+                                        </small>
+                                        {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if summary.error %}
+                                        <span class="text-danger">Error</span>
+                                        {% else %}
+                                        {{ "%.2f"|format(summary.future_block_average) if summary.future_block_average else "N/A" }} p/kWh
+                                        {% if summary.future_block_start_uk and summary.future_block_end_uk %}
+                                        {% set future_start_date = summary.future_block_start_uk.date() %}
+                                        {% set future_end_date = summary.future_block_end_uk.date() %}
+                                        <br><small class="text-muted">
+                                            {{ summary.future_block_start_uk.strftime('%d/%m %H:%M') }} - 
+                                            {% if future_start_date != future_end_date %}
+                                                {{ summary.future_block_end_uk.strftime('%d/%m %H:%M') }}
+                                            {% else %}
+                                                {{ summary.future_block_end_uk.strftime('%H:%M') }}
+                                            {% endif %}
                                         </small>
                                         {% endif %}
                                         {% endif %}
@@ -155,7 +212,8 @@
             <h6 class="mb-2">How to read this summary:</h6>
             <ul class="mb-0 small">
                 <li><strong>Cheapest 30-Min Slot:</strong> The single lowest price slot and its time</li>
-                <li><strong>Cheapest {{ duration_hours }}h Block:</strong> The cheapest contiguous {{ duration_hours }}-hour period for charging, showing average price and time range</li>
+                <li><strong>Cheapest {{ duration_hours }}h Block:</strong> The cheapest contiguous {{ duration_hours }}-hour period across all prices today, showing average price and time range</li>
+                <li><strong>Cheapest Remaining Block:</strong> The cheapest contiguous {{ duration_hours }}-hour period considering only future time slots (from now onwards), showing average price and time range</li>
             </ul>
         </div>
     </section>

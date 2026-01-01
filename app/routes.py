@@ -8,6 +8,7 @@ from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
 from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
 from app.timezone_utils import get_uk_date_string, get_uk_now
+from app.config import Config
 from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
@@ -76,17 +77,10 @@ def index():
         if not error_message:
             error_message = "Unable to load tariff information. Please try again later."
     
-    # Load regions for fallback dropdown
-    try:
-        regions = OctopusAPIClient.get_regions()
-        regions_list = regions.get('results', [])
-        # Populate region form choices
-        region_form.region.choices = [(r['region'], f"{r['region']} - {r['name']}") for r in regions_list]
-    except Exception as e:
-        logger.error(f"Error loading regions: {e}")
-        regions_list = []
-        if not error_message:
-            error_message = "Unable to load regions. Please try again later."
+    # Load regions from static mapping (no API call needed)
+    regions_list = Config.get_regions_list()
+    # Populate region form choices
+    region_form.region.choices = [(r['region'], f"{r['region']} - {r['name']}") for r in regions_list]
     
     # Handle POST: form submission (includes postcode, region if applicable, and product)
     if request.method == 'POST':
@@ -216,13 +210,8 @@ def prices():
     except Exception as e:
         logger.error(f"Error loading Agile products for prices page: {e}")
     
-    # Get regions list for dropdown
-    try:
-        regions_data = OctopusAPIClient.get_regions()
-        regions_list = regions_data.get('results', [])
-    except Exception as e:
-        logger.error(f"Error loading regions for prices page: {e}")
-        regions_list = []
+    # Get regions list for dropdown (from static mapping, no API call needed)
+    regions_list = Config.get_regions_list()
     
     if not region:
         flash('Please select a region.', 'error')
@@ -244,20 +233,25 @@ def prices():
     if duration < 0.5 or duration > 6.0:
         duration = 4.0
     
-    # Get prices (with caching) - use UK date
+    # Get prices (check cache first - will use cached data if not expired)
     date_str = get_uk_date_string()
     prices_data = CacheManager.get_cached_prices(product_code, region, date_str)
     
     if not prices_data:
+        # Cache miss or expired - fetch from API
+        logger.info(f"Cache miss for {product_code} {region} on {date_str}, fetching from API")
         try:
             api_response = OctopusAPIClient.get_prices(product_code, region)
             prices_data = api_response.get('results', [])
             CacheManager.cache_prices(product_code, region, date_str, prices_data)
+            logger.info(f"Fetched and cached prices for {product_code} {region} on {date_str}")
         except Exception as e:
             logger.error(f"Error fetching prices: {e}", exc_info=True)
             # Try to use stale cache if available
             flash('Unable to fetch current prices. Please try again later.', 'error')
             return redirect(url_for('main.index'))
+    else:
+        logger.debug(f"Using cached prices for {product_code} {region} on {date_str}")
     
     # Sort prices chronologically by valid_from
     try:
@@ -385,17 +379,17 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
     region_summaries = []
     date_str = get_uk_date_string()
     
-    # Get all regions
-    try:
-        regions_data = OctopusAPIClient.get_regions()
-        regions_list = regions_data.get('results', [])
-    except Exception as e:
-        logger.error(f"Error fetching regions for summary: {e}")
-        return []
+    # Get all regions from static mapping (no API call needed)
+    from app.config import Config
+    regions_list = Config.get_regions_list()
     
     # Get current time in UTC for future block calculations
     uk_now = get_uk_now()
     current_time_utc = uk_now.astimezone(timezone.utc)
+    
+    # Track min/max dates from price data (for data range display)
+    min_date_time_uk = None
+    max_date_time_uk = None
     
     # Process each region
     for region_info in regions_list:
@@ -406,19 +400,23 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
             continue
         
         try:
-            # Get prices (with caching)
+            # Get prices (check cache first - will use cached data if not expired)
             prices_data = CacheManager.get_cached_prices(product_code, region_code, date_str)
             
             if not prices_data:
-                # Fetch from API if not cached
+                # Cache miss or expired - fetch from API
+                logger.info(f"Cache miss for region {region_code} on {date_str}, fetching from API")
                 try:
                     api_response = OctopusAPIClient.get_prices(product_code, region_code)
                     prices_data = api_response.get('results', [])
                     CacheManager.cache_prices(product_code, region_code, date_str, prices_data)
+                    logger.info(f"Fetched and cached prices for region {region_code} on {date_str}")
                 except Exception as e:
                     logger.warning(f"Error fetching prices for region {region_code}: {e}")
                     # Skip this region, continue with others
                     continue
+            else:
+                logger.debug(f"Using cached prices for region {region_code} on {date_str}")
             
             # Sort prices chronologically
             try:
@@ -427,9 +425,18 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
                 logger.warning(f"Error sorting prices for region {region_code}: {e}")
                 continue
             
+            # Track min/max dates (from first successful region, all should have same range)
+            if prices_data and min_date_time_uk is None:
+                from app.timezone_utils import utc_to_uk
+                first_price_uk = utc_to_uk(prices_data[0]['valid_from'])
+                last_price_uk = utc_to_uk(prices_data[-1]['valid_to'])
+                min_date_time_uk = first_price_uk
+                max_date_time_uk = last_price_uk
+            
             # Use existing calculation functions (caching ensures data is fetched efficiently)
             lowest_price_info = PriceCalculator.find_lowest_price(prices_data)
             cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration_hours)
+            future_cheapest_block = PriceCalculator.find_future_cheapest_block(prices_data, duration_hours, current_time_utc)
             
             # Build summary
             summary = {
@@ -440,6 +447,9 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
                 'cheapest_block_average': cheapest_block['average_price'] if cheapest_block else None,
                 'cheapest_block_start_uk': cheapest_block['start_time_uk'] if cheapest_block else None,
                 'cheapest_block_end_uk': cheapest_block['end_time_uk'] if cheapest_block else None,
+                'future_block_average': future_cheapest_block['average_price'] if future_cheapest_block else None,
+                'future_block_start_uk': future_cheapest_block['start_time_uk'] if future_cheapest_block else None,
+                'future_block_end_uk': future_cheapest_block['end_time_uk'] if future_cheapest_block else None,
                 'error': None
             }
             
@@ -456,11 +466,14 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
                 'cheapest_block_average': None,
                 'cheapest_block_start_uk': None,
                 'cheapest_block_end_uk': None,
+                'future_block_average': None,
+                'future_block_start_uk': None,
+                'future_block_end_uk': None,
                 'error': str(e)
             })
             continue
     
-    return region_summaries
+    return region_summaries, min_date_time_uk, max_date_time_uk
 
 @bp.route('/regions')
 def regions():
@@ -495,14 +508,16 @@ def regions():
     duration_hours = 3.5
     
     # Calculate summaries for all regions (uses cached data via CacheManager)
-    region_summaries = _calculate_region_summaries(product_code, duration_hours)
+    region_summaries, min_date_time_uk, max_date_time_uk = _calculate_region_summaries(product_code, duration_hours)
     
     return render_template('regions.html',
                          region_summaries=region_summaries,
                          product_code=product_code,
                          product_name=selected_product_name,
                          agile_products=agile_products,
-                         duration_hours=duration_hours)
+                         duration_hours=duration_hours,
+                         min_date_time_uk=min_date_time_uk,
+                         max_date_time_uk=max_date_time_uk)
 
 @bp.route('/about')
 def about():

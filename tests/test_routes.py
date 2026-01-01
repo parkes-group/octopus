@@ -8,15 +8,8 @@ from app.routes import bp
 class TestRoutes:
     """Test cases for application routes."""
     
-    @patch('app.routes.OctopusAPIClient.get_regions')
-    def test_index_route_success(self, mock_get_regions, client):
+    def test_index_route_success(self, client):
         """Test homepage with postcode-first UI."""
-        mock_get_regions.return_value = {
-            'results': [
-                {'region': 'A', 'name': 'Eastern England'}
-            ]
-        }
-        
         response = client.get('/')
         
         assert response.status_code == 200
@@ -25,15 +18,13 @@ class TestRoutes:
         # Region dropdown should not be visible by default (only shown on postcode lookup failure)
         assert b'Can\'t find your region?' not in response.data
     
-    @patch('app.routes.OctopusAPIClient.get_regions')
-    def test_index_route_error(self, mock_get_regions, client):
-        """Test homepage with API error."""
-        mock_get_regions.side_effect = Exception("API Error")
-        
+    def test_index_route_with_regions(self, client):
+        """Test homepage loads regions from static mapping."""
         response = client.get('/')
         
         assert response.status_code == 200
-        assert b'Unable to load regions' in response.data
+        # Should have region options available (even if not visible initially)
+        # Since we're using static mapping, regions should always be available
     
     @patch('app.routes.OctopusAPIClient.get_agile_products')
     @patch('app.routes.CacheManager.get_cached_prices')

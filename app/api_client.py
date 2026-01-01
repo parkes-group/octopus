@@ -25,7 +25,6 @@ class OctopusAPIClient:
                     'product_code': current_app.config.get('OCTOPUS_PRODUCT_CODE', Config.OCTOPUS_PRODUCT_CODE),
                     'timeout': current_app.config.get('OCTOPUS_API_TIMEOUT', Config.OCTOPUS_API_TIMEOUT),
                     'region_names': current_app.config.get('OCTOPUS_REGION_NAMES', Config.OCTOPUS_REGION_NAMES),
-                    'get_regions_url': lambda: current_app.config.get('OCTOPUS_API_BASE_URL', Config.OCTOPUS_API_BASE_URL) + '/industry/grid-supply-points/?group_by=region',
                     'get_products_url': Config.get_products_url,
                     'get_prices_url': Config.get_prices_url,
                     'get_gsp_lookup_url': lambda postcode: Config.get_gsp_lookup_url(postcode),
@@ -41,64 +40,11 @@ class OctopusAPIClient:
             'product_code': Config.OCTOPUS_PRODUCT_CODE,
             'timeout': Config.OCTOPUS_API_TIMEOUT,
             'region_names': Config.OCTOPUS_REGION_NAMES,
-            'get_regions_url': Config.get_regions_url,
             'get_products_url': Config.get_products_url,
             'get_prices_url': Config.get_prices_url,
             'get_gsp_lookup_url': Config.get_gsp_lookup_url,
             'direction_filter': Config.OCTOPUS_PRODUCT_DIRECTION_FILTER
         }
-    
-    @staticmethod
-    def get_regions():
-        """
-        Fetch available regions from Octopus API.
-        
-        Returns:
-            dict: API response with regions list in format {'results': [{'region': 'A', 'name': '...'}, ...]}
-            
-        Raises:
-            requests.RequestException: If API request fails
-        """
-        # Get config values
-        config = OctopusAPIClient._get_config()
-        
-        # Use URL from config
-        url = config['get_regions_url']()
-        try:
-            logger.info(f"API Call: GET {url}")
-            response = requests.get(url, timeout=config['timeout'])
-            response.raise_for_status()
-            data = response.json()
-            logger.info(f"API Response: Status {response.status_code}, Regions found: {len(data.get('results', []))}")
-            
-            # Get region names from config
-            region_names = config['region_names']
-            
-            # Transform the data to match expected format
-            # group_id is like '_A', '_B', etc. - we need to strip the underscore
-            regions = []
-            for item in data.get('results', []):
-                group_id = item.get('group_id', '')
-                # Remove leading underscore if present
-                region_code = group_id.lstrip('_')
-                if region_code:
-                    # Get region name from mapping or use default
-                    region_name = region_names.get(region_code, f"Region {region_code}")
-                    regions.append({
-                        'region': region_code,
-                        'name': region_name
-                    })
-            
-            return {'results': regions}
-        except requests.exceptions.Timeout:
-            logger.error("Timeout fetching regions from Octopus API")
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching regions: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error fetching regions: {e}")
-            raise
     
     @staticmethod
     def get_agile_products(direction_filter=None):
