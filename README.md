@@ -147,6 +147,12 @@ pytest --cov=app tests/
 
 ## Support & Feedback
 
+### Supporting This Project
+
+This site is free to use and is supported through an Octopus Energy referral program. If you're thinking of switching energy suppliers, you can [join Octopus Energy using our referral link](https://share.octopus.energy/clean-prawn-337) to support the hosting costs and ongoing development of this tool. This helps us keep the site free for everyone.
+
+### Feedback & Contributions
+
 We welcome feedback, bug reports, and feature requests!
 
 **Report Issues or Suggest Features:**

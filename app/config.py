@@ -13,7 +13,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # Cache settings (MVP Required)
-    CACHE_EXPIRY_MINUTES = int(os.environ.get('CACHE_EXPIRY_MINUTES', 5))
+    CACHE_EXPIRY_MINUTES = int(os.environ.get('CACHE_EXPIRY_MINUTES', 15))
     
     # Logging (MVP Required)
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -28,6 +28,9 @@ class Config:
     
     # GitHub Issues URL for feedback and bug reports
     GITHUB_FEEDBACK_URL = os.environ.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose')
+    
+    # Octopus Energy referral link (supports site hosting and development)
+    OCTOPUS_REFERRAL_URL = os.environ.get('OCTOPUS_REFERRAL_URL', 'https://share.octopus.energy/clean-prawn-337')
     
     # SEO Configuration
     SITE_NAME = os.environ.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant')
@@ -73,9 +76,18 @@ class Config:
     }
     
     @staticmethod
-    def get_regions_url():
-        """Get the URL for fetching regions."""
-        return f"{Config.OCTOPUS_API_BASE_URL}/industry/grid-supply-points/?group_by=region"
+    def get_regions_list():
+        """
+        Get list of all regions from static mapping.
+        No API call required - regions are static.
+        
+        Returns:
+            list: List of region dictionaries with 'region' and 'name' keys
+        """
+        return [
+            {'region': code, 'name': name}
+            for code, name in Config.OCTOPUS_REGION_NAMES.items()
+        ]
     
     @staticmethod
     def get_products_url():

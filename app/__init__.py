@@ -85,7 +85,7 @@ def create_app(config_class=None):
     @app.context_processor
     def inject_config():
         """Inject configuration values into template context."""
-        from flask import session, url_for
+        from flask import session, url_for, request
         # Check if user has visited prices page before
         has_prices_history = False
         prices_url = None
@@ -99,11 +99,21 @@ def create_app(config_class=None):
                                     duration=state.get('duration'),
                                     capacity=state.get('capacity'))
         
+        # Use dynamic site URL based on current request
+        # This allows localhost for development and production URL for production
+        try:
+            # Use request.url_root which gives us the full URL (e.g., http://localhost:5000/ or https://example.com/)
+            dynamic_site_url = request.url_root.rstrip('/')
+        except RuntimeError:
+            # Not in request context (e.g., during testing), fall back to config
+            dynamic_site_url = app.config.get('SITE_URL', 'https://octopus-pricing.parkes-group.com')
+        
         from datetime import datetime
         return {
             'github_feedback_url': app.config.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose'),
+            'octopus_referral_url': app.config.get('OCTOPUS_REFERRAL_URL', 'https://share.octopus.energy/clean-prawn-337'),
             'site_name': app.config.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant'),
-            'site_url': app.config.get('SITE_URL', 'https://octopus-pricing.parkes-group.com'),
+            'site_url': dynamic_site_url,
             'site_description': app.config.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today.'),
             'seo_pages': app.config.get('SEO_PAGES', {}),
             'has_prices_history': has_prices_history,
