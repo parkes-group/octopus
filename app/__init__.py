@@ -81,5 +81,33 @@ def create_app(config_class=None):
     cache_dir = Path('app/cache')
     cache_dir.mkdir(parents=True, exist_ok=True)
     
+    # Make config values available to all templates
+    @app.context_processor
+    def inject_config():
+        """Inject configuration values into template context."""
+        from flask import session, url_for
+        # Check if user has visited prices page before
+        has_prices_history = False
+        prices_url = None
+        if 'last_prices_state' in session:
+            state = session['last_prices_state']
+            if state.get('region') and state.get('product'):
+                has_prices_history = True
+                prices_url = url_for('main.prices', 
+                                    region=state['region'],
+                                    product=state['product'],
+                                    duration=state.get('duration'),
+                                    capacity=state.get('capacity'))
+        
+        return {
+            'github_feedback_url': app.config.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose'),
+            'site_name': app.config.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant'),
+            'site_url': app.config.get('SITE_URL', 'https://octopus-pricing.parkes-group.com'),
+            'site_description': app.config.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today.'),
+            'seo_pages': app.config.get('SEO_PAGES', {}),
+            'has_prices_history': has_prices_history,
+            'prices_url': prices_url
+        }
+    
     return app
 

@@ -34,9 +34,9 @@ class TestCacheManager:
             {'value_inc_vat': 16.0, 'valid_from': '2024-01-15T00:00:00Z', 'valid_to': '2024-01-15T00:30:00Z'}
         ]
         
-        CacheManager.cache_prices('A', '2024-01-15', prices)
+        CacheManager.cache_prices('AGILE-24-10-01', 'A', '2024-01-15', prices)
         
-        cache_file = CacheManager._get_cache_file('A', '2024-01-15')
+        cache_file = CacheManager._get_cache_file('AGILE-24-10-01', 'A', '2024-01-15')
         assert cache_file.exists()
         
         with open(cache_file, 'r') as f:
@@ -54,10 +54,10 @@ class TestCacheManager:
         ]
         
         # Cache prices
-        CacheManager.cache_prices('A', '2024-01-15', prices, expiry_minutes=60)
+        CacheManager.cache_prices('AGILE-24-10-01', 'A', '2024-01-15', prices, expiry_minutes=60)
         
         # Retrieve cached prices
-        result = CacheManager.get_cached_prices('A', '2024-01-15')
+        result = CacheManager.get_cached_prices('AGILE-24-10-01', 'A', '2024-01-15')
         
         assert result is not None
         assert len(result) == 1
@@ -70,7 +70,7 @@ class TestCacheManager:
         ]
         
         # Cache with past expiry
-        cache_file = CacheManager._get_cache_file('A', '2024-01-15')
+        cache_file = CacheManager._get_cache_file('AGILE-24-10-01', 'A', '2024-01-15')
         data = {
             'prices': prices,
             'fetched_at': (datetime.now() - timedelta(hours=2)).isoformat(),
@@ -80,13 +80,13 @@ class TestCacheManager:
             json.dump(data, f)
         
         # Try to retrieve
-        result = CacheManager.get_cached_prices('A', '2024-01-15')
+        result = CacheManager.get_cached_prices('AGILE-24-10-01', 'A', '2024-01-15')
         
         assert result is None
         assert not cache_file.exists()  # Should be deleted
     
     def test_get_cached_prices_missing(self):
         """Test retrieving non-existent cached prices."""
-        result = CacheManager.get_cached_prices('Z', '2024-01-15')
+        result = CacheManager.get_cached_prices('AGILE-24-10-01', 'Z', '2024-01-15')
         assert result is None
 

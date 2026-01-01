@@ -2,9 +2,9 @@
 Price calculation logic.
 Finds lowest prices and cheapest charging blocks.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
-from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time, format_uk_date
+from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time, format_uk_date, get_uk_now
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +93,109 @@ class PriceCalculator:
                 continue
         
         return cheapest_block
+    
+    @staticmethod
+    def find_future_cheapest_block(prices, duration_hours, current_time_utc):
+        """
+        Find cheapest contiguous block of N hours considering only future time slots.
+        
+        Args:
+            prices: List of price dictionaries with 'value_inc_vat', 'valid_from', 'valid_to'
+            duration_hours: Duration in hours (supports decimals, e.g., 3.5)
+            current_time_utc: Current time as timezone-aware UTC datetime for comparison
+        
+        Returns:
+            dict: Cheapest future block info with 'start_time', 'end_time', 'average_price', 
+                  'total_cost', 'slots', or None if invalid/no future blocks
+        """
+        if not prices or duration_hours < 0.5:
+            return None
+        
+        # Filter prices to only future slots (valid_from >= current_time_utc)
+        # Convert valid_from strings to datetime for comparison
+        future_prices = []
+        for price in prices:
+            try:
+                # Parse UTC datetime string
+                valid_from_str = price['valid_from']
+                if valid_from_str.endswith('Z'):
+                    dt_str = valid_from_str.replace('Z', '+00:00')
+                else:
+                    dt_str = valid_from_str
+                
+                price_time_utc = datetime.fromisoformat(dt_str)
+                if price_time_utc.tzinfo is None:
+                    price_time_utc = price_time_utc.replace(tzinfo=timezone.utc)
+                
+                # Only include if price slot is in the future (or current time)
+                if price_time_utc >= current_time_utc:
+                    future_prices.append(price)
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Error parsing price time for future filter: {e}")
+                continue
+        
+        if not future_prices:
+            logger.debug("No future prices found")
+            return None
+        
+        # Use the same sliding window logic as find_cheapest_block
+        slots_needed = int(duration_hours * 2)
+        
+        if len(future_prices) < slots_needed:
+            logger.debug(f"Not enough future price slots ({len(future_prices)}) for duration {duration_hours} hours ({slots_needed} slots needed)")
+            return None
+        
+        cheapest_block = None
+        cheapest_avg = float('inf')
+        
+        # Sliding window approach on future prices only
+        for i in range(len(future_prices) - slots_needed + 1):
+            block = future_prices[i:i + slots_needed]
+            try:
+                total_price = sum(slot['value_inc_vat'] for slot in block)
+                avg_price = total_price / slots_needed
+                
+                if avg_price < cheapest_avg:
+                    cheapest_avg = avg_price
+                    # Convert UTC times to UK times for display
+                    start_time_uk = utc_to_uk(block[0]['valid_from'])
+                    end_time_uk = utc_to_uk(block[-1]['valid_to'])
+                    cheapest_block = {
+                        'start_time': block[0]['valid_from'],  # Keep UTC for comparison
+                        'end_time': block[-1]['valid_to'],  # Keep UTC for comparison
+                        'start_time_uk': start_time_uk,  # UK timezone for display
+                        'end_time_uk': end_time_uk,  # UK timezone for display
+                        'average_price': round(avg_price, 2),
+                        'total_cost': round(total_price, 2),
+                        'slots': block
+                    }
+            except (KeyError, TypeError) as e:
+                logger.error(f"Error processing future price block: {e}")
+                continue
+        
+        return cheapest_block
+    
+    @staticmethod
+    def calculate_daily_average_price(prices):
+        """
+        Calculate the average price for all prices in the day.
+        
+        Args:
+            prices: List of price dictionaries with 'value_inc_vat'
+        
+        Returns:
+            float: Average price in pence per kWh, or None if no prices
+        """
+        if not prices:
+            return None
+        
+        try:
+            total_price = sum(price['value_inc_vat'] for price in prices)
+            avg_price = total_price / len(prices)
+            return round(avg_price, 2)
+        except (KeyError, TypeError, ZeroDivisionError) as e:
+            logger.error(f"Error calculating daily average price: {e}")
+            return None
     
     @staticmethod
     def calculate_charging_cost(average_price, battery_capacity_kwh):

@@ -3,13 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Octopus Energy Agile Pricing Assistant{% endblock %}</title>
+    
+    <!-- SEO Meta Tags -->
+    <title>{% block seo_title %}{{ seo_pages.get(page_name, {}).get('title', site_name) }}{% endblock %}</title>
+    <meta name="description" content="{% block seo_description %}{{ seo_pages.get(page_name, {}).get('description', site_description) }}{% endblock %}">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ site_url }}{{ request.path }}">
+    
+    <!-- OpenGraph / Social Meta Tags -->
+    <meta property="og:title" content="{% block og_title %}{{ seo_pages.get(page_name, {}).get('title', site_name) }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ seo_pages.get(page_name, {}).get('description', site_description) }}{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ site_url }}{{ request.path }}">
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "name": "{{ site_name }}",
+                "description": "{{ site_description }}",
+                "url": "{{ site_url }}",
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": {
+                        "@type": "EntryPoint",
+                        "urlTemplate": "{{ site_url }}/prices?region={search_term_string}"
+                    },
+                    "query-input": "required name=search_term_string"
+                }
+            },
+            {
+                "@type": "SoftwareApplication",
+                "name": "{{ site_name }}",
+                "applicationCategory": "UtilityApplication",
+                "operatingSystem": "Web",
+                "description": "{{ site_description }}",
+                "url": "{{ site_url }}",
+                "areaServed": {
+                    "@type": "Country",
+                    "name": "United Kingdom"
+                },
+                "purpose": "Energy price optimisation for UK households with solar panels and home batteries",
+                "provider": {
+                    "@type": "Organization",
+                    "name": "Parkes Group Enterprise Ltd"
+                },
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "GBP"
+                }
+            }
+        ]
+    }
+    </script>
     
     {% block head %}{% endblock %}
 </head>

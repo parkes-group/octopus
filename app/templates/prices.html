@@ -1,11 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Prices - Octopus Pricing Assistant{% endblock %}
+{% set page_name = 'prices' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
+<article>
+    <header>
         <h1 class="mb-4">Agile Octopus Prices</h1>
+    </header>
+    
+    <section>
+        <div class="row">
+            <div class="col-12">
         
         <!-- Product Info -->
         {% if product_code and product_name %}
@@ -77,11 +82,27 @@
             </div>
         </div>
         
+        <!-- Daily Average Price -->
+        {% if daily_average_price %}
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <p class="mb-0">
+                            <strong>Daily Average Price:</strong> 
+                            <span class="h4 text-secondary">{{ "%.2f"|format(daily_average_price) }} p/kWh</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Results -->
         <div class="row">
             <!-- Lowest Price -->
             {% if lowest_price %}
-            <div class="col-md-6 mb-4">
+            <div class="col-md-4 mb-4">
                 <div class="card border-success">
                     <div class="card-header bg-success text-white">
                         <h5 class="mb-0">💰 Lowest 30-Minute Price</h5>
@@ -98,29 +119,93 @@
             </div>
             {% endif %}
             
-            <!-- Cheapest Block -->
-            {% if cheapest_block %}
-            <div class="col-md-6 mb-4">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">⚡ Cheapest {{ duration }} Hour Block</h5>
+            <!-- Absolute Cheapest Block -->
+            {% if absolute_cheapest_block %}
+            <div class="col-md-4 mb-4">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">⚡ Absolute Cheapest {{ duration }}h Block</h5>
                     </div>
                     <div class="card-body">
                         <p class="mb-1">
-                            <span class="h3 text-primary">{{ "%.2f"|format(cheapest_block.average_price) }} p/kWh</span>
-                            <small class="text-muted">Block Average</small>
+                            <strong>Average price:</strong> 
+                            <span class="h4 text-warning">{{ "%.2f"|format(absolute_cheapest_block.average_price) }} p/kWh</span>
                         </p>
+                        {% if daily_average_price and absolute_cheapest_block.average_price < daily_average_price %}
+                        {% set abs_savings_pkwh = daily_average_price - absolute_cheapest_block.average_price %}
                         <p class="mb-1">
-                            <strong>Time:</strong> 
-                            {{ cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
-                            {{ cheapest_block.end_time_uk.strftime('%H:%M') }}
-                        </p>
-                        {% if estimated_cost %}
-                        <p class="mb-0">
-                            <strong>Estimated Cost:</strong> 
-                            <span class="h5 text-primary">£{{ "%.2f"|format(estimated_cost) }}</span>
+                            <small class="text-success">
+                                <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh vs daily average
+                                {% if capacity %}
+                                    {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
+                                    ({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
+                                {% endif %}
+                            </small>
                         </p>
                         {% endif %}
+                        <p class="mb-1">
+                            <strong>Time:</strong> 
+                            {{ absolute_cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                            {{ absolute_cheapest_block.end_time_uk.strftime('%H:%M') }}
+                        </p>
+                        {% set abs_block_end_uk = absolute_cheapest_block.end_time_uk %}
+                        {% if abs_block_end_uk < current_time_uk %}
+                        <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                        {% else %}
+                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Future Cheapest Block -->
+            {% if future_cheapest_block %}
+            <div class="col-md-4 mb-4">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">🔮 Cheapest Remaining {{ duration }}h Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <strong>Average price:</strong> 
+                            <span class="h4 text-info">{{ "%.2f"|format(future_cheapest_block.average_price) }} p/kWh</span>
+                        </p>
+                        {% if daily_average_price and future_cheapest_block.average_price < daily_average_price %}
+                        {% set future_savings_pkwh = daily_average_price - future_cheapest_block.average_price %}
+                        <p class="mb-1">
+                            <small class="text-success">
+                                <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh vs daily average
+                                {% if capacity %}
+                                    {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
+                                    ({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
+                                {% endif %}
+                            </small>
+                        </p>
+                        {% endif %}
+                        <p class="mb-1">
+                            <strong>Time:</strong> 
+                            {{ future_cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                            {{ future_cheapest_block.end_time_uk.strftime('%H:%M') }}
+                        </p>
+                        {% if estimated_cost %}
+                        <p class="mb-1">
+                            <strong>Estimated Cost:</strong> 
+                            <span class="h5 text-info">£{{ "%.2f"|format(estimated_cost) }}</span>
+                        </p>
+                        {% endif %}
+                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                    </div>
+                </div>
+            </div>
+            {% elif duration and duration > 0 %}
+            <div class="col-md-4 mb-4">
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">🔮 Cheapest Remaining Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0 text-muted">No remaining cheap blocks today</p>
                     </div>
                 </div>
             </div>
@@ -133,8 +218,12 @@
             <div class="card-header">
                 <h5 class="mb-0">Price Chart</h5>
                 <small class="text-muted">
-                    {% if cheapest_block %}
-                        Highlighted: Cheapest {{ duration }} hour block (blue)
+                    {% if absolute_cheapest_block and future_cheapest_block %}
+                        Highlighted: Absolute cheapest block (green), Cheapest remaining block (blue)
+                    {% elif absolute_cheapest_block %}
+                        Highlighted: Absolute cheapest block (green)
+                    {% elif future_cheapest_block %}
+                        Highlighted: Cheapest remaining block (blue)
                     {% elif lowest_price %}
                         Highlighted: Lowest 30-minute price (green)
                     {% endif %}
@@ -164,7 +253,8 @@
                         <tbody>
                             {% for price in prices %}
                             {% set is_lowest = lowest_price and price.value_inc_vat == lowest_price.price and price.valid_from == lowest_price.time_from %}
-                            {% set is_in_block = price.valid_from in cheapest_block_times %}
+                            {% set is_in_absolute_block = price.valid_from in absolute_cheapest_block_times %}
+                            {% set is_in_future_block = price.valid_from in future_cheapest_block_times %}
                             {% if loop.first %}
                                 {% set show_date = True %}
                             {% else %}
@@ -172,7 +262,7 @@
                                 {% set prev_date = prev_price.date_uk %}
                                 {% set show_date = price.date_uk != prev_date %}
                             {% endif %}
-                            <tr {% if is_in_block %}class="table-info"{% elif is_lowest %}class="table-success"{% endif %}>
+                            <tr {% if is_in_future_block %}class="table-info"{% elif is_in_absolute_block %}class="table-warning"{% elif is_lowest %}class="table-success"{% endif %}>
                                 <td>
                                     {% if show_date %}
                                         <strong>{{ price.date_uk }}</strong><br>
@@ -182,7 +272,8 @@
                                 <td>
                                     {{ "%.2f"|format(price.value_inc_vat) }}
                                     {% if is_lowest %}<span class="badge bg-success ms-2">Lowest</span>{% endif %}
-                                    {% if is_in_block %}<span class="badge bg-info ms-2">Cheapest Block</span>{% endif %}
+                                    {% if is_in_future_block %}<span class="badge bg-info ms-2">Cheapest Remaining</span>{% endif %}
+                                    {% if is_in_absolute_block %}<span class="badge bg-warning text-dark ms-2">Absolute Cheapest</span>{% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -192,8 +283,10 @@
             </div>
         </div>
         {% endif %}
-    </div>
-</div>
+            </div>
+        </div>
+    </section>
+</article>
 {% endblock %}
 
 {% block scripts %}
@@ -201,20 +294,18 @@
     // Render price chart with highlighting
     {% if chart_data %}
     const chartData = {{ chart_data | tojson }};
-    const cheapestBlockIndices = chartData.cheapest_block_indices || [];
+    const absoluteCheapestBlockIndices = chartData.absolute_cheapest_block_indices || [];
+    const futureCheapestBlockIndices = chartData.future_cheapest_block_indices || [];
     const lowestPriceIndex = chartData.lowest_price_index;
     const hasDuration = {{ duration|default(0)|float }} > 0;
     
     const ctx = document.getElementById('priceChart');
     if (ctx && chartData.labels && chartData.prices) {
-        // Determine what to highlight
-        const highlightIndices = hasDuration && cheapestBlockIndices.length > 0 
-            ? cheapestBlockIndices 
-            : (lowestPriceIndex !== null ? [lowestPriceIndex] : []);
-        
-        const highlightColor = hasDuration && cheapestBlockIndices.length > 0
-            ? 'rgb(13, 110, 253)'  // Blue for cheapest block
-            : 'rgb(25, 135, 84)';   // Green for lowest price
+        // Create a set of all indices that need highlighting (future block takes priority)
+        const allHighlightedIndices = new Set([
+            ...absoluteCheapestBlockIndices,
+            ...futureCheapestBlockIndices
+        ]);
         
         // Create datasets - main line and highlighted points
         const datasets = [{
@@ -224,7 +315,7 @@
             backgroundColor: 'rgba(75, 192, 192, 0.2)',
             tension: 0.1,
             pointRadius: chartData.prices.map((price, index) => {
-                return highlightIndices.includes(index) ? 0 : 3;  // Hide points that will be highlighted separately
+                return allHighlightedIndices.has(index) || index === lowestPriceIndex ? 0 : 3;
             }),
             pointHoverRadius: 5,
             pointBackgroundColor: 'rgb(75, 192, 192)',
@@ -232,24 +323,67 @@
             pointBorderWidth: 2
         }];
         
-        // Add highlighted points as separate dataset for better visibility
-        if (highlightIndices.length > 0) {
-            const highlightedData = chartData.prices.map((price, index) => {
-                return highlightIndices.includes(index) ? price : null;
+        // Add absolute cheapest block highlighting (green) - only if not overlapping with future block
+        if (absoluteCheapestBlockIndices.length > 0) {
+            const absoluteData = chartData.prices.map((price, index) => {
+                // Only highlight if not in future block (future takes priority)
+                return absoluteCheapestBlockIndices.includes(index) && !futureCheapestBlockIndices.includes(index) 
+                    ? price : null;
             });
             
             datasets.push({
-                label: hasDuration && cheapestBlockIndices.length > 0 ? 'Cheapest Block' : 'Lowest Price',
-                data: highlightedData,
-                borderColor: highlightColor,
-                backgroundColor: highlightColor.replace('rgb', 'rgba').replace(')', ', 0.3)'),
+                label: 'Absolute Cheapest Block',
+                data: absoluteData,
+                borderColor: 'rgb(25, 135, 84)',  // Green
+                backgroundColor: 'rgba(25, 135, 84, 0.3)',
                 pointRadius: 8,
                 pointHoverRadius: 10,
-                pointBackgroundColor: highlightColor,
+                pointBackgroundColor: 'rgb(25, 135, 84)',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 tension: 0.1,
-                showLine: false  // Only show points, not line
+                showLine: false
+            });
+        }
+        
+        // Add future cheapest block highlighting (blue) - takes priority
+        if (futureCheapestBlockIndices.length > 0) {
+            const futureData = chartData.prices.map((price, index) => {
+                return futureCheapestBlockIndices.includes(index) ? price : null;
+            });
+            
+            datasets.push({
+                label: 'Cheapest Remaining Block',
+                data: futureData,
+                borderColor: 'rgb(13, 110, 253)',  // Blue
+                backgroundColor: 'rgba(13, 110, 253, 0.3)',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                pointBackgroundColor: 'rgb(13, 110, 253)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                tension: 0.1,
+                showLine: false
+            });
+        }
+        
+        // Add lowest price highlighting (if no blocks and duration not specified)
+        if (lowestPriceIndex !== null && !hasDuration && absoluteCheapestBlockIndices.length === 0 && futureCheapestBlockIndices.length === 0) {
+            const lowestData = chartData.prices.map((price, index) => {
+                return index === lowestPriceIndex ? price : null;
+            });
+            
+            datasets.push({
+                label: 'Lowest Price',
+                data: lowestData,
+                borderColor: 'rgb(25, 135, 84)',  // Green
+                backgroundColor: 'rgba(25, 135, 84, 0.3)',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                pointBackgroundColor: 'rgb(25, 135, 84)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                showLine: false
             });
         }
         
@@ -278,18 +412,14 @@
                     }
                 },
                 plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                let label = context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' p/kWh';
-                                if (highlightIndices.includes(context.dataIndex)) {
-                                    if (hasDuration && cheapestBlockIndices.length > 0) {
-                                        label += ' (Cheapest Block)';
-                                    } else {
-                                        label += ' (Lowest Price)';
-                                    }
-                                }
-                                return label;
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' p/kWh';
                             }
                         }
                     }

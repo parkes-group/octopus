@@ -1,14 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Find Your Region - Octopus Pricing Assistant{% endblock %}
+{% set page_name = 'index' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h2 class="card-title mb-0">Find Your Energy Region</h2>
-            </div>
+<article>
+    <header>
+        <h1 class="mb-4">Find Your Energy Region</h1>
+    </header>
+    
+    <section>
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="card-title mb-0">Find Your Energy Region</h2>
+                    </div>
             <div class="card-body">
                 {% if error %}
                     <div class="alert alert-danger">
@@ -88,20 +94,9 @@
                     {{ postcode_form.submit(class="btn btn-primary w-100") }}
                 </form>
             </div>
-        </div>
-        
-        <div class="mt-4">
-            <div class="alert alert-info">
-                <h5 class="alert-heading">How it works</h5>
-                <ul class="mb-0">
-                    <li>Enter your UK postcode to automatically detect your energy region</li>
-                    <li>View today's half-hourly Agile Octopus prices</li>
-                    <li>Find the lowest 30-minute price slot</li>
-                    <li>Calculate the cheapest continuous charging block</li>
-                    <li>Estimate your charging costs</li>
-                </ul>
+                </div>
             </div>
         </div>
-    </div>
-</div>
+    </section>
+</article>
 {% endblock %}

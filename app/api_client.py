@@ -213,14 +213,14 @@ class OctopusAPIClient:
         # Get today's date in UK timezone, then convert to UTC for API call
         from app.timezone_utils import get_uk_now
         uk_now = get_uk_now()
-        # Round down to nearest half hour
-        uk_now = uk_now.replace(minute=(0 if uk_now.minute < 30 else 30), second=0, microsecond=0)
+        # Set to start of day (00:00:00)
+        uk_today_start = uk_now.replace(hour=0, minute=0, second=0, microsecond=0)
         # Convert UK time to UTC for API
-        today_utc = uk_now.astimezone(timezone.utc)
+        today_utc_start = uk_today_start.astimezone(timezone.utc)
 
         params = {
-            'period_from': today_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'page_size': 96  # 48 half-hour slots per day
+            'period_from': today_utc_start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'page_size': 96  # 48 half-hour slots per day (2 slots per hour * 24 hours = 48, but using 96 to be safe)
         }
 
         try:

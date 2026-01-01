@@ -2,12 +2,13 @@
 Main application routes.
 MVP: Anonymous usage only, no authentication required.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
 from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
 from app.timezone_utils import get_uk_date_string
+from urllib.parse import urlparse, parse_qs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -187,7 +188,8 @@ def index():
                          show_region_dropdown=show_region_dropdown,
                          show_product_dropdown=show_product_dropdown,
                          error=error_message,
-                         submitted_postcode=submitted_postcode)
+                         submitted_postcode=submitted_postcode,
+                         page_name='index')
 
 @bp.route('/prices')
 def prices():
@@ -262,36 +264,54 @@ def prices():
     except Exception as e:
         logger.warning(f"Error sorting prices: {e}")
     
+    # Get current time in UK timezone, convert to UTC for comparisons
+    from app.timezone_utils import get_uk_now
+    from datetime import timezone
+    uk_now = get_uk_now()
+    current_time_utc = uk_now.astimezone(timezone.utc)
+    
     # Calculate results
     lowest_price = PriceCalculator.find_lowest_price(prices_data)
-    cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration)
+    absolute_cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration)
+    future_cheapest_block = PriceCalculator.find_future_cheapest_block(prices_data, duration, current_time_utc)
+    daily_average_price = PriceCalculator.calculate_daily_average_price(prices_data)
     
-    # Calculate cost if capacity provided
+    # Calculate cost if capacity provided (use future block if available, otherwise absolute)
     estimated_cost = None
-    if capacity and cheapest_block:
+    cost_block = future_cheapest_block if future_cheapest_block else absolute_cheapest_block
+    if capacity and cost_block:
         estimated_cost = PriceCalculator.calculate_charging_cost(
-            cheapest_block['average_price'],
+            cost_block['average_price'],
             capacity
         )
     
     # Format for chart (include highlighting data)
     chart_data = PriceCalculator.format_price_data(prices_data)
     
-    # Create set of cheapest block time slots for template highlighting
-    cheapest_block_times = set()
-    if cheapest_block and cheapest_block.get('slots'):
-        cheapest_block_times = {slot['valid_from'] for slot in cheapest_block['slots']}
+    # Create sets of block time slots for template highlighting
+    absolute_cheapest_block_times = set()
+    if absolute_cheapest_block and absolute_cheapest_block.get('slots'):
+        absolute_cheapest_block_times = {slot['valid_from'] for slot in absolute_cheapest_block['slots']}
     
-    # Add highlighting information for chart
-    if cheapest_block:
-        # Find indices of cheapest block slots in the prices array
-        cheapest_block_indices = []
+    future_cheapest_block_times = set()
+    if future_cheapest_block and future_cheapest_block.get('slots'):
+        future_cheapest_block_times = {slot['valid_from'] for slot in future_cheapest_block['slots']}
+    
+    # Add highlighting information for chart (both blocks)
+    absolute_cheapest_block_indices = []
+    if absolute_cheapest_block:
         for idx, price in enumerate(prices_data):
-            if price['valid_from'] in cheapest_block_times:
-                cheapest_block_indices.append(idx)
-        chart_data['cheapest_block_indices'] = cheapest_block_indices
-    else:
-        chart_data['cheapest_block_indices'] = []
+            if price['valid_from'] in absolute_cheapest_block_times:
+                absolute_cheapest_block_indices.append(idx)
+    
+    future_cheapest_block_indices = []
+    if future_cheapest_block:
+        for idx, price in enumerate(prices_data):
+            if price['valid_from'] in future_cheapest_block_times:
+                future_cheapest_block_indices.append(idx)
+    
+    chart_data['absolute_cheapest_block_indices'] = absolute_cheapest_block_indices
+    chart_data['future_cheapest_block_indices'] = future_cheapest_block_indices
     
     # Find index of lowest price for chart highlighting
     lowest_price_index = None
@@ -321,10 +341,13 @@ def prices():
     #     if user and user.preferences:
     #         user_prefs = user.preferences
     
-    # Create set of cheapest block time slots for efficient template lookup
-    cheapest_block_time_set = set()
-    if cheapest_block and cheapest_block.get('slots'):
-        cheapest_block_time_set = {slot['valid_from'] for slot in cheapest_block['slots']}
+    # Store prices page state in session for navigation
+    session['last_prices_state'] = {
+        'region': region,
+        'product': product_code,
+        'duration': duration,
+        'capacity': capacity
+    }
     
     return render_template('prices.html',
                          region=region,
@@ -336,8 +359,89 @@ def prices():
                          capacity=capacity,
                          prices=prices_with_uk_times,
                          lowest_price=lowest_price,
-                         cheapest_block=cheapest_block,
-                         cheapest_block_times=cheapest_block_time_set,
+                         absolute_cheapest_block=absolute_cheapest_block,
+                         future_cheapest_block=future_cheapest_block,
+                         absolute_cheapest_block_times=absolute_cheapest_block_times,
+                         future_cheapest_block_times=future_cheapest_block_times,
+                         daily_average_price=daily_average_price,
                          estimated_cost=estimated_cost,
-                         chart_data=chart_data)
+                         chart_data=chart_data,
+                         current_time_uk=uk_now,
+                         page_name='prices')
 
+@bp.route('/about')
+def about():
+    """About page explaining how the tool works."""
+    # Check if user came from prices page (via referrer or query param)
+    referrer = request.referrer
+    came_from_prices = False
+    prices_url = None
+    
+    # Check query parameter first (if explicitly passed)
+    if request.args.get('from') == 'prices':
+        came_from_prices = True
+        # Reconstruct prices URL from query params if available
+        region = request.args.get('region')
+        product = request.args.get('product')
+        duration = request.args.get('duration')
+        capacity = request.args.get('capacity')
+        if region and product:
+            prices_url = url_for('main.prices', region=region, product=product, 
+                                duration=duration, capacity=capacity)
+        else:
+            prices_url = url_for('main.prices')
+    # Check referrer header
+    elif referrer and '/prices' in referrer:
+        came_from_prices = True
+        # Extract query params from referrer if available
+        parsed = urlparse(referrer)
+        params = parse_qs(parsed.query)
+        if params.get('region') and params.get('product'):
+            prices_url = url_for('main.prices', 
+                                region=params['region'][0],
+                                product=params['product'][0],
+                                duration=params.get('duration', [None])[0],
+                                capacity=params.get('capacity', [None])[0])
+        else:
+            prices_url = url_for('main.prices')
+    
+    return render_template('about.html', 
+                         page_name='about',
+                         came_from_prices=came_from_prices,
+                         prices_url=prices_url)
+
+@bp.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt for search engine crawlers."""
+    content = """User-agent: *
+Allow: /
+"""
+    return Response(content, mimetype='text/plain')
+
+@bp.route('/sitemap.xml')
+def sitemap_xml():
+    """Generate sitemap.xml for search engines."""
+    from flask import url_for
+    from app.config import Config
+    
+    site_url = Config.SITE_URL
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>{site_url}/</loc>
+        <changefreq>daily</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>{site_url}/prices</loc>
+        <changefreq>hourly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>{site_url}/about</loc>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+</urlset>
+"""
+    return Response(content, mimetype='application/xml')

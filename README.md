@@ -10,10 +10,13 @@ A Flask web application that helps UK households with solar panels and home batt
 - **Manual region selection fallback** - Select your region manually if postcode lookup fails or returns multiple regions
 - View today's half-hourly Agile Octopus prices for selected product (anonymous usage)
 - Find lowest 30-minute price
-- Calculate cheapest continuous charging block (0.5-6 hours, supports decimals e.g., 3.5 hours)
-- Estimate charging costs
-- Visual price charts
+- Calculate absolute cheapest continuous charging block (0.5-6 hours, supports decimals e.g., 3.5 hours) across all prices for the day
+- Calculate cheapest remaining (future) continuous charging block (only considers time slots after current time)
+- Display daily average price (average of all half-hour slots for the day)
+- Estimate charging costs (uses future block if available, otherwise absolute block)
+- Visual price charts with visual distinction between absolute and future cheapest blocks
 - File-based JSON caching (pricing data NOT stored in database)
+- **SEO & AI Discovery Optimized** - Structured data, semantic HTML, and clear content for search engines and AI assistants
 
 ## Quick Start
 
@@ -139,6 +142,17 @@ pytest --cov=app tests/
 
 [Your License Here]
 
-## Support
+## Support & Feedback
 
-For issues or questions, please open an issue on GitHub.
+We welcome feedback, bug reports, and feature requests!
+
+**Report Issues or Suggest Features:**
+- Click the "💬 Feedback & Feature Requests" link in the footer (available on all pages)
+- This will take you to GitHub Issues where you can:
+  - Report bugs
+  - Suggest new features
+  - Ask questions
+
+**No account required:** You don't need an account on this website to submit feedback. You'll only need a GitHub account to create an issue (GitHub accounts are free).
+
+The feedback link uses GitHub Issues to maintain a clear, transparent feedback loop and ensure all issues are tracked properly.

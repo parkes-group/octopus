@@ -26,6 +26,30 @@ class Config:
     # Product discovery configuration
     OCTOPUS_PRODUCT_DIRECTION_FILTER = os.environ.get('OCTOPUS_PRODUCT_DIRECTION_FILTER', 'IMPORT')  # IMPORT, EXPORT, or BOTH
     
+    # GitHub Issues URL for feedback and bug reports
+    GITHUB_FEEDBACK_URL = os.environ.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose')
+    
+    # SEO Configuration
+    SITE_NAME = os.environ.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant')
+    SITE_URL = os.environ.get('SITE_URL', 'https://octopus-pricing.parkes-group.com')  # Update with actual domain
+    SITE_DESCRIPTION = os.environ.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.')
+    
+    # SEO Page-Specific Content
+    SEO_PAGES = {
+        'index': {
+            'title': 'Agile Octopus Prices Today – Cheapest 30-Minute Charging Windows',
+            'description': 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.'
+        },
+        'prices': {
+            'title': 'Agile Octopus Prices Today – Cheapest 30-Minute Charging Windows',
+            'description': 'View today\'s half-hourly Agile Octopus electricity prices. Find the cheapest charging windows for your home battery or EV in the UK.'
+        },
+        'about': {
+            'title': 'How It Works – Agile Octopus Price Assistant',
+            'description': 'Learn how we help UK households find the cheapest Agile Octopus electricity prices. Data from Octopus Energy public API, updated every 30 minutes.'
+        }
+    }
+    
     # Region code to name mapping
     OCTOPUS_REGION_NAMES = {
         'A': 'Eastern England',

@@ -65,11 +65,13 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 5. ✅ Product selection dropdown when multiple Agile products exist
 6. ✅ Display today's half-hourly Agile prices for selected product
 7. ✅ Identify lowest single 30-minute price
-8. ✅ Calculate cheapest continuous block for user-selected duration (0.5-6 hours, supports decimals e.g., 3.5 hours)
-9. ✅ Cost estimation based on user-provided kWh
-10. ✅ Visual price chart (Chart.js)
-11. ✅ Mobile-responsive design
-12. ✅ Anonymous browsing (no account required)
+8. ✅ Calculate absolute cheapest continuous block for user-selected duration (0.5-6 hours, supports decimals e.g., 3.5 hours) across all prices for the day
+9. ✅ Calculate cheapest remaining (future) continuous block for user-selected duration (only considers time slots after current time)
+10. ✅ Display daily average price (average of all half-hour slots for the day)
+11. ✅ Cost estimation based on user-provided kWh (uses future block if available, otherwise absolute block)
+12. ✅ Visual price chart (Chart.js) with visual distinction between absolute and future cheapest blocks
+13. ✅ Mobile-responsive design
+14. ✅ Anonymous browsing (no account required)
 
 **Optional MVP Enhancement (Post-MVP):**
 - Email-based account creation (passwordless authentication)
@@ -266,10 +268,19 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 
 **FR-5: Cheapest Block Calculation**
 - System MUST allow users to select charging duration (0.5-6 hours, supports decimal values e.g., 3.5 hours)
-- System MUST calculate the cheapest contiguous block of N hours (N can be decimal, converted to half-hour slots)
-- System MUST display the start time and end time of the cheapest block
-- System MUST show the average price for the selected block
-- System MUST handle edge cases (e.g., if today has fewer than N hours remaining)
+- System MUST calculate two types of cheapest blocks:
+  - **Absolute cheapest block**: The cheapest contiguous block of N hours across ALL prices for the day (may include past time slots)
+  - **Future cheapest block**: The cheapest contiguous block of N hours considering ONLY time slots where valid_from >= current_time (upcoming slots only)
+- System MUST display both blocks when available, with clear labels indicating "Absolute Cheapest" and "Cheapest Remaining"
+- System MUST indicate if the absolute cheapest block has already passed (show "Already passed" vs "Upcoming")
+- System MUST display the start time, end time, and average price for each block
+- System MUST handle edge cases (e.g., if no future block exists, show "No remaining cheap blocks today")
+- System MUST use timezone-aware datetime comparisons to distinguish past vs future slots
+
+**FR-5.1: Daily Average Price**
+- System MUST calculate the daily average price as the average of all half-hour slots for the current day
+- System MUST display the daily average price prominently on the prices page
+- System MUST use value_inc_vat consistently for all price calculations
 
 **FR-6: Cost Estimation**
 - System MUST allow users to input battery capacity (kWh)
@@ -505,7 +516,117 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 - Mobile app development (React Native or Flutter)
 - International expansion (other countries with similar tariffs)
 - Community features (forums, user tips)
+
+---
+
+## 11. Feedback & Community
+
+### 11.1 Feedback Loop
+
+**GitHub Issues Integration:**
+- System MUST provide a clear feedback mechanism via GitHub Issues
+- Users can report bugs and suggest features through GitHub Issues
+- Feedback link MUST be visible on all pages (preferably in footer)
+- Link MUST open in new tab and clearly indicate it goes to GitHub
+
+**User Experience:**
+- No account required on the application itself to access feedback
+- Users only need a GitHub account to submit issues (GitHub accounts are free)
+- Feedback link should be clearly labeled (e.g., "💬 Feedback & Feature Requests")
+
+**Technical Implementation:**
+- GitHub Issues URL stored in configuration (`GITHUB_FEEDBACK_URL`)
+- URL made available to all templates via Flask context processor
+- Link uses `target="_blank"` and `rel="noopener noreferrer"` for security
+- Link is keyboard accessible and has appropriate hover/focus styling
+
+**Why GitHub Issues:**
+- Transparent feedback loop (all issues visible to community)
+- Built-in issue tracking and management
+- Support for bug reports and feature requests with templates
+- No custom infrastructure required
+- Maintains open communication channel with users
+
+**Acceptance Criteria:**
+- ✅ Feedback link visible on index and prices pages
+- ✅ Link opens GitHub Issues in new tab
+- ✅ Link is accessible (keyboard navigation, screen readers)
+- ✅ Link is configurable via environment variable
+- ✅ Works on mobile and desktop
 - Open source components
+
+---
+
+---
+
+## 16. SEO & AI Discovery Strategy
+
+### 16.1 Search Engine Optimization (SEO)
+
+**Traditional SEO:**
+- Dynamic, page-specific meta titles (≤ 60 characters) and descriptions (≤ 160 characters)
+- Canonical URLs to prevent duplicate content issues
+- OpenGraph tags for social media sharing
+- Semantic HTML5 structure with proper heading hierarchy (one `<h1>` per page)
+- `robots.txt` allowing all crawlers
+- `sitemap.xml` with all public pages
+
+**Content Strategy:**
+- Visible, human-readable explanations on all pages
+- Clear descriptions of what Agile Octopus is
+- Explanation of who the tool is for (UK households, solar + battery owners)
+- Plain English, no marketing fluff or keyword stuffing
+- All content server-side rendered (Jinja templates)
+
+### 16.2 AI Assistant Discovery
+
+**Optimization for LLMs:**
+- Structured data (JSON-LD) with WebSite and SoftwareApplication schemas
+- `/about` page with comprehensive information for AI ingestion
+- Clear data source attribution (Octopus Energy public API)
+- Explicit disclaimers about informational vs. financial advice
+- Semantic HTML that clearly communicates purpose and functionality
+
+**Why This Matters:**
+- AI assistants (ChatGPT, Claude, Gemini, etc.) can accurately summarize the tool
+- Users asking "best time to charge battery on Agile Octopus" will get helpful responses
+- Transparent data sources build trust with both users and AI systems
+
+### 16.3 Privacy & Tracking
+
+**No Tracking Policy:**
+- No tracking pixels or analytics cookies
+- No third-party scripts for advertising
+- No user behavior tracking
+- Focus on user value, not data collection
+
+**Benefits:**
+- Faster page loads
+- Better privacy for users
+- No cookie banners required
+- Clear, transparent user experience
+
+### 16.4 Technical Implementation
+
+**Configuration:**
+- All SEO text stored in `config.py` (not hard-coded in templates)
+- Page-specific SEO content via `SEO_PAGES` dictionary
+- Template inheritance used properly (base.html for common elements)
+- Context processor makes SEO config available to all templates
+
+**Structured Data:**
+- JSON-LD schemas injected into base template
+- WebSite schema with search action
+- SoftwareApplication schema with operating area (UK) and purpose
+- Valid JSON, properly escaped for Jinja templates
+
+**Acceptance Criteria:**
+- ✅ All pages have meaningful titles and descriptions
+- ✅ Content is understandable by humans and LLMs
+- ✅ Site can be correctly summarized by an AI assistant
+- ✅ Google Search Console reports no critical SEO errors
+- ✅ No regressions in functionality
+- ✅ All pages fully accessible without JavaScript
 
 ---
 
