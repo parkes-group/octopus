@@ -7,8 +7,9 @@ from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
 from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
-from app.timezone_utils import get_uk_date_string
+from app.timezone_utils import get_uk_date_string, get_uk_now
 from urllib.parse import urlparse, parse_qs
+from datetime import timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -369,6 +370,140 @@ def prices():
                          current_time_uk=uk_now,
                          page_name='prices')
 
+def _calculate_region_summaries(product_code, duration_hours=3.5):
+    """
+    Calculate price summaries for all regions.
+    Reuses existing calculation functions.
+    
+    Args:
+        product_code: Octopus product code
+        duration_hours: Block duration in hours (default 3.5)
+    
+    Returns:
+        list: Region summaries with calculation results, or empty list on error
+    """
+    region_summaries = []
+    date_str = get_uk_date_string()
+    
+    # Get all regions
+    try:
+        regions_data = OctopusAPIClient.get_regions()
+        regions_list = regions_data.get('results', [])
+    except Exception as e:
+        logger.error(f"Error fetching regions for summary: {e}")
+        return []
+    
+    # Get current time in UTC for future block calculations
+    uk_now = get_uk_now()
+    current_time_utc = uk_now.astimezone(timezone.utc)
+    
+    # Process each region
+    for region_info in regions_list:
+        region_code = region_info.get('region')
+        region_name = region_info.get('name', f"Region {region_code}")
+        
+        if not region_code:
+            continue
+        
+        try:
+            # Get prices (with caching)
+            prices_data = CacheManager.get_cached_prices(product_code, region_code, date_str)
+            
+            if not prices_data:
+                # Fetch from API if not cached
+                try:
+                    api_response = OctopusAPIClient.get_prices(product_code, region_code)
+                    prices_data = api_response.get('results', [])
+                    CacheManager.cache_prices(product_code, region_code, date_str, prices_data)
+                except Exception as e:
+                    logger.warning(f"Error fetching prices for region {region_code}: {e}")
+                    # Skip this region, continue with others
+                    continue
+            
+            # Sort prices chronologically
+            try:
+                prices_data = sorted(prices_data, key=lambda x: x.get('valid_from', ''))
+            except Exception as e:
+                logger.warning(f"Error sorting prices for region {region_code}: {e}")
+                continue
+            
+            # Use existing calculation functions (caching ensures data is fetched efficiently)
+            lowest_price_info = PriceCalculator.find_lowest_price(prices_data)
+            cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration_hours)
+            
+            # Build summary
+            summary = {
+                'region_code': region_code,
+                'region_name': region_name,
+                'cheapest_slot_price': lowest_price_info['price'] if lowest_price_info else None,
+                'cheapest_slot_time_from_uk': lowest_price_info['time_from_uk'] if lowest_price_info else None,
+                'cheapest_block_average': cheapest_block['average_price'] if cheapest_block else None,
+                'cheapest_block_start_uk': cheapest_block['start_time_uk'] if cheapest_block else None,
+                'cheapest_block_end_uk': cheapest_block['end_time_uk'] if cheapest_block else None,
+                'error': None
+            }
+            
+            region_summaries.append(summary)
+            
+        except Exception as e:
+            logger.error(f"Error processing region {region_code}: {e}", exc_info=True)
+            # Add error entry but continue processing other regions
+            region_summaries.append({
+                'region_code': region_code,
+                'region_name': region_name,
+                'cheapest_slot_price': None,
+                'cheapest_slot_time_from_uk': None,
+                'cheapest_block_average': None,
+                'cheapest_block_start_uk': None,
+                'cheapest_block_end_uk': None,
+                'error': str(e)
+            })
+            continue
+    
+    return region_summaries
+
+@bp.route('/regions')
+def regions():
+    """Region summary page - shows aggregated calculations across all regions."""
+    # Get product code from query params or use default
+    product_code = request.args.get('product')
+    
+    # Discover Agile products
+    agile_products = []
+    selected_product_name = None
+    try:
+        agile_products = OctopusAPIClient.get_agile_products()
+        if product_code:
+            matching = [p for p in agile_products if p['code'] == product_code]
+            if matching:
+                selected_product_name = matching[0]['full_name']
+            else:
+                product_code = None
+    except Exception as e:
+        logger.error(f"Error loading Agile products for regions page: {e}")
+    
+    # Auto-select if only one product
+    if not product_code and len(agile_products) == 1:
+        product_code = agile_products[0]['code']
+        selected_product_name = agile_products[0]['full_name']
+    
+    if not product_code:
+        flash('Please select a tariff version.', 'error')
+        return redirect(url_for('main.index'))
+    
+    # Default block duration: 3.5 hours
+    duration_hours = 3.5
+    
+    # Calculate summaries for all regions (uses cached data via CacheManager)
+    region_summaries = _calculate_region_summaries(product_code, duration_hours)
+    
+    return render_template('regions.html',
+                         region_summaries=region_summaries,
+                         product_code=product_code,
+                         product_name=selected_product_name,
+                         agile_products=agile_products,
+                         duration_hours=duration_hours)
+
 @bp.route('/about')
 def about():
     """About page explaining how the tool works."""
@@ -441,6 +576,11 @@ def sitemap_xml():
         <loc>{site_url}/about</loc>
         <changefreq>monthly</changefreq>
         <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>{site_url}/regions</loc>
+        <changefreq>hourly</changefreq>
+        <priority>0.8</priority>
     </url>
 </urlset>
 """

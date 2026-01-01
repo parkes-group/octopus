@@ -70,9 +70,10 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 10. ✅ Display daily average price (average of all half-hour slots for the day)
 11. ✅ Cost estimation based on user-provided kWh (uses future block if available, otherwise absolute block)
 12. ✅ Visual price chart (Chart.js) with visual distinction between absolute and future cheapest blocks and accessible text alternatives
-13. ✅ Mobile-first responsive design (works on phones, tablets, desktop)
-14. ✅ Accessibility features (WCAG-aligned: semantic HTML, ARIA labels, keyboard navigation, screen reader support)
-15. ✅ Anonymous browsing (no account required)
+13. ✅ Region summary comparison page - compare prices across all UK regions (mobile cards / desktop table)
+14. ✅ Mobile-first responsive design (works on phones, tablets, desktop)
+15. ✅ Accessibility features (WCAG-aligned: semantic HTML, ARIA labels, keyboard navigation, screen reader support)
+16. ✅ Anonymous browsing (no account required)
 
 **Optional MVP Enhancement (Post-MVP):**
 - Email-based account creation (passwordless authentication)
@@ -286,6 +287,17 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 - System MUST calculate the daily average price as the average of all half-hour slots for the current day
 - System MUST display the daily average price prominently on the prices page
 - System MUST use value_inc_vat consistently for all price calculations
+
+**FR-5.2: Region Summary Comparison**
+- System MUST aggregate existing price calculations across all Octopus regions
+- System MUST reuse existing calculation functions (find_lowest_price, find_cheapest_block, calculate_daily_average_price)
+- System MUST display region summaries in mobile-friendly cards on small screens
+- System MUST display region summaries in a table format on desktop
+- System MUST highlight regions with cheapest daily average price
+- System MUST highlight regions with cheapest block average price
+- System MUST gracefully handle per-region errors (continue processing other regions if one fails)
+- System MUST use default block duration of 3.5 hours (same as single-region view)
+- System MUST NOT duplicate pricing logic - all calculations must use existing PriceCalculator methods
 
 **FR-6: Cost Estimation**
 - System MUST allow users to input battery capacity (kWh)

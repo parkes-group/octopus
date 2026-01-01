@@ -99,6 +99,7 @@ def create_app(config_class=None):
                                     duration=state.get('duration'),
                                     capacity=state.get('capacity'))
         
+        from datetime import datetime
         return {
             'github_feedback_url': app.config.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose'),
             'site_name': app.config.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant'),
@@ -106,7 +107,8 @@ def create_app(config_class=None):
             'site_description': app.config.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today.'),
             'seo_pages': app.config.get('SEO_PAGES', {}),
             'has_prices_history': has_prices_history,
-            'prices_url': prices_url
+            'prices_url': prices_url,
+            'current_year': datetime.now().year
         }
     
     return app

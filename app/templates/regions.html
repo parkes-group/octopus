@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% set page_name = 'regions' %}
+
+{% block content %}
+<article>
+    <header>
+        <h1 class="mb-4">Region Price Summary</h1>
+        <p class="lead">Compare Agile Octopus prices across all UK regions</p>
+    </header>
+    
+    <section>
+        <!-- Product Info -->
+        {% if product_code and product_name %}
+        <div class="alert alert-info mb-3">
+            <strong>Using tariff:</strong> {{ product_code }} — {{ product_name }}
+        </div>
+        {% endif %}
+        
+        <!-- Product Selection -->
+        {% if agile_products and agile_products|length > 1 %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('main.regions') }}" class="row g-3">
+                    <div class="col-md-6">
+                        <label for="product" class="form-label">Agile Tariff Version</label>
+                        <select class="form-select" id="product" name="product" required aria-describedby="product-help" onchange="this.form.submit()">
+                            {% for p in agile_products %}
+                            <option value="{{ p.code }}" {% if p.code == product_code %}selected{% endif %}>
+                                {{ p.code }} — {{ p.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small id="product-help" class="form-text text-muted">Select the Agile tariff version to compare</small>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Summary Info -->
+        <div class="alert alert-secondary mb-4">
+            <p class="mb-0">
+                <strong>Block Duration:</strong> {{ duration_hours }} hours | 
+                <strong>Regions:</strong> {{ region_summaries|length }} | 
+                <strong>Data:</strong> Today's prices
+            </p>
+        </div>
+        
+        <!-- Mobile: Card View -->
+        <div class="d-md-none">
+            {% for summary in region_summaries %}
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        {{ summary.region_code }} - {{ summary.region_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if summary.error %}
+                    <div class="alert alert-danger mb-0">
+                        <small>Error: {{ summary.error }}</small>
+                    </div>
+                    {% else %}
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <p class="mb-1">
+                                <strong>Cheapest 30-Min Slot:</strong> 
+                                <span class="h6">
+                                    {{ "%.2f"|format(summary.cheapest_slot_price) if summary.cheapest_slot_price else "N/A" }} p/kWh
+                                </span>
+                                {% if summary.cheapest_slot_time_from_uk %}
+                                <br><small class="text-muted">{{ summary.cheapest_slot_time_from_uk.strftime('%d/%m %H:%M') }}</small>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <p class="mb-0">
+                                <strong>Cheapest {{ duration_hours }}h Block:</strong> 
+                                <span class="h6">
+                                    {{ "%.2f"|format(summary.cheapest_block_average) if summary.cheapest_block_average else "N/A" }} p/kWh
+                                </span>
+                                {% if summary.cheapest_block_start_uk and summary.cheapest_block_end_uk %}
+                                <br><small class="text-muted">
+                                    {{ summary.cheapest_block_start_uk.strftime('%d/%m %H:%M') }} - 
+                                    {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                </small>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Desktop: Table View -->
+        <div class="d-none d-md-block">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">All Regions Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" role="table" aria-label="Region price comparison">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Region</th>
+                                    <th scope="col">Cheapest 30-Min Slot</th>
+                                    <th scope="col">Cheapest {{ duration_hours }}h Block</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for summary in region_summaries %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ summary.region_code }}</strong><br>
+                                        <small class="text-muted">{{ summary.region_name }}</small>
+                                    </td>
+                                    <td>
+                                        {% if summary.error %}
+                                        <span class="text-danger">Error</span>
+                                        {% else %}
+                                        {{ "%.2f"|format(summary.cheapest_slot_price) if summary.cheapest_slot_price else "N/A" }} p/kWh
+                                        {% if summary.cheapest_slot_time_from_uk %}
+                                        <br><small class="text-muted">{{ summary.cheapest_slot_time_from_uk.strftime('%d/%m %H:%M') }}</small>
+                                        {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if summary.error %}
+                                        <span class="text-danger">Error</span>
+                                        {% else %}
+                                        {{ "%.2f"|format(summary.cheapest_block_average) if summary.cheapest_block_average else "N/A" }} p/kWh
+                                        {% if summary.cheapest_block_start_uk and summary.cheapest_block_end_uk %}
+                                        <br><small class="text-muted">
+                                            {{ summary.cheapest_block_start_uk.strftime('%d/%m %H:%M') }} - 
+                                            {{ summary.cheapest_block_end_uk.strftime('%H:%M') }}
+                                        </small>
+                                        {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Legend/Explanation -->
+        <div class="alert alert-light mt-4">
+            <h6 class="mb-2">How to read this summary:</h6>
+            <ul class="mb-0 small">
+                <li><strong>Cheapest 30-Min Slot:</strong> The single lowest price slot and its time</li>
+                <li><strong>Cheapest {{ duration_hours }}h Block:</strong> The cheapest contiguous {{ duration_hours }}-hour period for charging, showing average price and time range</li>
+            </ul>
+        </div>
+    </section>
+</article>
+{% endblock %}
+

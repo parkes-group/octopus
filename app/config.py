@@ -47,6 +47,10 @@ class Config:
         'about': {
             'title': 'How It Works – Agile Octopus Price Assistant',
             'description': 'Learn how we help UK households find the cheapest Agile Octopus electricity prices. Data from Octopus Energy public API, updated every 30 minutes.'
+        },
+        'regions': {
+            'title': 'All Regions Price Comparison – Agile Octopus',
+            'description': 'Compare Agile Octopus electricity prices across all UK regions. Find the cheapest daily averages and charging blocks for home batteries.'
         }
     }
     
