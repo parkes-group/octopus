@@ -69,9 +69,10 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 9. ✅ Calculate cheapest remaining (future) continuous block for user-selected duration (only considers time slots after current time)
 10. ✅ Display daily average price (average of all half-hour slots for the day)
 11. ✅ Cost estimation based on user-provided kWh (uses future block if available, otherwise absolute block)
-12. ✅ Visual price chart (Chart.js) with visual distinction between absolute and future cheapest blocks
-13. ✅ Mobile-responsive design
-14. ✅ Anonymous browsing (no account required)
+12. ✅ Visual price chart (Chart.js) with visual distinction between absolute and future cheapest blocks and accessible text alternatives
+13. ✅ Mobile-first responsive design (works on phones, tablets, desktop)
+14. ✅ Accessibility features (WCAG-aligned: semantic HTML, ARIA labels, keyboard navigation, screen reader support)
+15. ✅ Anonymous browsing (no account required)
 
 **Optional MVP Enhancement (Post-MVP):**
 - Email-based account creation (passwordless authentication)
@@ -84,6 +85,10 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 - MySQL database (only if authentication implemented - see note above)
 - Octopus API integration with file-based JSON caching
 - Error handling and logging
+- **Mobile-first responsive design** - Works on phones, tablets, and desktop
+- **Accessibility (WCAG-aligned)** - Semantic HTML, ARIA labels, keyboard navigation, screen reader support
+- **Mobile-first responsive design** - Works on phones, tablets, and desktop
+- **Accessibility (WCAG-aligned)** - Semantic HTML, ARIA labels, keyboard navigation, screen reader support
 - **Note:** Pricing data is cached in files (JSON), NOT in database
 
 ### Future Features (Post-MVP)
@@ -305,9 +310,36 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
   - New day begins (UK timezone)
   - Manual cache clear (admin function)
 
-### 7.3 Error Handling
+### 7.3 Accessibility & Usability
 
-**FR-9: API Error Handling**
+**FR-9: Mobile-First Design**
+- System MUST be designed mobile-first (small screens first)
+- All pages MUST render correctly on phones (iOS + Android), tablets, and desktop
+- No horizontal scrolling on mobile devices
+- Text MUST be readable without zooming (minimum 16px base font size)
+- Touch targets (buttons, dropdowns) MUST be at least 44x44px
+- Forms MUST use appropriate input modes for mobile keyboards
+
+**FR-10: WCAG Accessibility**
+- System MUST use semantic HTML (`<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`)
+- All form elements MUST have associated `<label>` tags
+- System MUST provide sufficient color contrast (WCAG AA minimum)
+- All interactive elements MUST have visible focus states for keyboard users
+- System MUST NOT rely on color alone to convey meaning (use icons, labels, or patterns)
+- Charts MUST have text summaries and accessible table equivalents
+- System MUST support keyboard navigation
+- System MUST work with screen readers (ARIA labels where semantic HTML insufficient)
+- Headings MUST form a logical hierarchy and describe content meaningfully
+
+**FR-11: Typography & Readability**
+- Base font size MUST be at least 16px
+- Clear visual hierarchy (headings visually distinct)
+- Prices and key numbers MUST be emphasised
+- Line length MUST be comfortable for reading on mobile (max 65ch recommended)
+
+### 7.4 Error Handling
+
+**FR-12: API Error Handling**
 - System MUST handle Octopus API failures gracefully
 - System MUST display user-friendly error messages
 - System MUST attempt to use cached data when available

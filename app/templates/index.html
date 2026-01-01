@@ -34,18 +34,21 @@
                     <!-- 1. Postcode Entry -->
                     <div class="mb-3">
                         {{ postcode_form.postcode.label(class="form-label") }}
+                        {% set postcode_class = "form-control" + (" is-invalid" if postcode_form.postcode.errors else "") %}
+                        {% set aria_describedby = "postcode-help postcode-errors" if postcode_form.postcode.errors else "postcode-help" %}
                         {{ postcode_form.postcode(
-                            class="form-control" + (" is-invalid" if postcode_form.postcode.errors else ""),
-                            value=submitted_postcode if submitted_postcode else ""
+                            class=postcode_class,
+                            value=submitted_postcode if submitted_postcode else "",
+                            **{"inputmode": "text", "autocomplete": "postal-code", "aria-describedby": aria_describedby}
                         ) }}
                         {% if postcode_form.postcode.errors %}
-                            <div class="invalid-feedback">
+                            <div id="postcode-errors" class="invalid-feedback" role="alert">
                                 {% for error in postcode_form.postcode.errors %}
                                     <div>{{ error }}</div>
                                 {% endfor %}
                             </div>
                         {% endif %}
-                        <small class="form-text text-muted">Enter your postcode - full or partial (e.g., SW1A 1AA or SW1)</small>
+                        <small id="postcode-help" class="form-text text-muted">Enter your postcode - full or partial (e.g., SW1A 1AA or SW1)</small>
                     </div>
                     
                     <!-- 2. Region Selection (if applicable) -->
@@ -53,11 +56,11 @@
                     <div class="mb-3">
                         <label for="region" class="form-label">Region <span class="text-muted">(optional if entering new postcode)</span></label>
                         {% if error and 'matches multiple regions' in error %}
-                            <p class="text-info mb-2"><small><strong>{{ error }}</strong></small></p>
+                            <p class="text-info mb-2" role="alert"><small><strong>{{ error }}</strong></small></p>
                         {% else %}
-                            <small class="text-muted d-block mb-1">Select your region manually, or enter a different postcode above to try again</small>
+                            <small id="region-help" class="text-muted d-block mb-1">Select your region manually, or enter a different postcode above to try again</small>
                         {% endif %}
-                        <select class="form-select" id="region" name="region">
+                        <select class="form-select" id="region" name="region" aria-describedby="region-help">
                             <option value="">Select a region (optional if entering new postcode)...</option>
                             {% for r in regions %}
                             <option value="{{ r.region }}" {% if request.form.get('region') == r.region %}selected{% endif %}>
@@ -72,8 +75,8 @@
                     {% if show_product_dropdown %}
                     <div class="mb-3">
                         <label for="product" class="form-label">Agile Tariff Version</label>
-                        <small class="text-muted d-block mb-1">Select the Agile tariff version you want to view prices for</small>
-                        <select class="form-select" id="product" name="product" required>
+                        <small id="product-help" class="text-muted d-block mb-1">Select the Agile tariff version you want to view prices for</small>
+                        <select class="form-select" id="product" name="product" required aria-describedby="product-help">
                             {% for p in agile_products %}
                             <option value="{{ p.code }}" {% if p.code == selected_product_code or request.form.get('product') == p.code %}selected{% endif %}>
                                 {{ p.code }} — {{ p.full_name }}

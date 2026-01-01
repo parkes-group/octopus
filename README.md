@@ -16,6 +16,8 @@ A Flask web application that helps UK households with solar panels and home batt
 - Estimate charging costs (uses future block if available, otherwise absolute block)
 - Visual price charts with visual distinction between absolute and future cheapest blocks
 - File-based JSON caching (pricing data NOT stored in database)
+- **Mobile-First Design** - Fully responsive, works on phones, tablets, and desktop
+- **Accessibility (WCAG-aligned)** - Semantic HTML, ARIA labels, keyboard navigation, screen reader support
 - **SEO & AI Discovery Optimized** - Structured data, semantic HTML, and clear content for search engines and AI assistants
 
 ## Quick Start

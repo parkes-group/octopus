@@ -1,19 +1,38 @@
-/* Custom styles for Octopus Pricing Assistant */
+/* Custom styles for Octopus Pricing Assistant - Mobile-First Design */
 
 :root {
     --primary-color: #0d6efd;
     --success-color: #198754;
     --danger-color: #dc3545;
+    /* Mobile-first base font size (minimum 16px for accessibility) */
+    --base-font-size: 1rem; /* 16px */
+    --base-line-height: 1.5;
+}
+
+/* Mobile-first: Start with base styles for small screens */
+html {
+    height: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    font-size: var(--base-font-size);
+    line-height: var(--base-line-height);
+    margin: 0;
+    padding: 0;
+    position: relative;
+    height: auto;
+    max-height: none;
 }
 
 main {
-    flex: 1;
+    flex: 1 0 auto;
+    min-height: 0; /* Prevents flex item from creating extra space */
 }
 
 /* Navigation */
@@ -38,10 +57,14 @@ main {
     font-weight: 600;
 }
 
-/* Table */
+/* Table - consolidated definition to prevent double scrollbars */
 .table-responsive {
-    max-height: 400px;
-    overflow-y: auto;
+    /* Only enable horizontal scrolling if table is wider than viewport */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    /* Remove vertical scrolling and max-height to prevent double scrollbars */
+    overflow-y: visible;
+    max-height: none;
 }
 
 .table-hover tbody tr:hover {
@@ -55,21 +78,236 @@ main {
 
 /* Footer */
 footer {
+    flex-shrink: 0;
     margin-top: auto;
+    width: 100%;
 }
 
-/* Mobile responsiveness */
-@media (max-width: 768px) {
+/* Prevent scrolling past footer */
+body {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Ensure no extra space after footer */
+body > footer:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Ensure no extra space after content */
+article {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+section {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Ensure main container doesn't add extra space */
+main.container {
+    padding-bottom: 0;
+}
+
+/* Ensure last card on prices page doesn't create extra space */
+article .card:last-child {
+    margin-bottom: 0 !important;
+}
+
+/* Ensure row and col don't add extra space at the end */
+section .row:last-child {
+    margin-bottom: 0;
+}
+
+section .col-12:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Ensure section closes properly without extra space */
+section:last-of-type {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+article:last-of-type {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Prevent any element from creating extra scroll space */
+body > *:last-child {
+    margin-bottom: 0;
+}
+
+/* Ensure footer is truly the last element */
+footer {
+    flex-shrink: 0;
+    margin-top: auto;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Mobile-first: Base styles work on mobile, enhance for larger screens */
+
+/* Typography - Mobile-first (base sizes) */
+h1 {
+    font-size: 1.75rem; /* 28px on mobile */
+    line-height: 1.2;
+    margin-bottom: 1rem;
+}
+
+h2 {
+    font-size: 1.5rem; /* 24px on mobile */
+    line-height: 1.3;
+    margin-bottom: 0.875rem;
+}
+
+h3 {
+    font-size: 1.25rem; /* 20px */
+    line-height: 1.3;
+    margin-bottom: 0.75rem;
+}
+
+h4 {
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+h5 {
+    font-size: 1rem; /* 16px */
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+/* Ensure readable line length on mobile */
+p {
+    max-width: 65ch; /* Comfortable reading width */
+}
+
+/* Container padding for mobile */
+.container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Card spacing on mobile */
+.card-body {
+    padding: 1rem;
+}
+
+
+/* Chart container - mobile responsive */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+@media (min-width: 768px) {
+    .chart-container {
+        height: 400px;
+    }
+}
+
+#priceChart {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
+/* Form inputs - ensure touch-friendly size (minimum 44x44px) */
+.form-control,
+.form-select,
+.btn {
+    min-height: 44px; /* Touch target size */
+    font-size: 1rem; /* Prevent zoom on iOS */
+}
+
+/* Button spacing for mobile */
+.btn {
+    padding: 0.625rem 1rem;
+}
+
+/* Focus states for accessibility */
+.form-control:focus,
+.form-select:focus,
+.btn:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Links - ensure visible focus */
+a:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    text-decoration: underline;
+}
+
+/* Navbar toggle button - larger touch target */
+.navbar-toggler {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem;
+}
+
+/* Card hover - only on non-touch devices */
+@media (hover: hover) and (pointer: fine) {
+    .card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+    
+    footer a:hover {
+        color: #0a58ca;
+        text-decoration: underline;
+    }
+}
+
+/* Tablet and up (768px+) */
+@media (min-width: 768px) {
+    .container {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    
     .card-body {
-        padding: 1rem;
+        padding: 1.5rem;
     }
     
     h1 {
-        font-size: 1.75rem;
+        font-size: 2rem; /* 32px */
     }
     
     h2 {
-        font-size: 1.5rem;
+        font-size: 1.75rem; /* 28px */
+    }
+    
+    #priceChart {
+        max-height: 400px;
+    }
+}
+
+/* Desktop (992px+) */
+@media (min-width: 992px) {
+    h1 {
+        font-size: 2.25rem; /* 36px */
+    }
+    
+    h2 {
+        font-size: 2rem; /* 32px */
     }
 }
 
@@ -97,14 +335,70 @@ footer a {
     transition: color 0.2s ease;
 }
 
-footer a:hover,
 footer a:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
     color: #0a58ca;
     text-decoration: underline;
 }
 
-footer a:focus {
-    outline: 2px solid #0d6efd;
-    outline-offset: 2px;
+/* Skip to main content link for screen readers (hidden visually, visible to screen readers) */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 100;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Ensure sufficient color contrast for text */
+.text-muted {
+    color: #6c757d !important; /* WCAG AA compliant */
+}
+
+/* Price display - ensure emphasis without color dependency */
+.text-success, .text-primary, .text-info, .text-warning {
+    font-weight: 600;
+}
+
+/* Chart legend - ensure readable on mobile */
+.chart-legend {
+    font-size: 0.875rem;
+    margin-top: 1rem;
+}
+
+.chart-legend-item {
+    display: inline-block;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.chart-legend-item::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+/* Screen reader only class */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
 }
 

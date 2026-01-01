@@ -26,13 +26,14 @@
                     {% if agile_products and agile_products|length > 1 %}
                     <div class="col-md-3">
                         <label for="product" class="form-label">Agile Tariff Version</label>
-                        <select class="form-select" id="product" name="product" required>
+                        <select class="form-select" id="product" name="product" required aria-describedby="product-help">
                             {% for p in agile_products %}
                             <option value="{{ p.code }}" {% if p.code == product_code %}selected{% endif %}>
                                 {{ p.code }} — {{ p.full_name }}
                             </option>
                             {% endfor %}
                         </select>
+                        <small id="product-help" class="form-text text-muted sr-only">Select the Agile tariff version</small>
                     </div>
                     {% else %}
                     <input type="hidden" name="product" value="{{ product_code }}">
@@ -40,13 +41,14 @@
                     
                     <div class="col-md-3">
                         <label for="region" class="form-label">Region</label>
-                        <select class="form-select" id="region" name="region" required>
+                        <select class="form-select" id="region" name="region" required aria-describedby="region-help">
                             {% for r in regions %}
                             <option value="{{ r.region }}" {% if r.region == region %}selected{% endif %}>
                                 {{ r.region }} - {{ r.name }}
                             </option>
                             {% endfor %}
                         </select>
+                        <small id="region-help" class="form-text text-muted sr-only">Select your energy pricing region</small>
                     </div>
                     
                     <div class="col-md-3">
@@ -59,8 +61,10 @@
                                step="0.5" 
                                min="0.5" 
                                max="6.0" 
-                               required>
-                        <small class="text-muted">Supports decimals (e.g., 3.5)</small>
+                               required
+                               inputmode="decimal"
+                               aria-describedby="duration-help">
+                        <small id="duration-help" class="text-muted form-text">Supports decimals (e.g., 3.5)</small>
                     </div>
                     
                     <div class="col-md-3">
@@ -72,7 +76,10 @@
                                value="{{ capacity if capacity else '' }}" 
                                step="0.1" 
                                min="0.1" 
-                               placeholder="e.g., 10.0">
+                               placeholder="e.g., 10.0"
+                               inputmode="decimal"
+                               aria-describedby="capacity-help">
+                        <small id="capacity-help" class="text-muted form-text">Enter your battery capacity in kilowatt-hours</small>
                     </div>
                     
                     <div class="col-md-3 d-flex align-items-end">
@@ -119,12 +126,12 @@
             </div>
             {% endif %}
             
-            <!-- Absolute Cheapest Block -->
+            <!-- Cheapest Block -->
             {% if absolute_cheapest_block %}
             <div class="col-md-4 mb-4">
                 <div class="card border-warning">
                     <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">⚡ Absolute Cheapest {{ duration }}h Block</h5>
+                        <h5 class="mb-0">⚡ Cheapest {{ duration }}h Block</h5>
                     </div>
                     <div class="card-body">
                         <p class="mb-1">
@@ -217,37 +224,29 @@
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">Price Chart</h5>
-                <small class="text-muted">
-                    {% if absolute_cheapest_block and future_cheapest_block %}
-                        Highlighted: Absolute cheapest block (green), Cheapest remaining block (blue)
-                    {% elif absolute_cheapest_block %}
-                        Highlighted: Absolute cheapest block (green)
-                    {% elif future_cheapest_block %}
-                        Highlighted: Cheapest remaining block (blue)
-                    {% elif lowest_price %}
-                        Highlighted: Lowest 30-minute price (green)
-                    {% endif %}
-                </small>
             </div>
             <div class="card-body">
-                <canvas id="priceChart" height="100"></canvas>
+                <div class="chart-container" style="position: relative; height: 300px;">
+                    <canvas id="priceChart" aria-label="Price chart showing half-hourly electricity prices throughout the day" role="img"></canvas>
+                </div>
             </div>
         </div>
         {% endif %}
         
         <!-- Price Table -->
         {% if prices %}
-        <div class="card">
+        <div class="card mb-0">
             <div class="card-header">
                 <h5 class="mb-0">All Prices (Half-Hourly)</h5>
+                <p class="text-muted small mb-0">Complete list of prices with highlighted cheapest options. Use this table for exact values and screen reader accessibility.</p>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover">
+                    <table class="table table-sm table-hover" role="table" aria-label="Half-hourly electricity prices">
                         <thead>
                             <tr>
-                                <th>Date & Time</th>
-                                <th>Price (p/kWh)</th>
+                                <th scope="col">Date & Time</th>
+                                <th scope="col">Price (p/kWh)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -270,10 +269,11 @@
                                     {{ price.time_uk }}
                                 </td>
                                 <td>
-                                    {{ "%.2f"|format(price.value_inc_vat) }}
-                                    {% if is_lowest %}<span class="badge bg-success ms-2">Lowest</span>{% endif %}
-                                    {% if is_in_future_block %}<span class="badge bg-info ms-2">Cheapest Remaining</span>{% endif %}
-                                    {% if is_in_absolute_block %}<span class="badge bg-warning text-dark ms-2">Absolute Cheapest</span>{% endif %}
+                                    
+                                    <span class="visually-hidden">Price: </span>{{ "%.2f"|format(price.value_inc_vat) }}
+                                    {% if is_lowest %}<span class="badge bg-success ms-2" aria-label="Lowest price">Lowest</span>{% endif %}
+                                    {% if is_in_future_block %}<span class="badge bg-info ms-2" aria-label="Part of cheapest remaining block">Cheapest Remaining</span>{% endif %}
+                                    {% if is_in_absolute_block %}<span class="badge bg-warning text-dark ms-2" aria-label="Part of cheapest block">Cheapest</span>{% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -323,7 +323,7 @@
             pointBorderWidth: 2
         }];
         
-        // Add absolute cheapest block highlighting (green) - only if not overlapping with future block
+        // Add cheapest block highlighting (yellow/warning) - only if not overlapping with future block
         if (absoluteCheapestBlockIndices.length > 0) {
             const absoluteData = chartData.prices.map((price, index) => {
                 // Only highlight if not in future block (future takes priority)
@@ -332,21 +332,22 @@
             });
             
             datasets.push({
-                label: 'Absolute Cheapest Block',
+                label: 'Cheapest Block',
                 data: absoluteData,
-                borderColor: 'rgb(25, 135, 84)',  // Green
-                backgroundColor: 'rgba(25, 135, 84, 0.3)',
+                borderColor: 'rgb(255, 193, 7)',  // Bootstrap warning (yellow/amber) - matches table-warning and border-warning
+                backgroundColor: 'rgba(255, 193, 7, 0.3)',
                 pointRadius: 8,
                 pointHoverRadius: 10,
-                pointBackgroundColor: 'rgb(25, 135, 84)',
+                pointBackgroundColor: 'rgb(255, 193, 7)',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 tension: 0.1,
-                showLine: false
+                showLine: false,
+                pointStyle: 'circle'  // Ensure bullet/point style in legend
             });
         }
         
-        // Add future cheapest block highlighting (blue) - takes priority
+        // Add future cheapest block highlighting (blue/info) - takes priority
         if (futureCheapestBlockIndices.length > 0) {
             const futureData = chartData.prices.map((price, index) => {
                 return futureCheapestBlockIndices.includes(index) ? price : null;
@@ -355,15 +356,16 @@
             datasets.push({
                 label: 'Cheapest Remaining Block',
                 data: futureData,
-                borderColor: 'rgb(13, 110, 253)',  // Blue
-                backgroundColor: 'rgba(13, 110, 253, 0.3)',
+                borderColor: 'rgb(13, 202, 240)',  // Bootstrap info (cyan/blue) - matches table-info and border-info
+                backgroundColor: 'rgba(13, 202, 240, 0.3)',
                 pointRadius: 8,
                 pointHoverRadius: 10,
-                pointBackgroundColor: 'rgb(13, 110, 253)',
+                pointBackgroundColor: 'rgb(13, 202, 240)',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 tension: 0.1,
-                showLine: false
+                showLine: false,
+                pointStyle: 'circle'  // Ensure bullet/point style in legend
             });
         }
         
@@ -395,7 +397,7 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: false,
@@ -414,7 +416,14 @@
                 plugins: {
                     legend: {
                         display: true,
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,  // Use point/bullet style instead of boxes (matches header badge style)
+                            padding: 10,
+                            font: {
+                                size: 12
+                            }
+                        }
                     },
                     tooltip: {
                         callbacks: {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     
     <!-- SEO Meta Tags -->
     <title>{% block seo_title %}{{ seo_pages.get(page_name, {}).get('title', site_name) }}{% endblock %}</title>
@@ -71,6 +71,9 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Navigation -->
     {% include 'components/_header.html' %}
     
@@ -89,7 +92,7 @@
     {% endwith %}
     
     <!-- Main Content -->
-    <main class="container my-4">
+    <main id="main-content" class="container my-4" role="main">
         {% block content %}{% endblock %}
     </main>
     
