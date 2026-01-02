@@ -2,7 +2,7 @@
 Main application routes.
 MVP: Anonymous usage only, no authentication required.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session, make_response, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session, make_response, jsonify, current_app
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
@@ -146,7 +146,7 @@ def index():
                     show_region_dropdown = True
                 elif isinstance(region_result, str):
                     # Single region: redirect to prices page with product
-                    logger.degug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
+                    logger.debug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
                     return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
                 elif isinstance(region_result, list):
                     # Multiple regions: show dropdown with matching regions only
@@ -523,6 +523,10 @@ def regions():
 @bp.route('/about')
 def about():
     """About page explaining how the tool works."""
+    # Log configuration mode (development or production)
+    config_mode = 'development' if current_app.config.get('DEBUG', False) else 'production'
+    logger.info(f"About page accessed - Configuration mode: {config_mode}")
+    
     # Check if user came from prices page (via referrer or query param)
     referrer = request.referrer
     came_from_prices = False
@@ -635,7 +639,7 @@ def feature_suggestion():
         success = VoteManager.save_suggestion(suggestion_text)
         
         if success:
-            logger.info(f"Saved suggestion: {suggestion_text}")
+            logger.debug(f"Saved suggestion: {suggestion_text}")
             return jsonify({
                 'success': True,
                 'message': 'Thanks for the suggestion!'

@@ -3,7 +3,7 @@
     <div class="card">
         <div class="card-body">
             <h2 class="h5 mb-3">Help Us Prioritize Features</h2>
-            <p class="text-muted">Click on a feature below if you'd like to see it in the future. Your vote helps us understand what matters most to you.</p>
+            <p class="text-muted mb-4">Click on a feature below if you'd like to see it in the future. Your vote helps us understand what matters most to you.</p>
             
             <div class="row g-3 mb-4">
                 {% for item in config.FEATURE_VOTING_ITEMS|sort(attribute='display_order') %}

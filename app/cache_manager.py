@@ -73,11 +73,11 @@ class CacheManager:
             
             expires_at = datetime.fromisoformat(data['expires_at'])
             if datetime.now() < expires_at:
-                logger.info(f"Cache hit (valid, not expired) for {product_code} {region_code} on {date_str}")
+                logger.debug(f"Cache hit (valid, not expired) for {product_code} {region_code} on {date_str}")
                 return data['prices']
             else:
                 # Expired, delete file
-                logger.info(f"Cache expired for {product_code} {region_code} on {date_str}, will fetch from API")
+                logger.debug(f"Cache expired for {product_code} {region_code} on {date_str}, will fetch from API")
                 cache_file.unlink()
                 return None
         except (json.JSONDecodeError, KeyError, ValueError) as e:

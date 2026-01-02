@@ -71,7 +71,7 @@ class OctopusAPIClient:
         try:
             # Handle pagination
             while next_url:
-                logger.info(f"API Call: GET {next_url}")
+                logger.debug(f"API Call: GET {next_url}")
                 response = requests.get(next_url, timeout=config['timeout'])
                 response.raise_for_status()
                 data = response.json()
@@ -82,7 +82,7 @@ class OctopusAPIClient:
                 # Check for next page
                 next_url = data.get('next')
             
-            logger.info(f"API Response: Total products fetched: {len(all_products)}")
+            logger.debug(f"API Response: Total products fetched: {len(all_products)}")
             
             # Filter Agile products
             agile_products = []
@@ -117,11 +117,11 @@ class OctopusAPIClient:
                             logger.warning(f"Could not parse available_to date for product {product.get('code')}: {available_to}")
                             continue
             
-            logger.info(f"Filtered Agile products found: {len(agile_products)} (direction={direction})")
+            logger.debug(f"Filtered Agile products found: {len(agile_products)} (direction={direction})")
             if len(agile_products) == 0:
                 logger.warning("No active Agile products found matching criteria")
             elif len(agile_products) > 1:
-                logger.info(f"Multiple Agile products found: {[p['code'] for p in agile_products]}")
+                logger.debug(f"Multiple Agile products found: {[p['code'] for p in agile_products]}")
             
             return agile_products
             
@@ -170,11 +170,11 @@ class OctopusAPIClient:
         }
 
         try:
-            logger.info(f"API Call: GET {url} with params {params}")
+            logger.debug(f"API Call: GET {url} with params {params}")
             response = requests.get(url, params=params, timeout=config['timeout'])
             response.raise_for_status()
             data = response.json()
-            logger.info(f"API Response: Status {response.status_code}, Prices found: {len(data.get('results', []))}")
+            logger.debug(f"API Response: Status {response.status_code}, Prices found: {len(data.get('results', []))}")
             return data
         except requests.exceptions.Timeout:
             logger.error(f"Timeout fetching prices for region {region_code}")
