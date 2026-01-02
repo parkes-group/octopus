@@ -63,3 +63,7 @@ Thumbs.db
 *.pyc
 .python-version
 
+# Local run and WSGI files (do not track in repository)
+run.py
+wsgi.py
+
