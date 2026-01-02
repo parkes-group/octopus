@@ -67,3 +67,8 @@ Thumbs.db
 run.py
 wsgi.py
 
+# Votes and suggestions (production data - do not track)
+app/votes/*.json
+app/votes/*.jsonl
+!app/votes/.gitkeep
+
