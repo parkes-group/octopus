@@ -1,0 +1,42 @@
+{# Feature Voting Component - Configuration-driven voting with percentage results #}
+<section class="feature-voting-section mb-4 mt-4">
+    <div class="card">
+        <div class="card-body">           
+            <!-- Optional Feature Suggestion -->
+            <div class="feature-suggestion-section mt-4 pt-4">
+                <h2 class="h6 mb-3">Got another idea? Suggest a feature…</h2>
+                <form class="feature-suggestion-form" novalidate>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-8">
+                            <input 
+                                type="text" 
+                                class="form-control feature-suggestion-input" 
+                                id="feature-suggestion-input"
+                                placeholder="Describe your feature idea (max 200 characters)"
+                                maxlength="200"
+                                aria-label="Feature suggestion input"
+                                aria-describedby="suggestion-help">
+                            <small id="suggestion-help" class="form-text text-muted">
+                                <span class="suggestion-char-count">0</span>/200 characters
+                            </small>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <button 
+                                type="submit" 
+                                class="btn btn-secondary w-100 feature-suggestion-submit"
+                                aria-label="Submit feature suggestion">
+                                Submit Suggestion
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div class="feature-suggestion-message mt-2" style="display: none;">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <strong>Thanks!</strong> Your suggestion has been recorded.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

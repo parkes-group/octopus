@@ -214,13 +214,13 @@ class OctopusAPIClient:
         url = config['get_gsp_lookup_url'](normalized)
         
         try:
-            logger.info(f"API Call: GET {url} (postcode lookup)")
+            logger.debug(f"API Call: GET {url} (postcode lookup)")
             response = requests.get(url, timeout=config['timeout'])
             response.raise_for_status()
             data = response.json()
             
             results = data.get('results', [])
-            logger.info(f"API Response: Status {response.status_code}, GSP results found: {len(results)}")
+            logger.debug(f"API Response: Status {response.status_code}, GSP results found: {len(results)}")
             
             if not results:
                 logger.warning(f"No Grid Supply Points found for postcode: {normalized}")

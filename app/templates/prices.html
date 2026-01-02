@@ -8,9 +8,8 @@
         <h1 class="mb-4">Agile Octopus Prices</h1>
     </header>
     
-    <section>
-        <div class="row">
-            <div class="col-12">
+    <!-- Section 1: User Inputs -->
+    <section class="mb-4">
         
         <!-- Product Info -->
         {% if product_code and product_name %}
@@ -19,7 +18,6 @@
         </div>
         {% endif %}
         
-        <!-- Region and Controls -->
         <div class="card mb-4">
             <div class="card-body">
                 <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
@@ -91,21 +89,20 @@
         
         <!-- Daily Average Price -->
         {% if daily_average_price %}
-        <div class="row">
-            <div class="col-12 mb-4">
-                <div class="card border-secondary">
-                    <div class="card-body">
-                        <p class="mb-0">
-                            <strong>Daily Average Price:</strong> 
-                            <span class="h4 text-secondary">{{ "%.2f"|format(daily_average_price) }} p/kWh</span>
-                        </p>
-                    </div>
-                </div>
+        <div class="card border-secondary mb-4">
+            <div class="card-body">
+                <p class="mb-0">
+                    <strong>Daily Average Price:</strong> 
+                    <span class="h4 text-secondary">{{ "%.2f"|format(daily_average_price) }} p/kWh</span>
+                </p>
             </div>
         </div>
         {% endif %}
-        
-        <!-- Results -->
+    </section>
+    
+    <!-- Section 2: Cheapest Blocks -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Cheapest Charging Options</h2>
         <div class="row">
             <!-- Lowest Price -->
             {% if lowest_price %}
@@ -218,26 +215,38 @@
             </div>
             {% endif %}
         </div>
-        
-        <!-- Price Chart -->
+    </section>
+    
+    <!-- Section 5: Feature Voting -->
+    <section class="mb-4">
+        {% include 'components/_feature_voting.html' %}
+    </section>
+
+    <!-- Section 3: Price Chart -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Price Chart</h2>
         {% if chart_data %}
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Price Chart</h5>
-            </div>
             <div class="card-body">
                 <div class="chart-container" style="position: relative; height: 300px;">
                     <canvas id="priceChart" aria-label="Price chart showing half-hourly electricity prices throughout the day" role="img"></canvas>
                 </div>
             </div>
         </div>
+        {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">Price chart will appear here once you select a region and update the prices.</p>
+        </div>
         {% endif %}
-        
-        <!-- Price Table -->
+    </section>
+    
+
+    <!-- Section 4: Price Table -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">All Prices (Half-Hourly)</h2>
         {% if prices %}
-        <div class="card mb-0">
+        <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0">All Prices (Half-Hourly)</h5>
                 <p class="text-muted small mb-0">Complete list of prices with highlighted cheapest options.</p>
             </div>
             <div class="card-body">
@@ -282,10 +291,17 @@
                 </div>
             </div>
         </div>
-        {% endif %}
-            </div>
+        {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">Price table will appear here once you select a region and update the prices.</p>
         </div>
+        {% endif %}
     </section>
+
+    <section class="mb-4">
+        {% include 'components/_feature_suggestion.html' %}
+    </section>
+    
 </article>
 {% endblock %}
 

@@ -43,7 +43,7 @@
                     <li>Pricing: Includes VAT, displayed in pence per kWh</li>
                 </ul>
                 <p class="mb-0">
-                    We cache API responses for 5 minutes to reduce load on Octopus Energy's servers while ensuring data freshness.
+                    We cache API responses for 15 minutes to reduce load on Octopus Energy's servers while ensuring data freshness.
                 </p>
             </div>
         </div>
@@ -82,6 +82,14 @@
             </div>
         </div>
     </section>
+
+    <section class="mb-4">
+        {% include 'components/_feature_voting.html' %}
+    </section>
+
+    <section class="mb-4">
+        {% include 'components/_feature_suggestion.html' %}
+    </section>
     
     <section class="mb-4">
         <div class="alert alert-warning">
@@ -107,6 +115,7 @@
             {% endif %}
         </div>
     </section>
+    
 </article>
 {% endblock %}
 

@@ -4,13 +4,14 @@ MVP: Anonymous usage only, no authentication or database
 """
 from flask import Flask
 import logging
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 import os
 from pathlib import Path
+from datetime import datetime, timedelta
 
 # Initialize logging before app creation
 def setup_logging(app):
-    """Configure logging for the application."""
+    """Configure logging for the application with daily rotation and 5-day retention."""
     # Ensure log directory exists
     log_dir = Path('logs')
     log_dir.mkdir(exist_ok=True)
@@ -27,22 +28,56 @@ def setup_logging(app):
     console_handler.setLevel(logging.INFO)
     app.logger.addHandler(console_handler)
     
-    # File logging (always enabled)
-    file_handler = RotatingFileHandler(
+    # File logging with daily rotation (rotates at midnight)
+    # backupCount=5 means keep 5 days of logs (current + 4 backups)
+    file_handler = TimedRotatingFileHandler(
         'logs/app.log',
-        maxBytes=10240000,  # 10MB
-        backupCount=10
+        when='midnight',
+        interval=1,  # Rotate every day
+        backupCount=5,  # Keep 5 days of logs
+        encoding='utf-8'
     )
+    file_handler.suffix = '%Y-%m-%d'  # Log file suffix format: app.log.2026-01-01
     file_handler.setFormatter(logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s [in %(pathname)s:%(lineno)d]'
     ))
     file_handler.setLevel(logging.INFO)
     app.logger.addHandler(file_handler)
     
+    # Clean up old log files (older than 5 days) on startup
+    cleanup_old_logs(log_dir, days=5)
+    
     # Prevent duplicate logs
     app.logger.propagate = False
     
     app.logger.info('Octopus App startup')
+
+def cleanup_old_logs(log_dir, days=5):
+    """
+    Remove log files older than specified number of days.
+    
+    Args:
+        log_dir: Path to log directory
+        days: Number of days to keep logs (default: 5)
+    """
+    try:
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        for log_file in log_dir.glob('app.log.*'):
+            try:
+                # Extract date from filename (app.log.YYYY-MM-DD)
+                date_str = log_file.name.replace('app.log.', '')
+                file_date = datetime.strptime(date_str, '%Y-%m-%d')
+                
+                if file_date < cutoff_date:
+                    log_file.unlink()
+                    logging.getLogger(__name__).debug(f"Removed old log file: {log_file.name}")
+            except (ValueError, OSError) as e:
+                # Skip files that don't match the expected format or can't be deleted
+                logging.getLogger(__name__).warning(f"Could not process log file {log_file.name}: {e}")
+    except Exception as e:
+        # Don't fail startup if cleanup fails
+        logging.getLogger(__name__).warning(f"Error cleaning up old log files: {e}")
 
 def create_app(config_class=None):
     """
@@ -81,6 +116,10 @@ def create_app(config_class=None):
     cache_dir = Path('app/cache')
     cache_dir.mkdir(parents=True, exist_ok=True)
     
+    # Ensure votes directory exists
+    votes_dir = Path('app/votes')
+    votes_dir.mkdir(parents=True, exist_ok=True)
+    
     # Make config values available to all templates
     @app.context_processor
     def inject_config():
@@ -109,6 +148,7 @@ def create_app(config_class=None):
             dynamic_site_url = app.config.get('SITE_URL', 'https://octopus-pricing.parkes-group.com')
         
         from datetime import datetime
+        from app.config import Config
         return {
             'github_feedback_url': app.config.get('GITHUB_FEEDBACK_URL', 'https://github.com/parkes-group/octopus/issues/new/choose'),
             'octopus_referral_url': app.config.get('OCTOPUS_REFERRAL_URL', 'https://share.octopus.energy/clean-prawn-337'),
@@ -118,7 +158,8 @@ def create_app(config_class=None):
             'seo_pages': app.config.get('SEO_PAGES', {}),
             'has_prices_history': has_prices_history,
             'prices_url': prices_url,
-            'current_year': datetime.now().year
+            'current_year': datetime.now().year,
+            'config': Config  # Make Config available in templates for FEATURE_VOTING_ITEMS
         }
     
     return app

@@ -1,0 +1,49 @@
+{# Feature Voting Component - Configuration-driven voting with percentage results #}
+<section class="feature-voting-section mb-4 mt-4">
+    <div class="card">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Help Us Prioritize Features</h2>
+            <p class="text-muted">Click on a feature below if you'd like to see it in the future. Your vote helps us understand what matters most to you.</p>
+            
+            <div class="row g-3 mb-4">
+                {% for item in config.FEATURE_VOTING_ITEMS|sort(attribute='display_order') %}
+                <div class="col-12 col-md-6">
+                    <button 
+                        type="button" 
+                        class="feature-vote-btn btn btn-outline-primary w-100 h-100 p-4 text-start"
+                        data-feature="{{ item.id }}"
+                        aria-label="Vote for {{ item.title }}"
+                        role="button">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-grow-1">
+                                <h3 class="h6 mb-2">{{ item.title }}</h3>
+                                <p class="mb-0 small text-muted">{{ item.description }}</p>
+                            </div>
+                            <div class="feature-vote-icon ms-3">
+                                <span class="feature-vote-check" style="display: none;" aria-hidden="true">✓</span>
+                            </div>
+                        </div>
+                        <div class="feature-vote-results mt-3" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%;" 
+                                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    </div>
+                                </div>
+                                <span class="feature-vote-percentage fw-bold small">0%</span>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="feature-vote-message mt-3" style="display: none;">
+                <div class="alert alert-success mb-0" role="alert">
+                    <strong>Thanks!</strong> Your vote has been recorded.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+

@@ -2,13 +2,14 @@
 Main application routes.
 MVP: Anonymous usage only, no authentication required.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, session, make_response, jsonify
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
 from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
 from app.timezone_utils import get_uk_date_string, get_uk_now
 from app.config import Config
+from app.vote_manager import VoteManager
 from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
@@ -145,11 +146,11 @@ def index():
                     show_region_dropdown = True
                 elif isinstance(region_result, str):
                     # Single region: redirect to prices page with product
-                    logger.info(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
+                    logger.degug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
                     return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
                 elif isinstance(region_result, list):
                     # Multiple regions: show dropdown with matching regions only
-                    logger.info(f"Postcode {normalized_postcode} mapped to multiple regions: {region_result}")
+                    logger.debug(f"Postcode {normalized_postcode} mapped to multiple regions: {region_result}")
                     error_message = f"Postcode '{submitted_postcode}' matches multiple regions. Please select your region below:"
                     show_region_dropdown = True
                     # Filter regions list to only show matching regions
@@ -239,12 +240,12 @@ def prices():
     
     if not prices_data:
         # Cache miss or expired - fetch from API
-        logger.info(f"Cache miss for {product_code} {region} on {date_str}, fetching from API")
+        logger.debug(f"Cache miss for {product_code} {region} on {date_str}, fetching from API")
         try:
             api_response = OctopusAPIClient.get_prices(product_code, region)
             prices_data = api_response.get('results', [])
             CacheManager.cache_prices(product_code, region, date_str, prices_data)
-            logger.info(f"Fetched and cached prices for {product_code} {region} on {date_str}")
+            logger.debug(f"Fetched and cached prices for {product_code} {region} on {date_str}")
         except Exception as e:
             logger.error(f"Error fetching prices: {e}", exc_info=True)
             # Try to use stale cache if available
@@ -405,12 +406,12 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
             
             if not prices_data:
                 # Cache miss or expired - fetch from API
-                logger.info(f"Cache miss for region {region_code} on {date_str}, fetching from API")
+                logger.debug(f"Cache miss for region {region_code} on {date_str}, fetching from API")
                 try:
                     api_response = OctopusAPIClient.get_prices(product_code, region_code)
                     prices_data = api_response.get('results', [])
                     CacheManager.cache_prices(product_code, region_code, date_str, prices_data)
-                    logger.info(f"Fetched and cached prices for region {region_code} on {date_str}")
+                    logger.debug(f"Fetched and cached prices for region {region_code} on {date_str}")
                 except Exception as e:
                     logger.warning(f"Error fetching prices for region {region_code}: {e}")
                     # Skip this region, continue with others
@@ -573,3 +574,91 @@ def sitemap_xml():
     response = make_response(render_template('sitemap.xml'))
     response.mimetype = 'application/xml'
     return response
+
+@bp.route('/feature-vote', methods=['POST'])
+def feature_vote():
+    """Handle feature voting - records a vote for a feature."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Invalid request'}), 400
+        
+        feature_id = data.get('feature')
+        
+        if not feature_id:
+            return jsonify({'error': 'Feature ID required'}), 400
+        
+        # Validate feature ID exists in config
+        valid_feature_ids = [item['id'] for item in Config.FEATURE_VOTING_ITEMS]
+        if feature_id not in valid_feature_ids:
+            return jsonify({'error': 'Invalid feature ID'}), 400
+        
+        # Record the vote
+        votes = VoteManager.record_vote(feature_id)
+        
+        # Get updated percentages
+        percentages = VoteManager.get_vote_percentages()
+        
+        logger.info(f"Recorded vote for feature {feature_id}. New count: {votes[feature_id]}")
+        
+        return jsonify({
+            'success': True,
+            'feature': feature_id,
+            'votes': votes,
+            'percentages': percentages
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error recording feature vote: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+@bp.route('/feature-suggestion', methods=['POST'])
+def feature_suggestion():
+    """Handle feature suggestion submission."""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'Invalid request'}), 400
+        
+        suggestion_text = data.get('suggestion', '').strip()
+        
+        if not suggestion_text:
+            return jsonify({'error': 'Suggestion text required'}), 400
+        
+        # Validate length
+        if len(suggestion_text) > VoteManager.MAX_SUGGESTION_LENGTH:
+            return jsonify({'error': f'Suggestion too long (max {VoteManager.MAX_SUGGESTION_LENGTH} characters)'}), 400
+        
+        # Save suggestion
+        success = VoteManager.save_suggestion(suggestion_text)
+        
+        if success:
+            logger.info(f"Saved suggestion: {suggestion_text}")
+            return jsonify({
+                'success': True,
+                'message': 'Thanks for the suggestion!'
+            }), 200
+        else:
+            return jsonify({'error': 'Failed to save suggestion'}), 500
+        
+    except ValueError as e:
+        logger.warning(f"Invalid suggestion request: {e}")
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error saving suggestion: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+@bp.route('/feature-votes', methods=['GET'])
+def get_feature_votes():
+    """Get current vote counts and percentages (for display)."""
+    try:
+        percentages = VoteManager.get_vote_percentages()
+        return jsonify({
+            'success': True,
+            'percentages': percentages
+        }), 200
+    except Exception as e:
+        logger.error(f"Error getting vote percentages: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500

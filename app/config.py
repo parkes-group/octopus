@@ -34,28 +34,44 @@ class Config:
     
     # SEO Configuration
     SITE_NAME = os.environ.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant')
-    SITE_URL = os.environ.get('SITE_URL', 'https://octopus-pricing.parkes-group.com')  # Update with actual domain
+    SITE_URL = os.environ.get('SITE_URL', 'https://www.agilepricing.co.uk') 
     SITE_DESCRIPTION = os.environ.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.')
     
     # SEO Page-Specific Content
     SEO_PAGES = {
         'index': {
-            'title': 'Agile Octopus Prices Today – Cheapest 30-Minute Charging Windows',
-            'description': 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.'
+            'title': 'Agile Octopus Prices Today | Cheapest Charging Times UK',
+            'description': 'View today’s Agile Octopus electricity prices and instantly find the cheapest 30-minute charging windows for home batteries and EVs across the UK'
         },
         'prices': {
-            'title': 'Agile Octopus Prices Today – Cheapest 30-Minute Charging Windows',
-            'description': 'View today\'s half-hourly Agile Octopus electricity prices. Find the cheapest charging windows for your home battery or EV in the UK.'
+            'title': 'Prices | Agile Octopus Half-Hourly | Cheapest Charging Today',
+            'description': 'See today’s half-hourly Agile Octopus prices, daily averages, and the cheapest charging blocks for home batteries and EVs'
         },
         'about': {
-            'title': 'How It Works – Agile Octopus Price Assistant',
-            'description': 'Learn how we help UK households find the cheapest Agile Octopus electricity prices. Data from Octopus Energy public API, updated every 30 minutes.'
+            'title': 'How Agile Octopus Pricing Works | Price Analysis Tool',
+            'description': 'Learn how we analyse Agile Octopus half-hourly pricing using Octopus Energy’s public API to help UK households reduce electricity costs'
         },
         'regions': {
-            'title': 'All Regions Price Comparison – Agile Octopus',
-            'description': 'Compare Agile Octopus electricity prices across all UK regions. Find the cheapest daily averages and charging blocks for home batteries.'
+            'title': 'Agile Octopus Prices by Region | UK Comparison Tool',
+            'description': 'Compare Agile Octopus electricity prices across all UK regions. See daily averages and cheapest charging windows to optimise battery charging'
         }
     }
+    
+    # Feature Voting Configuration
+    FEATURE_VOTING_ITEMS = [
+        {
+            "id": "daily_cheapest_email",
+            "title": "Daily chosen cheapest block email",
+            "description": "Get a daily email showing your chosen duration's cheapest block",
+            "display_order": 1
+        },
+        {
+            "id": "negative_price_alert",
+            "title": "Negative pricing alerts",
+            "description": "Get notified when electricity prices go negative",
+            "display_order": 2
+        }
+    ]
     
     # Region code to name mapping
     OCTOPUS_REGION_NAMES = {
