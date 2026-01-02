@@ -120,6 +120,52 @@ def create_app(config_class=None):
     votes_dir = Path('app/votes')
     votes_dir.mkdir(parents=True, exist_ok=True)
     
+    # Setup 301 redirects for production (www and HTTPS)
+    from app.config import ProductionConfig
+    
+    @app.before_request
+    def redirect_www_and_https():
+        """Redirect non-www to www and HTTP to HTTPS (production only)."""
+        # Only apply redirects in production (not in development)
+        if config_class != ProductionConfig:
+            return None  # Skip redirects in development
+        
+        from flask import request, redirect, url_for
+        from urllib.parse import urlparse, urlunparse
+        
+        # Parse the request URL
+        parsed = urlparse(request.url)
+        host = parsed.netloc
+        scheme = parsed.scheme
+        path = parsed.path
+        query = parsed.query
+        fragment = parsed.fragment
+        
+        needs_redirect = False
+        new_scheme = scheme
+        new_host = host
+        
+        # Check if HTTP (redirect to HTTPS)
+        if scheme == 'http':
+            new_scheme = 'https'
+            needs_redirect = True
+            app.logger.info(f"Redirecting HTTP to HTTPS: {request.url}")
+        
+        # Check if non-www (redirect to www)
+        # Only check if host doesn't start with www. and is not localhost/127.0.0.1
+        if not host.startswith('www.') and not host.startswith('localhost') and '127.0.0.1' not in host:
+            new_host = f"www.{host}"
+            needs_redirect = True
+            app.logger.info(f"Redirecting non-www to www: {request.url}")
+        
+        # Perform redirect if needed
+        if needs_redirect:
+            # Reconstruct URL with new scheme and/or host
+            new_url = urlunparse((new_scheme, new_host, path, parsed.params, query, fragment))
+            return redirect(new_url, code=301)  # 301 Permanent Redirect
+        
+        return None  # No redirect needed
+    
     # Make config values available to all templates
     @app.context_processor
     def inject_config():
