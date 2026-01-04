@@ -5,26 +5,72 @@
 {% block content %}
 <article>
     <header>
-        <h1 class="mb-4">How It Works</h1>
-        <p class="lead">Learn how this tool helps you find the cheapest times to charge your battery on Agile Octopus.</p>
+        <h1 class="mb-4">How Agile Pricing Works</h1>
+        <p class="lead">
+            Agile Pricing helps UK households understand Agile Octopus electricity prices and identify the cheapest times to use electricity, particularly for charging home batteries, electric vehicles, and other flexible appliances.
+        </p>
+        <p class="lead">
+            By analysing half-hourly pricing data from Octopus Energy, the tool highlights low-cost and negative-price periods so you can make more informed decisions about when to use energy.
+        </p>
     </header>
-    
+
     <section class="mb-4">
         <div class="card">
             <div class="card-body">
-                <h2 class="h4 mb-3">What is Agile Octopus?</h2>
+                <h2 class="h4 mb-3">Who Is This Tool For?</h2>
                 <p>
-                    <strong>Agile Octopus</strong> is a time-of-use electricity tariff offered by Octopus Energy in the UK. 
-                    Unlike traditional fixed-rate tariffs, Agile Octopus prices change every 30 minutes based on wholesale electricity market rates.
+                    Agile Pricing is designed for UK households who:
                 </p>
+                <ul class="mb-3">
+                    <li>Are on, or considering, the Agile Octopus tariff</li>
+                    <li>Have home battery storage (such as Tesla Powerwall, GivEnergy, Solax, etc.)</li>
+                    <li>May also have solar panels (optional but common)</li>
+                    <li>Want to reduce electricity costs by using power at cheaper times</li>
+                </ul>
+                <p class="mb-0">
+                    The tool helps you quickly identify the best times to charge batteries or run energy-intensive appliances.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h4 mb-3">What Can You Do With Agile Pricing?</h2>
+                <p class="mb-3">
+                    Using this tool, you can:
+                </p>
+                <ul>
+                    <li>Find the lowest 30-minute price of the day</li>
+                    <li>Calculate the cheapest charging blocks, from 30 minutes up to 6 hours</li>
+                    <li>Estimate charging costs based on selected time windows</li>
+                    <li>View interactive price charts showing half-hourly trends throughout the day</li>
+                    <li>Compare regional prices to understand how costs vary across the UK</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h4 mb-3">What Is Agile Octopus?</h2>
                 <p>
-                    This means electricity can be:
+                    Agile Octopus is a time-of-use electricity tariff offered by Octopus Energy in the UK. Unlike traditional fixed or standard variable tariffs, Agile Octopus prices change every 30 minutes based on wholesale electricity market conditions.
+                </p>
+                <p class="mb-3">
+                    This means electricity prices can be:
                 </p>
                 <ul>
                     <li><strong>Cheaper</strong> during periods of low demand or high renewable generation</li>
                     <li><strong>More expensive</strong> during peak demand times</li>
-                    <li><strong>Negative</strong> on rare occasions when you're paid to consume electricity</li>
+                    <li><strong>Negative</strong> on rare occasions, meaning you may be paid to use electricity</li>
                 </ul>
+                <p class="mb-0">
+                    Agile Octopus rewards households that can shift electricity usage to cheaper periods.
+                </p>
             </div>
         </div>
     </section>
@@ -34,61 +80,19 @@
             <div class="card-body">
                 <h2 class="h4 mb-3">Where Does the Data Come From?</h2>
                 <p>
-                    All pricing data is fetched directly from <strong>Octopus Energy's public API</strong>:
+                    All pricing data shown on this site comes directly from Octopus Energy's official public API.
                 </p>
-                <ul>
-                    <li>Data source: <code>https://api.octopus.energy/v1/</code></li>
-                    <li>Update frequency: Every 30 minutes (half-hourly pricing)</li>
-                    <li>Coverage: All 14 UK electricity regions</li>
-                    <li>Pricing: Includes VAT, displayed in pence per kWh</li>
+                <ul class="mb-3">
+                    <li><strong>Data source:</strong> Octopus Energy public API</li>
+                    <li><strong>Update frequency:</strong> Every 30 minutes (half-hourly pricing)</li>
+                    <li><strong>Coverage:</strong> All 14 UK electricity regions</li>
+                    <li><strong>Pricing:</strong> Unit rates include VAT and are shown in pence per kWh</li>
                 </ul>
                 <p class="mb-0">
-                    We cache API responses for 15 minutes to reduce load on Octopus Energy's servers while ensuring data freshness.
+                    To balance accuracy and performance, API responses are cached for 15 minutes, ensuring data remains fresh while minimising unnecessary requests to Octopus Energy's servers.
                 </p>
             </div>
         </div>
-    </section>
-    
-    <section class="mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="h4 mb-3">Who Is This Tool For?</h2>
-                <p>
-                    This tool is designed for <strong>UK households</strong> who:
-                </p>
-                <ul>
-                    <li>Are on or considering the <strong>Agile Octopus tariff</strong></li>
-                    <li>Have <strong>home battery storage</strong> (e.g., Tesla Powerwall, GivEnergy, Solax)</li>
-                    <li>Have <strong>solar panels</strong> (optional, but common)</li>
-                    <li>Want to <strong>optimise charging times</strong> to minimise electricity costs</li>
-                </ul>
-                <p class="mb-0">
-                    The tool helps you identify the cheapest times to charge your battery, potentially saving money on your electricity bills.
-                </p>
-            </div>
-        </div>
-    </section>
-    
-    <section class="mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h2 class="h4 mb-3">What Can You Do?</h2>
-                <ul>
-                    <li><strong>Find the lowest 30-minute price:</strong> Identify the single cheapest half-hour slot</li>
-                    <li><strong>Calculate cheapest charging blocks:</strong> Find the best continuous period for charging (0.5 to 6 hours)</li>
-                    <li><strong>Estimate costs:</strong> Calculate how much it will cost to charge your battery</li>
-                    <li><strong>View price charts:</strong> See price trends throughout the day</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <section class="mb-4">
-        {% include 'components/_feature_voting.html' %}
-    </section>
-
-    <section class="mb-4">
-        {% include 'components/_feature_suggestion.html' %}
     </section>
     
     <section class="mb-4">
@@ -104,18 +108,24 @@
         </div>
     </section>
     
-    <section>
-        <div class="text-center">
-            {% if came_from_prices and prices_url %}
-            <a href="{{ prices_url }}" class="btn btn-primary btn-lg me-2">Back to Prices</a>
-            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg">Home</a>
-            {% else %}
-            <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-lg me-2">Get Started</a>
-            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg">Back to Home</a>
-            {% endif %}
+    <section class="mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Help Shape Future Features</h2>
+                <p>
+                    Agile Pricing is actively evolving. You can help prioritise future features by voting on ideas directly on the site.
+                </p>
+                <p class="mb-0">
+                    If you have another suggestion, you can also submit your own feature idea — your feedback helps guide future development.
+                </p>
+            </div>
         </div>
     </section>
     
+    <!-- Feature Voting Component -->
+    {% include 'components/_feature_voting.html' %}
+
+    {% include 'components/_feature_suggestion.html' %}
+
 </article>
 {% endblock %}
-

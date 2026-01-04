@@ -8,86 +8,21 @@
         <h1 class="mb-4">Agile Octopus Prices</h1>
     </header>
     
-    <!-- Section 1: User Inputs -->
     <section class="mb-4">
-        
         <!-- Product Info -->
         {% if product_code and product_name %}
         <div class="alert alert-info mb-3">
             <strong>Using tariff:</strong> {{ product_code }} — {{ product_name }}
         </div>
         {% endif %}
-        
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
-                    {% if agile_products and agile_products|length > 1 %}
-                    <div class="col-md-3">
-                        <label for="product" class="form-label">Agile Tariff Version</label>
-                        <select class="form-select" id="product" name="product" required aria-describedby="product-help">
-                            {% for p in agile_products %}
-                            <option value="{{ p.code }}" {% if p.code == product_code %}selected{% endif %}>
-                                {{ p.code }} — {{ p.full_name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small id="product-help" class="form-text text-muted sr-only">Select the Agile tariff version</small>
-                    </div>
-                    {% else %}
-                    <input type="hidden" name="product" value="{{ product_code }}">
-                    {% endif %}
-                    
-                    <div class="col-md-3">
-                        <label for="region" class="form-label">Region</label>
-                        <select class="form-select" id="region" name="region" required aria-describedby="region-help">
-                            {% for r in regions %}
-                            <option value="{{ r.region }}" {% if r.region == region %}selected{% endif %}>
-                                {{ r.region }} - {{ r.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <small id="region-help" class="form-text text-muted sr-only">Select your energy pricing region</small>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label for="duration" class="form-label">Charging Duration (hours)</label>
-                        <input type="number" 
-                               class="form-control" 
-                               id="duration" 
-                               name="duration" 
-                               value="{{ duration }}" 
-                               step="0.5" 
-                               min="0.5" 
-                               max="6.0" 
-                               required
-                               inputmode="decimal"
-                               aria-describedby="duration-help">
-                        <small id="duration-help" class="text-muted form-text">Supports decimals (e.g., 3.5)</small>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label for="capacity" class="form-label">Battery Capacity (kWh) <span class="text-muted">(optional)</span></label>
-                        <input type="number" 
-                               class="form-control" 
-                               id="capacity" 
-                               name="capacity" 
-                               value="{{ capacity if capacity else '' }}" 
-                               step="0.1" 
-                               min="0.1" 
-                               placeholder="e.g., 10.0"
-                               inputmode="decimal"
-                               aria-describedby="capacity-help">
-                        <small id="capacity-help" class="text-muted form-text">Enter your battery capacity in kilowatt-hours</small>
-                    </div>
-                    
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Update</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Daily Average Price -->
+    </section>
+    
+    <!-- Section 2: Cheapest Blocks -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
+
+
+        <!-- Daily Average Price -->        <!-- Daily Average Price -->
         {% if daily_average_price %}
         <div class="card border-secondary mb-4">
             <div class="card-body">
@@ -98,11 +33,7 @@
             </div>
         </div>
         {% endif %}
-    </section>
-    
-    <!-- Section 2: Cheapest Blocks -->
-    <section class="mb-4">
-        <h2 class="h5 mb-3">Cheapest Charging Options</h2>
+
         <div class="row">
             <!-- Lowest Price -->
             {% if lowest_price %}
@@ -217,10 +148,85 @@
         </div>
     </section>
     
-    <!-- Section 5: Feature Voting -->
+    <!-- Section 1: User Inputs -->
     <section class="mb-4">
-        {% include 'components/_feature_voting.html' %}
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Change Charging, Battery Capacity and Region Options</h2>
+                <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
+
+                    <div class="col-md-3">
+                        <label for="duration" class="form-label">Charging Duration (hours)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="duration" 
+                               name="duration" 
+                               value="{{ duration }}" 
+                               step="0.5" 
+                               min="0.5" 
+                               max="6.0" 
+                               required
+                               inputmode="decimal"
+                               aria-describedby="duration-help">
+                        <small id="duration-help" class="text-muted form-text">Supports decimals (e.g., 3.5)</small>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label for="capacity" class="form-label">Add your Battery Capacity (kWh)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="capacity" 
+                               name="capacity" 
+                               value="{{ capacity if capacity else '' }}" 
+                               step="0.1" 
+                               min="0.1" 
+                               placeholder="e.g., 10.0"
+                               inputmode="decimal"
+                               aria-describedby="capacity-help">
+                        <small id="capacity-help" class="text-muted form-text">Enter your battery capacity in kilowatt-hours</small>
+                    </div>
+
+                    {% if agile_products and agile_products|length > 1 %}
+                    <div class="col-md-3">
+                        <label for="product" class="form-label">Agile Tariff Version</label>
+                        <select class="form-select" id="product" name="product" required aria-describedby="product-help">
+                            {% for p in agile_products %}
+                            <option value="{{ p.code }}" {% if p.code == product_code %}selected{% endif %}>
+                                {{ p.code }} — {{ p.full_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small id="product-help" class="form-text text-muted sr-only">Select the Agile tariff version</small>
+                    </div>
+                    {% else %}
+                    <input type="hidden" name="product" value="{{ product_code }}">
+                    {% endif %}
+                    
+                    <div class="col-md-3">
+                        <label for="region" class="form-label">Change  Region</label>
+                        <select class="form-select" id="region" name="region" required aria-describedby="region-help">
+                            {% for r in regions %}
+                            <option value="{{ r.region }}" {% if r.region == region %}selected{% endif %}>
+                                {{ r.region }} - {{ r.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small id="region-help" class="form-text text-muted sr-only">Select your energy pricing region</small>
+                    </div>
+                    
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
     </section>
+
+    {% include 'components/_feature_voting.html' %}
+
+    {% include 'components/_stats_2025_regional.html' %}
 
     <!-- Section 3: Price Chart -->
     <section class="mb-4">
@@ -298,9 +304,7 @@
         {% endif %}
     </section>
 
-    <section class="mb-4">
-        {% include 'components/_feature_suggestion.html' %}
-    </section>
+    {% include 'components/_feature_suggestion.html' %}
     
 </article>
 {% endblock %}

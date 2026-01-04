@@ -1,0 +1,39 @@
+{
+  "year": 2025,
+  "region_code": "D",
+  "product_code": "AGILE-24-10-01",
+  "calculation_date": "2026-01-04T07:05:34.681863+00:00",
+  "days_processed": 364,
+  "days_failed": 1,
+  "cheapest_block": {
+    "block_hours": 3.5,
+    "avg_price_p_per_kwh": 15.42
+  },
+  "daily_average": {
+    "avg_price_p_per_kwh": 18.75
+  },
+  "savings_vs_daily_average": {
+    "savings_p_per_kwh": 3.33,
+    "savings_percentage": 17.76,
+    "annual_saving_gbp": 46.8
+  },
+  "price_cap_comparison": {
+    "cap_price_p_per_kwh": 28.6,
+    "savings_p_per_kwh": 13.18,
+    "annual_saving_gbp": 185.18
+  },
+  "negative_pricing": {
+    "total_negative_slots": 52,
+    "total_negative_hours": 26.0,
+    "avg_negative_price_p_per_kwh": 1.13,
+    "total_paid_gbp": 1.03,
+    "avg_payment_per_day_gbp": 0.003
+  },
+  "assumptions": {
+    "daily_kwh": 11.0,
+    "battery_charge_power_kw": 3.5,
+    "cheapest_block_usage_percent": 35.0,
+    "usage_shifted_to_cheapest_blocks": true,
+    "usage_limited_to_negative_slots": true
+  }
+}

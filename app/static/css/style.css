@@ -188,6 +188,11 @@ p {
     max-width: 65ch; /* Comfortable reading width */
 }
 
+/* Lead paragraphs should use full width on desktop */
+.lead {
+    max-width: 100%;
+}
+
 /* Container padding for mobile */
 .container {
     padding-left: 1rem;

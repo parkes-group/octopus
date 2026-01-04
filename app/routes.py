@@ -13,6 +13,7 @@ from app.vote_manager import VoteManager
 from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -106,14 +107,17 @@ def index():
             # Single product, use auto-selected one
             selected_product_code = agile_products[0]['code'] if len(agile_products) == 1 else None
         
+        # Get the last postcode from session (for comparison)
+        last_postcode = session.get('last_postcode_index', '')
+        
         # Check if postcode has changed from what was previously submitted
         postcode_changed = False
-        if submitted_postcode and form_postcode:
+        if last_postcode and form_postcode:
             # Normalize both for comparison
-            normalized_previous = normalize_postcode(submitted_postcode) if submitted_postcode else ''
+            normalized_previous = normalize_postcode(last_postcode) if last_postcode else ''
             normalized_current = normalize_postcode(form_postcode) if form_postcode else ''
             postcode_changed = normalized_current != normalized_previous
-        elif form_postcode and not submitted_postcode:
+        elif form_postcode and not last_postcode:
             # New postcode entered (no previous submission)
             postcode_changed = True
         
@@ -122,6 +126,8 @@ def index():
             # Validate region exists
             if any(r['region'] == submitted_region for r in regions_list):
                 logger.info(f"Region {submitted_region} selected manually")
+                # Clear the stored postcode since we're redirecting
+                session.pop('last_postcode_index', None)
                 return redirect(url_for('main.prices', region=submitted_region, product=selected_product_code))
             else:
                 error_message = "Invalid region selected. Please try again."
@@ -144,15 +150,21 @@ def index():
                     logger.info(f"No region found for postcode: {normalized_postcode}")
                     error_message = f"No region found for postcode '{submitted_postcode}'. Please select your region below."
                     show_region_dropdown = True
+                    # Store the postcode in session for comparison on next submission
+                    session['last_postcode_index'] = normalized_postcode
                 elif isinstance(region_result, str):
                     # Single region: redirect to prices page with product
                     logger.debug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
+                    # Clear the stored postcode since we're redirecting
+                    session.pop('last_postcode_index', None)
                     return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
                 elif isinstance(region_result, list):
                     # Multiple regions: show dropdown with matching regions only
                     logger.debug(f"Postcode {normalized_postcode} mapped to multiple regions: {region_result}")
                     error_message = f"Postcode '{submitted_postcode}' matches multiple regions. Please select your region below:"
                     show_region_dropdown = True
+                    # Store the postcode in session for comparison on next submission
+                    session['last_postcode_index'] = normalized_postcode
                     # Filter regions list to only show matching regions
                     matching_regions = [r for r in regions_list if r['region'] in region_result]
                     if matching_regions:
@@ -163,15 +175,25 @@ def index():
                     logger.warning(f"Unexpected return type from lookup_region_from_postcode: {type(region_result)}")
                     error_message = f"Unable to process postcode '{submitted_postcode}'. Please select your region below."
                     show_region_dropdown = True
+                    # Store the postcode in session for comparison on next submission
+                    if form_postcode:
+                        session['last_postcode_index'] = normalized_postcode
                     
             except Exception as e:
                 # API error: show region dropdown
                 logger.error(f"Error looking up postcode {normalized_postcode}: {e}", exc_info=True)
                 error_message = f"Unable to look up postcode '{submitted_postcode}'. Please select your region below."
                 show_region_dropdown = True
+                # Store the postcode in session for comparison on next submission
+                if form_postcode:
+                    session['last_postcode_index'] = normalized_postcode
         elif request.method == 'POST':
             # Form validation failed or missing product
             submitted_postcode = request.form.get('postcode', '')
+    
+    # Load 2025 statistics for display (national averages)
+    from app.stats_loader import StatsLoader
+    stats_2025 = StatsLoader.get_stats_for_display(region_code='national')
     
     # Render template
     return render_template('index.html',
@@ -185,6 +207,7 @@ def index():
                          show_product_dropdown=show_product_dropdown,
                          error=error_message,
                          submitted_postcode=submitted_postcode,
+                         stats_2025=stats_2025,
                          page_name='index')
 
 @bp.route('/prices')
@@ -345,6 +368,10 @@ def prices():
         'capacity': capacity
     }
     
+    # Load 2025 statistics for display (use selected region)
+    from app.stats_loader import StatsLoader
+    stats_2025 = StatsLoader.get_stats_for_display(region_code=region)
+    
     return render_template('prices.html',
                          region=region,
                          product_code=product_code,
@@ -362,6 +389,7 @@ def prices():
                          daily_average_price=daily_average_price,
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,
+                         stats_2025=stats_2025,
                          current_time_uk=uk_now,
                          page_name='prices')
 
@@ -666,3 +694,107 @@ def get_feature_votes():
     except Exception as e:
         logger.error(f"Error getting vote percentages: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
+
+@bp.route('/admin/generate-stats', methods=['POST'])
+def generate_stats():
+    """
+    Admin-only route to generate 2025 historical statistics.
+    Requires password authentication via query parameter or environment variable.
+    
+    If region_code is not supplied, generates stats for all regions and then creates national averages.
+    """
+    from app.stats_calculator import StatsCalculator
+    
+    # Simple password check (in production, use proper authentication)
+    admin_password = request.args.get('password') or request.form.get('password')
+    expected_password = current_app.config.get('ADMIN_STATS_PASSWORD') or os.environ.get('ADMIN_STATS_PASSWORD')
+    
+    if not expected_password:
+        logger.warning("Admin stats password not configured")
+        return jsonify({'error': 'Admin access not configured'}), 403
+    
+    if not admin_password or admin_password != expected_password:
+        logger.warning("Unauthorized attempt to generate stats")
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        # Get parameters
+        product_code = request.args.get('product_code') or request.form.get('product_code') or Config.OCTOPUS_PRODUCT_CODE
+        region_code = request.args.get('region_code') or request.form.get('region_code')
+        year = int(request.args.get('year') or request.form.get('year') or 2025)
+        
+        if year != 2025:
+            return jsonify({'error': 'Only 2025 statistics are supported'}), 400
+        
+        # If no region_code specified, generate for all regions
+        if not region_code:
+            logger.info(f"Starting stats generation for ALL regions: {product_code} (year {year})")
+            
+            region_codes = list(Config.OCTOPUS_REGION_NAMES.keys())
+            generated_files = []
+            failed_regions = []
+            
+            # Generate stats for each region
+            for region in region_codes:
+                try:
+                    logger.info(f"Processing region {region} ({Config.OCTOPUS_REGION_NAMES.get(region, 'Unknown')})")
+                    stats_data = StatsCalculator.calculate_2025_stats(
+                        product_code=product_code,
+                        region_code=region
+                    )
+                    filepath = StatsCalculator.save_stats(stats_data)
+                    generated_files.append({
+                        'region': region,
+                        'filepath': str(filepath)
+                    })
+                    logger.info(f"Completed region {region}")
+                except Exception as e:
+                    logger.error(f"Error generating stats for region {region}: {e}", exc_info=True)
+                    failed_regions.append(region)
+            
+            # Calculate national averages from all regional stats
+            logger.info("Calculating national averages from regional statistics")
+            try:
+                national_stats = StatsCalculator.calculate_national_averages(
+                    product_code=product_code,
+                    year=year
+                )
+                if national_stats:
+                    national_filepath = StatsCalculator.save_national_stats(national_stats, year=year)
+                    logger.info(f"National averages saved to {national_filepath}")
+                else:
+                    logger.warning("Failed to calculate national averages")
+            except Exception as e:
+                logger.error(f"Error calculating national averages: {e}", exc_info=True)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Statistics generated for {len(generated_files)} regions',
+                'generated_files': generated_files,
+                'failed_regions': failed_regions,
+                'national_averages_generated': national_stats is not None if 'national_stats' in locals() else False
+            }), 200
+        
+        else:
+            # Single region specified
+            logger.info(f"Starting stats generation for {product_code} region {region_code} (year {year})")
+            
+            # Calculate statistics
+            stats_data = StatsCalculator.calculate_2025_stats(
+                product_code=product_code,
+                region_code=region_code
+            )
+            
+            # Save to file
+            filepath = StatsCalculator.save_stats(stats_data)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Statistics generated successfully',
+                'filepath': str(filepath),
+                'stats': stats_data
+            }), 200
+        
+    except Exception as e:
+        logger.error(f"Error generating statistics: {e}", exc_info=True)
+        return jsonify({'error': f'Error generating statistics: {str(e)}'}), 500

@@ -17,15 +17,16 @@ def setup_logging(app):
     log_dir.mkdir(exist_ok=True)
     
     # Set logging level based on config
-    log_level = getattr(app.config, 'LOG_LEVEL', 'INFO')
-    app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+    log_level_str = app.config.get('LOG_LEVEL', 'INFO')
+    log_level = getattr(logging, log_level_str.upper(), logging.INFO)
+    app.logger.setLevel(log_level)
     
     # Console logging (always enabled for visibility)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
     ))
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(log_level)
     app.logger.addHandler(console_handler)
     
     # File logging with daily rotation (rotates at midnight)
@@ -41,7 +42,7 @@ def setup_logging(app):
     file_handler.setFormatter(logging.Formatter(
         '%(asctime)s [%(levelname)s] %(name)s: %(message)s [in %(pathname)s:%(lineno)d]'
     ))
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(log_level)
     app.logger.addHandler(file_handler)
     
     # Clean up old log files (older than 5 days) on startup

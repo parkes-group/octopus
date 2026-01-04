@@ -2,6 +2,8 @@
 Tests for application routes.
 """
 import pytest
+import os
+from pathlib import Path
 from unittest.mock import patch, Mock
 from app.routes import bp
 
@@ -102,4 +104,141 @@ class TestRoutes:
         
         assert response.status_code == 302  # Redirect
         assert '/prices' not in response.location or response.location.endswith('/')
+    
+    @patch('app.routes.VoteManager.record_vote')
+    @patch('app.routes.VoteManager.get_vote_percentages')
+    def test_feature_vote_success(self, mock_percentages, mock_record, client):
+        """Test successful feature vote."""
+        mock_record.return_value = {'daily_cheapest_email': 5}
+        mock_percentages.return_value = {
+            'daily_cheapest_email': {'count': 5, 'percentage': 83.3},
+            'negative_price_alert': {'count': 1, 'percentage': 16.7}
+        }
+        
+        response = client.post('/feature-vote',
+                             json={'feature': 'daily_cheapest_email'},
+                             content_type='application/json')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert data['feature'] == 'daily_cheapest_email'
+        mock_record.assert_called_once_with('daily_cheapest_email')
+    
+    def test_feature_vote_missing_feature(self, client):
+        """Test feature vote with missing feature ID."""
+        response = client.post('/feature-vote',
+                             json={},
+                             content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_feature_vote_invalid_feature(self, client):
+        """Test feature vote with invalid feature ID."""
+        response = client.post('/feature-vote',
+                             json={'feature': 'invalid_feature'},
+                             content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    @patch('app.routes.VoteManager.save_suggestion')
+    def test_feature_suggestion_success(self, mock_save, client):
+        """Test successful feature suggestion submission."""
+        mock_save.return_value = True
+        
+        response = client.post('/feature-suggestion',
+                             json={'suggestion': 'Add SMS notifications'},
+                             content_type='application/json')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        mock_save.assert_called_once()
+    
+    def test_feature_suggestion_empty(self, client):
+        """Test feature suggestion with empty text."""
+        response = client.post('/feature-suggestion',
+                             json={'suggestion': ''},
+                             content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    def test_feature_suggestion_too_long(self, client):
+        """Test feature suggestion with text exceeding max length."""
+        long_text = 'A' * 201  # Exceeds MAX_SUGGESTION_LENGTH (200)
+        
+        response = client.post('/feature-suggestion',
+                             json={'suggestion': long_text},
+                             content_type='application/json')
+        
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'error' in data
+    
+    @patch('app.routes.VoteManager.get_vote_percentages')
+    def test_get_feature_votes(self, mock_percentages, client):
+        """Test getting feature vote percentages."""
+        mock_percentages.return_value = {
+            'daily_cheapest_email': {'count': 5, 'percentage': 83.3},
+            'negative_price_alert': {'count': 1, 'percentage': 16.7}
+        }
+        
+        response = client.get('/feature-votes')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        assert 'percentages' in data
+        assert 'daily_cheapest_email' in data['percentages']
+    
+    @patch('app.stats_calculator.StatsCalculator.calculate_2025_stats')
+    @patch('app.stats_calculator.StatsCalculator.save_stats')
+    def test_admin_generate_stats_single_region(self, mock_save, mock_calc, client, app):
+        """Test admin stats generation for a single region."""
+        # Set password in app config
+        app.config['ADMIN_STATS_PASSWORD'] = 'test_password'
+        
+        mock_calc.return_value = {
+            'year': 2025,
+            'region_code': 'A',
+            'cheapest_block': {'avg_price_p_per_kwh': 14.0},
+            'daily_average': {'avg_price_p_per_kwh': 18.0}
+        }
+        mock_save.return_value = Path('data/stats/A_2025.json')
+        
+        # Password can be in query string or form data, not JSON
+        response = client.post('/admin/generate-stats?password=test_password',
+                              data={
+                                  'product_code': 'AGILE-24-10-01',
+                                  'region_code': 'A'
+                              },
+                              content_type='application/x-www-form-urlencoded')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['success'] is True
+        mock_calc.assert_called_once()
+        mock_save.assert_called_once()
+    
+    def test_admin_generate_stats_invalid_password(self, client, app):
+        """Test admin stats generation with invalid password."""
+        # Set password in app config
+        app.config['ADMIN_STATS_PASSWORD'] = 'correct_password'
+        
+        response = client.post('/admin/generate-stats?password=wrong_password',
+                              data={
+                                  'product_code': 'AGILE-24-10-01',
+                                  'region_code': 'A'
+                              },
+                              content_type='application/x-www-form-urlencoded')
+        
+        assert response.status_code == 403  # Route returns 403, not 401
+        data = response.get_json()
+        assert 'error' in data
 

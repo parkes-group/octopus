@@ -4,7 +4,12 @@
 
 {% block content %}
 <article>
-
+    <header>
+        <h1 class="mb-4">Octopus Agile Pricing</h1>
+        <p class="lead">
+            Agile Pricing shows today’s Agile Octopus half-hourly electricity prices, helping UK households find the cheapest times to use energy. Using official Octopus Energy data, we highlight low-cost and negative-price periods so you can optimise battery charging, EV charging, and flexible usage. Enter your postcode to see accurate Agile pricing for your region.
+        </p>
+    </header>
     
     <section>
         <div class="row justify-content-center">
@@ -99,5 +104,10 @@
             </div>
         </div>
     </section>
+
+    <br>
+    <!-- 2025 Statistics -->
+    {% include 'components/_stats_2025.html' %}
+
 </article>
 {% endblock %}

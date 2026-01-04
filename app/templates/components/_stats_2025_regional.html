@@ -1,0 +1,90 @@
+{% if stats_2025 and region and regions %}
+{% for r in regions %}
+{% if r.region == region %}
+<section class="mb-4">
+    <h2 class="h5 mb-3">2025 Historical Statistics for {{ r.name }} (Region {{ region }})</h2>
+    <div class="row g-3">
+        
+        <!-- Negative Pricing -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Free Electricity</h3>
+                    <p class="h4 mb-1 text-info">
+                        {{ "%.1f"|format(stats_2025.negative_pricing.total_hours) }} hours
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Average Cheapest Block Price -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Avg Cheapest 3.5h Price</h3>
+                    <p class="h4 mb-1">
+                        {{ "%.2f"|format(stats_2025.cheapest_block_price) }}<small class="text-muted">p/kWh</small>
+                    </p>
+                    <p class="small text-muted mb-0">
+                        vs {{ "%.2f"|format(stats_2025.daily_average_price) }}p/kWh<br>
+                        daily average
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Savings vs Daily Average -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Potential Annual Savings</h3>
+                    <p class="h4 mb-1 text-success">
+                        £{{ "%.2f"|format(stats_2025.savings_vs_daily_avg) }}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        vs daily average<br>
+                        <span class="text-success">{{ "%.1f"|format(stats_2025.savings_vs_daily_avg_pct) }}%</span> cheaper
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Savings vs Price Cap -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">vs Price Cap</h3>
+                    <p class="h4 mb-1 text-primary">
+                        £{{ "%.2f"|format(stats_2025.savings_vs_cap) }}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        could have been saved<br>
+                        using cheapest blocks
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+        
+    </div>
+    
+    <!-- Assumptions Note -->
+    <div class="alert alert-secondary mt-3 mb-0" role="note">
+        <small>
+            <strong>Note:</strong> These statistics are specific to {{ r.name }} (Region {{ region }}) based on 2025 data and assume:
+            <ul class="mb-0 mt-2">
+                <li>Daily usage of {{ "%.1f"|format(stats_2025.assumptions.daily_kwh) }} kWh (4,015 kWh / year)</li>
+                <li>{{ "%.0f"|format(stats_2025.assumptions.get('cheapest_block_usage_percent', 35.0)) }}% of daily usage in cheapest 3.5h blocks</li>
+                <li>Battery charge rate of {{ "%.1f"|format(stats_2025.assumptions.battery_charge_power_kw) }} kW for negative pricing</li>
+                <li>Price cap of {{ "%.2f"|format(stats_2025.price_cap) }}p/kWh (excluding standing charge)</li>
+            </ul>
+            <em>These are illustrative calculations only. Actual savings depend on your usage patterns and equipment.</em>
+        </small>
+    </div>
+</section>
+{% endif %}
+{% endfor %}
+{% endif %}
+
