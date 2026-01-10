@@ -61,11 +61,17 @@
                         </div>
                         <div class="card-body">
                             <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
-                            <p class="mb-0">
+                            <p class="mb-1">
                                 <strong>Time:</strong> 
                                 {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
                                 {{ day_data.lowest_price.time_to_uk.strftime('%H:%M') }}
                             </p>
+                            {% set lowest_price_end_uk = day_data.lowest_price.time_to_uk %}
+                            {% if lowest_price_end_uk < current_time_uk %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                            {% else %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -178,11 +184,17 @@
                                 </div>
                                 <div class="card-body">
                                     <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
-                                    <p class="mb-0">
+                                    <p class="mb-1">
                                         <strong>Time:</strong> 
                                         {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
                                         {{ day_data.lowest_price.time_to_uk.strftime('%H:%M') }}
                                     </p>
+                                    {% set lowest_price_end_uk = day_data.lowest_price.time_to_uk %}
+                                    {% if lowest_price_end_uk < current_time_uk %}
+                                    <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                                    {% else %}
+                                    <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
