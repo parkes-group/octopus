@@ -98,4 +98,43 @@ class TestPriceCalculator:
         assert len(result['labels']) == 2
         assert result['prices'][0] == 16.0
         assert result['prices'][1] == 18.0
+    
+    def test_calculate_daily_averages_by_date_single_day(self):
+        """Test calculating daily averages for single day."""
+        prices = [
+            {'value_inc_vat': 16.0, 'valid_from': '2024-01-15T00:00:00Z', 'valid_to': '2024-01-15T00:30:00Z'},
+            {'value_inc_vat': 18.0, 'valid_from': '2024-01-15T00:30:00Z', 'valid_to': '2024-01-15T01:00:00Z'},
+            {'value_inc_vat': 20.0, 'valid_from': '2024-01-15T01:00:00Z', 'valid_to': '2024-01-15T01:30:00Z'}
+        ]
+        
+        result = PriceCalculator.calculate_daily_averages_by_date(prices)
+        
+        assert len(result) == 1
+        assert result[0]['date'] == '2024-01-15'
+        assert result[0]['date_display'] == '15/01/24'
+        assert result[0]['average_price'] == 18.0  # (16 + 18 + 20) / 3
+    
+    def test_calculate_daily_averages_by_date_two_days(self):
+        """Test calculating daily averages for two calendar days."""
+        prices = [
+            {'value_inc_vat': 10.0, 'valid_from': '2024-01-15T23:00:00Z', 'valid_to': '2024-01-15T23:30:00Z'},
+            {'value_inc_vat': 12.0, 'valid_from': '2024-01-16T00:00:00Z', 'valid_to': '2024-01-16T00:30:00Z'},
+            {'value_inc_vat': 14.0, 'valid_from': '2024-01-16T00:30:00Z', 'valid_to': '2024-01-16T01:00:00Z'},
+            {'value_inc_vat': 16.0, 'valid_from': '2024-01-16T01:00:00Z', 'valid_to': '2024-01-16T01:30:00Z'}
+        ]
+        
+        result = PriceCalculator.calculate_daily_averages_by_date(prices)
+        
+        assert len(result) == 2
+        assert result[0]['date'] == '2024-01-15'
+        assert result[0]['date_display'] == '15/01/24'
+        assert result[0]['average_price'] == 10.0  # Single price for day 1
+        assert result[1]['date'] == '2024-01-16'
+        assert result[1]['date_display'] == '16/01/24'
+        assert result[1]['average_price'] == 14.0  # (12 + 14 + 16) / 3
+    
+    def test_calculate_daily_averages_by_date_empty(self):
+        """Test with empty price list."""
+        result = PriceCalculator.calculate_daily_averages_by_date([])
+        assert result == []
 

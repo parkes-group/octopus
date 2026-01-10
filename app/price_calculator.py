@@ -178,7 +178,10 @@ class PriceCalculator:
     @staticmethod
     def calculate_daily_average_price(prices):
         """
-        Calculate the average price for all prices in the day.
+        Calculate the average price for all prices (deprecated for multi-day data).
+        
+        NOTE: This method calculates across ALL prices regardless of calendar day.
+        For per-day calculations, use calculate_daily_averages_by_date() instead.
         
         Args:
             prices: List of price dictionaries with 'value_inc_vat'
@@ -196,6 +199,57 @@ class PriceCalculator:
         except (KeyError, TypeError, ZeroDivisionError) as e:
             logger.error(f"Error calculating daily average price: {e}")
             return None
+    
+    @staticmethod
+    def calculate_daily_averages_by_date(prices):
+        """
+        Calculate daily average prices grouped by UK calendar date.
+        
+        Groups price data by physical calendar day (UK local date) and calculates
+        one average per date. Supports up to 2 calendar days of pricing data.
+        
+        Args:
+            prices: List of price dictionaries with 'value_inc_vat' and 'valid_from'
+        
+        Returns:
+            list: List of dicts with 'date' (YYYY-MM-DD), 'date_display' (DD/MM/YY), 
+                  'average_price' (float). Empty list if no prices.
+        """
+        if not prices:
+            return []
+        
+        from collections import defaultdict
+        
+        # Group prices by UK calendar date
+        prices_by_date = defaultdict(list)
+        for price in prices:
+            try:
+                dt_uk = utc_to_uk(price['valid_from'])
+                date_key = dt_uk.date()
+                prices_by_date[date_key].append(price)
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Error processing price for date grouping: {e}")
+                continue
+        
+        daily_averages = []
+        for date_obj in sorted(prices_by_date.keys()):
+            date_prices = prices_by_date[date_obj]
+            try:
+                total_price = sum(p['value_inc_vat'] for p in date_prices)
+                avg_price = total_price / len(date_prices)
+                
+                # Format date for display (DD/MM/YY)
+                date_display = date_obj.strftime('%d/%m/%y')
+                daily_averages.append({
+                    'date': date_obj.strftime('%Y-%m-%d'),
+                    'date_display': date_display,
+                    'average_price': round(avg_price, 2)
+                })
+            except (KeyError, TypeError, ZeroDivisionError) as e:
+                logger.warning(f"Error calculating average for date {date_obj}: {e}")
+                continue
+        
+        return daily_averages
     
     @staticmethod
     def calculate_charging_cost(average_price, battery_capacity_kwh):

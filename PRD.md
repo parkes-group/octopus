@@ -67,7 +67,7 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 7. ✅ Identify lowest single 30-minute price
 8. ✅ Calculate absolute cheapest continuous block for user-selected duration (0.5-6 hours, supports decimals e.g., 3.5 hours) across all prices for the day
 9. ✅ Calculate cheapest remaining (future) continuous block for user-selected duration (only considers time slots after current time)
-10. ✅ Display daily average price (average of all half-hour slots for the day)
+10. ✅ Display daily average price(s) - calculates one average per UK calendar day. If prices span two days, displays two averages with date labels
 11. ✅ Cost estimation based on user-provided kWh (uses future block if available, otherwise absolute block)
 12. ✅ Visual price chart (Chart.js) with visual distinction between absolute and future cheapest blocks and accessible text alternatives
 13. ✅ Region summary comparison page - compare prices across all UK regions (mobile cards / desktop table)
@@ -284,8 +284,11 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 - System MUST use timezone-aware datetime comparisons to distinguish past vs future slots
 
 **FR-5.1: Daily Average Price**
-- System MUST calculate the daily average price as the average of all half-hour slots for the current day
-- System MUST display the daily average price prominently on the prices page
+- System MUST calculate daily averages grouped by UK calendar date (physical day)
+- System MUST calculate one average per calendar day when prices span multiple days
+- System MUST display a single daily average when all prices belong to one calendar day
+- System MUST display multiple daily averages with date labels (e.g., "09/01/26 – 16.25 p/kWh") when prices span two calendar days
+- System MUST NOT combine prices from different calendar dates into a single average
 - System MUST use value_inc_vat consistently for all price calculations
 
 **FR-5.2: Region Summary Comparison**

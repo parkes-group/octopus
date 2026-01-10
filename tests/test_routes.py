@@ -35,9 +35,9 @@ class TestRoutes:
     @patch('app.routes.PriceCalculator.find_lowest_price')
     @patch('app.routes.PriceCalculator.find_cheapest_block')
     @patch('app.routes.PriceCalculator.find_future_cheapest_block')
-    @patch('app.routes.PriceCalculator.calculate_daily_average_price')
+    @patch('app.routes.PriceCalculator.calculate_daily_averages_by_date')
     @patch('app.routes.PriceCalculator.format_price_data')
-    def test_prices_route(self, mock_format, mock_daily_avg, mock_future_block, mock_block, mock_lowest, mock_cache, mock_get_prices, mock_cached, mock_products, client):
+    def test_prices_route(self, mock_format, mock_daily_avg_by_date, mock_future_block, mock_block, mock_lowest, mock_cache, mock_get_prices, mock_cached, mock_products, client):
         """Test prices route."""
         # Mock Agile products
         mock_products.return_value = [
@@ -88,7 +88,9 @@ class TestRoutes:
             'total_cost': 68.0,
             'slots': []
         }
-        mock_daily_avg.return_value = 18.5
+        mock_daily_avg_by_date.return_value = [
+            {'date': '2024-01-15', 'date_display': '15/01/24', 'average_price': 18.5}
+        ]
         mock_format.return_value = {'labels': ['00:00'], 'prices': [16.0], 'times': ['2024-01-15T00:00:00Z']}
         
         response = client.get('/prices?region=A&product=AGILE-24-10-01&duration=4.0')

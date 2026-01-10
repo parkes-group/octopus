@@ -22,14 +22,28 @@
         <h2 class="h5 mb-3">Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
 
 
-        <!-- Daily Average Price -->        <!-- Daily Average Price -->
-        {% if daily_average_price %}
+        <!-- Daily Average Price(s) -->
+        {% if daily_averages_by_date %}
         <div class="card border-secondary mb-4">
             <div class="card-body">
-                <p class="mb-0">
-                    <strong>Daily Average Price:</strong> 
-                    <span class="h4 text-secondary">{{ "%.2f"|format(daily_average_price) }} p/kWh</span>
-                </p>
+                {% if daily_averages_by_date|length == 1 %}
+                    <!-- Single day: display one average (backward compatible) -->
+                    <p class="mb-0">
+                        <strong>Daily Average Price:</strong> 
+                        <span class="h4 text-secondary">{{ "%.2f"|format(daily_averages_by_date[0].average_price) }} p/kWh</span>
+                    </p>
+                {% else %}
+                    <!-- Multiple days: display one average per date -->
+                    <p class="mb-2"><strong>Daily Average Prices:</strong></p>
+                    <ul class="mb-0 list-unstyled">
+                        {% for day_avg in daily_averages_by_date %}
+                        <li>
+                            <strong>{{ day_avg.date_display }}</strong> – 
+                            <span class="h5 text-secondary">{{ "%.2f"|format(day_avg.average_price) }} p/kWh</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
             </div>
         </div>
         {% endif %}

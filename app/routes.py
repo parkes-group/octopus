@@ -308,7 +308,13 @@ def prices():
     lowest_price = PriceCalculator.find_lowest_price(prices_data)
     absolute_cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration)
     future_cheapest_block = PriceCalculator.find_future_cheapest_block(prices_data, duration, current_time_utc)
-    daily_average_price = PriceCalculator.calculate_daily_average_price(prices_data)
+    
+    # Calculate daily averages grouped by calendar date (supports up to 2 days)
+    daily_averages_by_date = PriceCalculator.calculate_daily_averages_by_date(prices_data)
+    
+    # For backward compatibility with savings calculations, use first day's average
+    # (savings will be calculated per-day in future if needed)
+    daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
     
     # Calculate cost if capacity provided (use future block if available, otherwise absolute)
     estimated_cost = None
@@ -402,6 +408,7 @@ def prices():
                          absolute_cheapest_block_times=absolute_cheapest_block_times,
                          future_cheapest_block_times=future_cheapest_block_times,
                          daily_average_price=daily_average_price,
+                         daily_averages_by_date=daily_averages_by_date,
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,
                          stats_2025=stats_2025,
