@@ -18,6 +18,7 @@ A Flask web application that helps UK households with solar panels and home batt
 - **Region Summary Comparison** - Compare prices across all UK regions in one view (mobile cards / desktop table)
 - **Feature Interest Voting** - Configuration-driven inline voting component with percentage results and optional feature suggestions
 - **2025 Historical Statistics** - Data-driven analysis showing potential savings, price cap comparisons, and negative pricing opportunities
+- **Region Usage Analytics** - Anonymous region request tracking for internal analytics (file-based, no personal data)
 - File-based JSON caching (pricing data NOT stored in database)
 - **Mobile-First Design** - Fully responsive, works on phones, tablets, and desktop
 - **Accessibility (WCAG-aligned)** - Semantic HTML, ARIA labels, keyboard navigation, screen reader support
@@ -107,8 +108,8 @@ octopus_app/
 ├── data/
 │   ├── raw/                  # Raw price data (full year per region)
 │   └── stats/                 # Calculated statistics (JSON files)
-│   └── data/                  # Historical statistics data
-│       └── stats/            # Pre-calculated statistics JSON files
+│       ├── {region}_2025.json  # Historical statistics per region
+│       └── region_request_counts.json  # Region usage analytics (auto-generated)
 ├── tests/                    # Unit tests
 ├── logs/                     # Application logs
 ├── requirements.txt          # Dependencies
@@ -344,6 +345,7 @@ Statistics are stored in `data/stats/` as JSON files:
   - `A_2025.json` - Region A statistics (used on prices page when region A is selected)
   - `B_2025.json` - Region B statistics (used on prices page when region B is selected)
   - `C_2025.json` - Region C statistics (used on prices page when region C is selected)
+  - `region_request_counts.json` - Region usage analytics (auto-generated when regions are used)
 
 Raw price data (optional, speeds up regeneration) is stored in `data/raw/`:
 - Format: `{region_code}_{year}.json`
