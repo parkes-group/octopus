@@ -61,6 +61,20 @@
                         </div>
                         <div class="card-body">
                             <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
+                            {% if daily_averages_map %}
+                                {% set block_date_iso = day_data.lowest_price.time_from_uk.date().strftime('%Y-%m-%d') %}
+                                {% if block_date_iso in daily_averages_map %}
+                                    {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                    {% set block_price = day_data.lowest_price.price %}
+                                    {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                    {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                    <p class="mb-1">
+                                        <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                            <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                        </small>
+                                    </p>
+                                {% endif %}
+                            {% endif %}
                             <p class="mb-1">
                                 <strong>Time:</strong> 
                                 {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
@@ -89,19 +103,19 @@
                                 <strong>Average price:</strong> 
                                 <span class="h4 text-warning">{{ "%.2f"|format(day_data.cheapest_block.average_price) }} p/kWh</span>
                             </p>
-                            {% set day_avg = daily_averages_by_date[0] if daily_averages_by_date else None %}
-                            {% if day_avg and day_data.cheapest_block.average_price < day_avg.average_price %}
-                            {% set abs_savings_pkwh = day_avg.average_price - day_data.cheapest_block.average_price %}
-                            {% set abs_savings_pct = (abs_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
-                            <p class="mb-1">
-                                <small class="text-success">
-                                    <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh ({{ "%.1f"|format(abs_savings_pct) }}%) vs daily average
-                                    {% if capacity %}
-                                        {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
-                                        <br>({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
-                                    {% endif %}
-                                </small>
-                            </p>
+                            {% if daily_averages_map %}
+                                {% set block_date_iso = day_data.cheapest_block.start_time_uk.date().strftime('%Y-%m-%d') %}
+                                {% if block_date_iso in daily_averages_map %}
+                                    {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                    {% set block_price = day_data.cheapest_block.average_price %}
+                                    {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                    {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                    <p class="mb-1">
+                                        <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                            <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                        </small>
+                                    </p>
+                                {% endif %}
                             {% endif %}
                             <p class="mb-1">
                                 <strong>Time:</strong> 
@@ -131,19 +145,19 @@
                                 <strong>Average price:</strong> 
                                 <span class="h4 text-info">{{ "%.2f"|format(day_data.cheapest_remaining_block.average_price) }} p/kWh</span>
                             </p>
-                            {% set day_avg = daily_averages_by_date[0] if daily_averages_by_date else None %}
-                            {% if day_avg and day_data.cheapest_remaining_block.average_price < day_avg.average_price %}
-                            {% set future_savings_pkwh = day_avg.average_price - day_data.cheapest_remaining_block.average_price %}
-                            {% set future_savings_pct = (future_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
-                            <p class="mb-1">
-                                <small class="text-success">
-                                    <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh ({{ "%.1f"|format(future_savings_pct) }}%) vs daily average
-                                    {% if capacity %}
-                                        {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
-                                        <br>({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
-                                    {% endif %}
-                                </small>
-                            </p>
+                            {% if daily_averages_map %}
+                                {% set block_date_iso = day_data.cheapest_remaining_block.start_time_uk.date().strftime('%Y-%m-%d') %}
+                                {% if block_date_iso in daily_averages_map %}
+                                    {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                    {% set block_price = day_data.cheapest_remaining_block.average_price %}
+                                    {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                    {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                    <p class="mb-1">
+                                        <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                            <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                        </small>
+                                    </p>
+                                {% endif %}
                             {% endif %}
                             <p class="mb-1">
                                 <strong>Time:</strong> 
@@ -184,6 +198,20 @@
                                 </div>
                                 <div class="card-body">
                                     <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
+                                    {% if daily_averages_map %}
+                                        {% set block_date_iso = day_data.lowest_price.time_from_uk.date().strftime('%Y-%m-%d') %}
+                                        {% if block_date_iso in daily_averages_map %}
+                                            {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                            {% set block_price = day_data.lowest_price.price %}
+                                            {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                            {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                            <p class="mb-1">
+                                                <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                                    <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                                </small>
+                                            </p>
+                                        {% endif %}
+                                    {% endif %}
                                     <p class="mb-1">
                                         <strong>Time:</strong> 
                                         {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
@@ -212,24 +240,19 @@
                                         <strong>Average price:</strong> 
                                         <span class="h4 text-warning">{{ "%.2f"|format(day_data.cheapest_block.average_price) }} p/kWh</span>
                                     </p>
-                                    {% set day_avg = None %}
-                                    {% for avg in daily_averages_by_date %}
-                                        {% if avg.date == day_data.date_iso %}
-                                            {% set day_avg = avg %}
+                                    {% if daily_averages_map %}
+                                        {% set block_date_iso = day_data.cheapest_block.start_time_uk.date().strftime('%Y-%m-%d') %}
+                                        {% if block_date_iso in daily_averages_map %}
+                                            {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                            {% set block_price = day_data.cheapest_block.average_price %}
+                                            {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                            {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                            <p class="mb-1">
+                                                <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                                    <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                                </small>
+                                            </p>
                                         {% endif %}
-                                    {% endfor %}
-                                    {% if day_avg and day_data.cheapest_block.average_price < day_avg.average_price %}
-                                    {% set abs_savings_pkwh = day_avg.average_price - day_data.cheapest_block.average_price %}
-                                    {% set abs_savings_pct = (abs_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
-                                    <p class="mb-1">
-                                        <small class="text-success">
-                                            <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh ({{ "%.1f"|format(abs_savings_pct) }}%) vs daily average
-                                            {% if capacity %}
-                                                {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
-                                                <br>({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
-                                            {% endif %}
-                                        </small>
-                                    </p>
                                     {% endif %}
                                     <p class="mb-1">
                                         <strong>Time:</strong> 
@@ -259,24 +282,19 @@
                                         <strong>Average price:</strong> 
                                         <span class="h4 text-info">{{ "%.2f"|format(day_data.cheapest_remaining_block.average_price) }} p/kWh</span>
                                     </p>
-                                    {% set day_avg = None %}
-                                    {% for avg in daily_averages_by_date %}
-                                        {% if avg.date == day_data.date_iso %}
-                                            {% set day_avg = avg %}
+                                    {% if daily_averages_map %}
+                                        {% set block_date_iso = day_data.cheapest_remaining_block.start_time_uk.date().strftime('%Y-%m-%d') %}
+                                        {% if block_date_iso in daily_averages_map %}
+                                            {% set daily_avg_price = daily_averages_map[block_date_iso] %}
+                                            {% set block_price = day_data.cheapest_remaining_block.average_price %}
+                                            {% set savings_pct_raw = ((daily_avg_price - block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+                                            {% set savings_pct = savings_pct_raw if savings_pct_raw > 0 else 0 %}
+                                            <p class="mb-1">
+                                                <small class="{% if savings_pct > 0 %}text-success{% else %}text-muted{% endif %}">
+                                                    <strong>{{ "%.1f"|format(savings_pct) }}%</strong> cheaper than the daily average
+                                                </small>
+                                            </p>
                                         {% endif %}
-                                    {% endfor %}
-                                    {% if day_avg and day_data.cheapest_remaining_block.average_price < day_avg.average_price %}
-                                    {% set future_savings_pkwh = day_avg.average_price - day_data.cheapest_remaining_block.average_price %}
-                                    {% set future_savings_pct = (future_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
-                                    <p class="mb-1">
-                                        <small class="text-success">
-                                            <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh ({{ "%.1f"|format(future_savings_pct) }}%) vs daily average
-                                            {% if capacity %}
-                                                {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
-                                                <br>({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
-                                            {% endif %}
-                                        </small>
-                                    </p>
                                     {% endif %}
                                     <p class="mb-1">
                                         <strong>Time:</strong> 

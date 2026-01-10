@@ -325,6 +325,12 @@ def prices():
     # For backward compatibility with savings calculations, use first day's average
     daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
     
+    # Create mapping of date_iso -> daily_average_price for savings calculations
+    # This allows blocks to look up their matching daily average by date
+    daily_averages_map = {}
+    for day_avg in daily_averages_by_date:
+        daily_averages_map[day_avg['date']] = day_avg['average_price']
+    
     # Calculate cost if capacity provided (use future block if available, otherwise absolute)
     estimated_cost = None
     cost_block = future_cheapest_block if future_cheapest_block else absolute_cheapest_block
@@ -459,6 +465,7 @@ def prices():
                          future_cheapest_block_times_by_date=future_cheapest_block_times_by_date,
                          lowest_price_times_by_date=lowest_price_times_by_date,
                          lowest_price_indices_by_date=lowest_price_indices_by_date,
+                         daily_averages_map=daily_averages_map,
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,
                          stats_2025=stats_2025,
