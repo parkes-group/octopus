@@ -53,11 +53,11 @@ class Config:
     # SEO Page-Specific Content
     SEO_PAGES = {
         'index': {
-            'title': 'Octopus Agile Pricing | Agile Prices Today | Cheapest Charging Times UK',
+            'title': 'Octopus Agile Pricing | Agile Prices | Cheapest Prices UK',
             'description': 'View today’s Agile Octopus electricity prices and instantly find the cheapest 30-minute charging windows for home batteries and EVs across the UK'
         },
         'prices': {
-            'title': 'Prices | Today’s Octopus Agile Pricing | Cheapest Charging Today',
+            'title': 'Prices | Today’s Octopus Agile Pricing | Cheapest Charging',
             'description': 'See today’s half-hourly Agile Octopus prices, daily averages, and the cheapest charging blocks for home batteries and EVs'
         },
         'about': {

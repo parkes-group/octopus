@@ -2,49 +2,25 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://www.agilepricing.co.uk/</loc>
-        <lastmod>2026-01-01</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>http://www.agilepricing.co.uk/</loc>
-        <lastmod>2026-01-01</lastmod>
+        <lastmod>2026-01-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://www.agilepricing.co.uk/prices</loc>
-        <lastmod>2026-01-01</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>http://www.agilepricing.co.uk/prices</loc>
-        <lastmod>2026-01-01</lastmod>
+        <lastmod>2026-01-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://www.agilepricing.co.uk/regions</loc>
-        <lastmod>2026-01-01</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>http://www.agilepricing.co.uk/regions</loc>
-        <lastmod>2026-01-01</lastmod>
+        <lastmod>2026-01-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://www.agilepricing.co.uk/about</loc>
-        <lastmod>2026-01-01</lastmod>
-        <changefreq>daily</changefreq>
-        <priority>1.0</priority>
-    </url>
-    <url>
-        <loc>http://www.agilepricing.co.uk/about</loc>
-        <lastmod>2026-01-01</lastmod>
+        <lastmod>2026-01-10</lastmod>
         <changefreq>daily</changefreq>
         <priority>1.0</priority>
     </url>
