@@ -72,3 +72,5 @@ app/votes/*.json
 app/votes/*.jsonl
 !app/votes/.gitkeep
 
+
+**/region_request_counts.json
