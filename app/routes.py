@@ -7,7 +7,7 @@ from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
 from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
-from app.timezone_utils import get_uk_date_string, get_uk_now
+from app.timezone_utils import get_uk_now
 from app.config import Config
 from app.vote_manager import VoteManager
 from urllib.parse import urlparse, parse_qs
@@ -258,24 +258,21 @@ def prices():
         duration = 4.0
     
     # Get prices (check cache first - will use cached data if not expired)
-    date_str = get_uk_date_string()
-    prices_data = CacheManager.get_cached_prices(product_code, region, date_str)
+    prices_data = CacheManager.get_cached_prices(product_code, region)
     
     if not prices_data:
         # Cache miss or expired - fetch from API
-        logger.debug(f"Cache miss for {product_code} {region} on {date_str}, fetching from API")
+        logger.debug(f"Cache miss or expired for {product_code} {region}, fetching from API")
         try:
             api_response = OctopusAPIClient.get_prices(product_code, region)
             prices_data = api_response.get('results', [])
-            CacheManager.cache_prices(product_code, region, date_str, prices_data)
-            logger.debug(f"Fetched and cached prices for {product_code} {region} on {date_str}")
+            CacheManager.cache_prices(product_code, region, prices_data)
+            logger.debug(f"Fetched and cached prices for {product_code} {region}")
         except Exception as e:
             logger.error(f"Error fetching prices: {e}", exc_info=True)
             # Try to use stale cache if available
             flash('Unable to fetch current prices. Please try again later.', 'error')
             return redirect(url_for('main.index'))
-    else:
-        logger.debug(f"Using cached prices for {product_code} {region} on {date_str}")
     
     # Sort prices chronologically by valid_from
     try:
@@ -406,7 +403,6 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
         list: Region summaries with calculation results, or empty list on error
     """
     region_summaries = []
-    date_str = get_uk_date_string()
     
     # Get all regions from static mapping (no API call needed)
     from app.config import Config
@@ -430,22 +426,20 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
         
         try:
             # Get prices (check cache first - will use cached data if not expired)
-            prices_data = CacheManager.get_cached_prices(product_code, region_code, date_str)
+            prices_data = CacheManager.get_cached_prices(product_code, region_code)
             
             if not prices_data:
                 # Cache miss or expired - fetch from API
-                logger.debug(f"Cache miss for region {region_code} on {date_str}, fetching from API")
+                logger.debug(f"Cache miss or expired for region {region_code}, fetching from API")
                 try:
                     api_response = OctopusAPIClient.get_prices(product_code, region_code)
                     prices_data = api_response.get('results', [])
-                    CacheManager.cache_prices(product_code, region_code, date_str, prices_data)
-                    logger.debug(f"Fetched and cached prices for region {region_code} on {date_str}")
+                    CacheManager.cache_prices(product_code, region_code, prices_data)
+                    logger.debug(f"Fetched and cached prices for region {region_code}")
                 except Exception as e:
                     logger.warning(f"Error fetching prices for region {region_code}: {e}")
                     # Skip this region, continue with others
                     continue
-            else:
-                logger.debug(f"Using cached prices for region {region_code} on {date_str}")
             
             # Sort prices chronologically
             try:

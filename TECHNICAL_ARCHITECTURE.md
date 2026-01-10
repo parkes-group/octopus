@@ -439,9 +439,11 @@ class OctopusAPIClient:
 **File-based JSON caching (MVP):**
 - Store API responses as JSON files ONLY
 - **Important:** Pricing data is NOT cached in database - only in JSON files
-- Filename format: `{product_code}_{region_code}_{date}.json`
+- **One persistent file per region:** Filename format: `{product_code}_{region_code}.json` (no date in filename)
+- Files are updated in place when cache expires (not deleted and recreated)
 - Include metadata: `fetched_at`, `expires_at`
 - Cache directory: `app/cache/` (PythonAnywhere-compatible)
+- **Rationale:** Prevents file accumulation, simpler logic, predictable state (exactly 14 files for 14 regions)
 
 **app/cache_manager.py:**
 ```python
@@ -450,25 +452,42 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
+from flask import current_app
 
 logger = logging.getLogger(__name__)
 
 class CacheManager:
+    """
+    Manages file-based caching for API responses.
+    Uses one persistent cache file per region, updated in place when expired.
+    """
     CACHE_DIR = Path('app/cache')
-    CACHE_EXPIRY_MINUTES = 5
     
     @staticmethod
-    def _get_cache_file(region_code, date_str):
-        """Get cache file path for region and date."""
-        CacheManager.CACHE_DIR.mkdir(exist_ok=True)
-        return CacheManager.CACHE_DIR / f"{region_code}_{date_str}.json"
+    def _get_cache_expiry_minutes():
+        """Get cache expiry minutes from config, with fallback."""
+        try:
+            if current_app:
+                return current_app.config.get('CACHE_EXPIRY_MINUTES', 5)
+        except RuntimeError:
+            pass
+        from app.config import Config
+        return Config.CACHE_EXPIRY_MINUTES
     
     @staticmethod
-    def get_cached_prices(region_code, date_str):
+    def _get_cache_file(product_code, region_code):
+        """Get cache file path for product and region."""
+        CacheManager.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        safe_product = product_code.replace('/', '_').replace('\\', '_')
+        return CacheManager.CACHE_DIR / f"{safe_product}_{region_code}.json"
+    
+    @staticmethod
+    def get_cached_prices(product_code, region_code):
         """Retrieve cached prices if valid."""
-        cache_file = CacheManager._get_cache_file(region_code, date_str)
+        cache_file = CacheManager._get_cache_file(product_code, region_code)
         
         if not cache_file.exists():
+            logger.debug(f"Cache miss (file not found) for {product_code} {region_code}")
             return None
         
         try:
@@ -477,54 +496,66 @@ class CacheManager:
             
             expires_at = datetime.fromisoformat(data['expires_at'])
             if datetime.now() < expires_at:
+                logger.debug(f"Cache hit (valid, not expired) for {product_code} {region_code}")
                 return data['prices']
             else:
-                # Expired, delete file
-                cache_file.unlink()
+                # Cache expired - caller will fetch and overwrite file
+                logger.debug(f"Cache expired for {product_code} {region_code}, will refresh from API")
                 return None
-        except Exception as e:
-            logger.error(f"Error reading cache: {e}")
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error(f"Error reading cache file {cache_file}: {e}")
+            # Corrupted cache file - remove it so it can be recreated
+            try:
+                cache_file.unlink()
+            except:
+                pass
             return None
     
     @staticmethod
-    def cache_prices(region_code, date_str, prices):
-        """Cache prices with expiry."""
-        cache_file = CacheManager._get_cache_file(region_code, date_str)
+    def cache_prices(product_code, region_code, prices, expiry_minutes=None):
+        """Cache prices with expiry. Updates existing cache file in place."""
+        cache_file = CacheManager._get_cache_file(product_code, region_code)
+        
+        if expiry_minutes is None:
+            expiry_minutes = CacheManager._get_cache_expiry_minutes()
         
         data = {
             'prices': prices,
             'fetched_at': datetime.now().isoformat(),
-            'expires_at': (datetime.now() + timedelta(minutes=CacheManager.CACHE_EXPIRY_MINUTES)).isoformat()
+            'expires_at': (datetime.now() + timedelta(minutes=expiry_minutes)).isoformat()
         }
         
+        # Use atomic write (temp file then rename) for PythonAnywhere safety
+        temp_file = cache_file.with_suffix('.json.tmp')
         try:
-            with open(cache_file, 'w') as f:
+            with open(temp_file, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(temp_file, cache_file)
+            logger.info(f"Cache refresh: Updated cache file for {product_code} {region_code}")
         except Exception as e:
-            logger.error(f"Error writing cache: {e}")
+            logger.error(f"Error writing cache file {cache_file}: {e}")
     
     @staticmethod
-    def clear_old_cache():
-        """Remove cache files older than 1 day."""
-        if not CacheManager.CACHE_DIR.exists():
-            return
-        
-        cutoff = datetime.now() - timedelta(days=1)
-        for cache_file in CacheManager.CACHE_DIR.glob('*.json'):
-            try:
-                if datetime.fromtimestamp(cache_file.stat().st_mtime) < cutoff:
-                    cache_file.unlink()
-            except Exception as e:
-                logger.error(f"Error deleting cache file {cache_file}: {e}")
+    def clear_legacy_cache():
+        """Clean up legacy per-day cache files (old format with date in filename)."""
+        # Removes files matching pattern: {product_code}_{region_code}_{date}.json
+        # New format: {product_code}_{region_code}.json
+        ...
 ```
 
 ### 5.2 Cache Usage Flow
 
-1. Check cache for region/date
-2. If valid cache exists, return cached data
-3. If no cache or expired, fetch from API
-4. Cache the response
+1. Check cache for product/region (one persistent file per region)
+2. If valid cache exists, return cached data (cache hit)
+3. If no cache file exists or cache expired, fetch from API (cache miss/refresh)
+4. Overwrite existing cache file with new data (in-place update)
 5. Return data to user
+
+**Key Behaviors:**
+- **Cache Hit:** Valid, non-expired cache file exists → return immediately
+- **Cache Miss:** No cache file exists → fetch from API, create cache file
+- **Cache Refresh:** Cache file exists but expired → fetch from API, overwrite existing file
+- **File Persistence:** Cache files remain until manually cleaned up or corrupted (then recreated)
 
 ---
 
@@ -767,15 +798,14 @@ def prices():
     if duration < 0.5 or duration > 6.0:
         duration = 4.0
     
-    # Get prices (with caching)
-    date_str = datetime.now().strftime('%Y-%m-%d')
-    prices_data = CacheManager.get_cached_prices(region, date_str)
+    # Get prices (with caching - one persistent file per region)
+    prices_data = CacheManager.get_cached_prices(product_code, region_code)
     
     if not prices_data:
         try:
-            api_response = OctopusAPIClient.get_prices(region)
+            api_response = OctopusAPIClient.get_prices(product_code, region_code)
             prices_data = api_response.get('results', [])
-            CacheManager.cache_prices(region, date_str, prices_data)
+            CacheManager.cache_prices(product_code, region_code, prices_data)
         except Exception as e:
             logger.error(f"Error fetching prices: {e}")
             flash('Unable to fetch current prices. Please try again later.', 'error')

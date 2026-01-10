@@ -190,15 +190,18 @@ cost_pounds = cost_pence / 100
 ```
 
 ### Cache Flow
-1. Check cache for region/date
-2. If valid → return cached data
-3. If invalid/missing → fetch from API
-4. Cache new response
+1. Check cache for product/region (one persistent file per region)
+2. If valid cache exists → return cached data (cache hit)
+3. If no cache file or expired → fetch from API (cache miss/refresh)
+4. Overwrite existing cache file with new data (in-place update)
 5. Return data
 
-### Cache Expiry
-- Default: 5 minutes
-- Auto-cleanup: Delete files older than 1 day
+### Cache Behavior
+- **File format:** `{product_code}_{region_code}.json` (no date in filename)
+- **One file per region:** Exactly 14 cache files (one per region)
+- **Update-in-place:** Files are overwritten when expired, not deleted and recreated
+- **Expiry:** Default 5 minutes (configurable via `CACHE_EXPIRY_MINUTES`)
+- **Legacy cleanup:** Use `CacheManager.clear_legacy_cache()` to remove old per-day cache files
 
 ---
 
@@ -272,14 +275,14 @@ prefs = user.preferences
 
 ### Cache Pattern
 ```python
-# Get from cache
-cached = CacheManager.get_cached_prices(region, date_str)
+# Get from cache (no date_str parameter)
+cached = CacheManager.get_cached_prices(product_code, region_code)
 if cached:
     return cached
 
-# Fetch and cache
-data = OctopusAPIClient.get_prices(region)
-CacheManager.cache_prices(region, date_str, data)
+# Fetch and cache (updates existing file in place)
+data = OctopusAPIClient.get_prices(product_code, region_code)
+CacheManager.cache_prices(product_code, region_code, data)
 return data
 ```
 
@@ -304,11 +307,11 @@ def login_required(f):
 ### API Error
 ```python
 try:
-    data = OctopusAPIClient.get_prices(region)
+    data = OctopusAPIClient.get_prices(product_code, region_code)
 except Exception as e:
     logger.error(f"API error: {e}")
-    # Try cache fallback
-    cached = CacheManager.get_cached_prices(region, date_str)
+    # Try cache fallback (may return stale data if file exists)
+    cached = CacheManager.get_cached_prices(product_code, region_code)
     if cached:
         data = cached
     else:
