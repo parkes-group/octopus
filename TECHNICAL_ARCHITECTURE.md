@@ -559,6 +559,82 @@ class CacheManager:
 
 ---
 
+### 5.3 Region Request Tracking
+
+**Purpose:** Track region usage for internal analytics (file-based, no database).
+
+**File Location:** `data/stats/region_request_counts.json`
+
+**File Format:**
+```json
+{
+  "A": {
+    "count": 132,
+    "last_requested": "2026-01-12T14:21:03Z"
+  },
+  "B": {
+    "count": 98,
+    "last_requested": "2026-01-12T13:02:11Z"
+  }
+}
+```
+
+**When Region Requests Are Recorded:**
+- Postcode resolves to a single region (auto-selected) → tracked immediately before redirect
+- Postcode resolves to multiple regions, user selects one from dropdown → tracked when form submitted
+- User manually selects a region without postcode → tracked when form submitted
+- User changes region on prices page → tracked only if region differs from last tracked region (session-based)
+
+**Not Recorded:**
+- Invalid postcodes (zero API results)
+- Postcode lookups that return zero regions
+- Page loads where no region is chosen
+- Failed price fetches (region not used for display)
+- Page refreshes on prices page (same region already tracked)
+- Changing duration, capacity, or other settings on prices page (region unchanged)
+- Navigating away and returning to prices page with same region (session preserves tracking state)
+
+**Implementation Details:**
+- Uses session variable `last_tracked_region` to prevent duplicate tracking
+- Tracking happens once per region selection, not per page view
+- Session-based deduplication ensures accurate counts without over-counting
+
+**Implementation:**
+
+**app/region_request_tracker.py:**
+```python
+class RegionRequestTracker:
+    STATS_DIR = Path('data/stats')
+    COUNTS_FILE = STATS_DIR / 'region_request_counts.json'
+    
+    @staticmethod
+    def record_region_request(region_code):
+        """
+        Record a region request by incrementing count and updating timestamp.
+        Uses atomic file writes for concurrency safety.
+        Never raises exceptions to ensure it doesn't block price rendering.
+        """
+        # Load existing counts
+        # Increment count for region
+        # Update last_requested timestamp (UTC, ISO-8601)
+        # Save atomically (temp file + replace)
+```
+
+**Usage in Routes:**
+```python
+# In /prices route, after successful price retrieval
+RegionRequestTracker.record_region_request(region)
+```
+
+**Key Behaviors:**
+- **Atomic Writes:** Uses temporary file + `os.replace()` for safe concurrent access
+- **Non-Blocking:** Errors are logged but never raise exceptions (stats never break price rendering)
+- **Validation:** Only valid region codes (single uppercase letter) are accepted
+- **Auto-Initialization:** Creates file and directory structure automatically if missing
+- **Corruption Recovery:** Handles corrupted JSON files gracefully by resetting to empty structure
+
+---
+
 ## 6. Price Calculation Logic
 
 ### 6.1 Price Calculator

@@ -10,6 +10,7 @@ from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
 from app.timezone_utils import get_uk_now
 from app.config import Config
 from app.vote_manager import VoteManager
+from app.region_request_tracker import RegionRequestTracker
 from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
@@ -126,6 +127,10 @@ def index():
             # Validate region exists
             if any(r['region'] == submitted_region for r in regions_list):
                 logger.info(f"Region {submitted_region} selected manually")
+                # Record region request for analytics (manual region selection)
+                RegionRequestTracker.record_region_request(submitted_region)
+                # Store last tracked region in session to prevent duplicate tracking
+                session['last_tracked_region'] = submitted_region
                 # Clear the stored postcode since we're redirecting
                 session.pop('last_postcode_index', None)
                 return redirect(url_for('main.prices', region=submitted_region, product=selected_product_code))
@@ -155,6 +160,10 @@ def index():
                 elif isinstance(region_result, str):
                     # Single region: redirect to prices page with product
                     logger.debug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
+                    # Record region request for analytics (postcode resolved to single region)
+                    RegionRequestTracker.record_region_request(region_result)
+                    # Store last tracked region in session to prevent duplicate tracking
+                    session['last_tracked_region'] = region_result
                     # Clear the stored postcode since we're redirecting
                     session.pop('last_postcode_index', None)
                     return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
@@ -273,6 +282,15 @@ def prices():
             # Try to use stale cache if available
             flash('Unable to fetch current prices. Please try again later.', 'error')
             return redirect(url_for('main.index'))
+    
+    # Record region request for analytics only if region has changed from last tracked region
+    # This prevents duplicate tracking on page refreshes, settings changes, or navigation returns
+    last_tracked_region = session.get('last_tracked_region')
+    if region != last_tracked_region:
+        # Region has changed - record the request
+        RegionRequestTracker.record_region_request(region)
+        # Update session with new tracked region
+        session['last_tracked_region'] = region
     
     # Sort prices chronologically by valid_from
     try:
