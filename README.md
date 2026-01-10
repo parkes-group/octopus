@@ -9,9 +9,9 @@ A Flask web application that helps UK households with solar panels and home batt
 - **Postcode-based region detection** - Enter your UK postcode to automatically determine your energy pricing region
 - **Manual region selection fallback** - Select your region manually if postcode lookup fails or returns multiple regions
 - View today's half-hourly Agile Octopus prices for selected product (anonymous usage)
-- Find lowest 30-minute price
-- Calculate absolute cheapest continuous charging block (0.5-6 hours, supports decimals e.g., 3.5 hours) across all prices for the day
-- Calculate cheapest remaining (future) continuous charging block (only considers time slots after current time)
+- Find lowest 30-minute price per calendar day - calculates and displays separately for each day when prices span multiple days
+- Calculate absolute cheapest continuous charging block (0.5-6 hours, supports decimals e.g., 3.5 hours) per calendar day - each day gets its own cheapest block calculation
+- Calculate cheapest remaining (future) continuous charging block per calendar day - excludes that day's cheapest block, calculated independently for each day
 - Display daily average price(s) - calculates one average per calendar day (UK local date). If prices span two days, displays two averages with date labels
 - Estimate charging costs (uses future block if available, otherwise absolute block)
 - Visual price charts with visual distinction between absolute and future cheapest blocks

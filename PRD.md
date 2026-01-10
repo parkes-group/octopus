@@ -272,16 +272,19 @@ A consumer-facing web application that automatically fetches Agile Octopus prici
 - System MUST highlight the lowest single 30-minute slot
 - System MUST display prices in a visual chart (Chart.js)
 
-**FR-5: Cheapest Block Calculation**
+**FR-5: Cheapest Block Calculation (Per Calendar Day)**
 - System MUST allow users to select charging duration (0.5-6 hours, supports decimal values e.g., 3.5 hours)
-- System MUST calculate two types of cheapest blocks:
-  - **Absolute cheapest block**: The cheapest contiguous block of N hours across ALL prices for the day (may include past time slots)
-  - **Future cheapest block**: The cheapest contiguous block of N hours considering ONLY time slots where valid_from >= current_time (upcoming slots only)
-- System MUST display both blocks when available, with clear labels indicating "Absolute Cheapest" and "Cheapest Remaining"
+- System MUST group prices by UK calendar date (physical day) before calculating cheapest blocks
+- System MUST calculate cheapest metrics independently for each calendar day when prices span multiple days (up to 2 days)
+- System MUST calculate two types of cheapest blocks per day:
+  - **Absolute cheapest block**: The cheapest contiguous block of N hours across ALL prices for that calendar day (may include past time slots)
+  - **Cheapest remaining block**: The cheapest contiguous block of N hours for that day, excluding slots already in that day's cheapest block, considering ONLY time slots where valid_from >= current_time (upcoming slots only)
+- System MUST display both blocks per day when available, with clear labels indicating the date (e.g., "Cheapest 3.5h Block (09/01/2026)")
 - System MUST indicate if the absolute cheapest block has already passed (show "Already passed" vs "Upcoming")
-- System MUST display the start time, end time, and average price for each block
-- System MUST handle edge cases (e.g., if no future block exists, show "No remaining cheap blocks today")
+- System MUST display the start time, end time, and average price for each block with date labels when multiple days are present
+- System MUST handle edge cases (e.g., if no future block exists for a day, do not display that day's remaining block)
 - System MUST use timezone-aware datetime comparisons to distinguish past vs future slots
+- System MUST ensure backward compatibility: when only one day of prices is present, display behavior remains unchanged (no date labels)
 
 **FR-5.1: Daily Average Price**
 - System MUST calculate daily averages grouped by UK calendar date (physical day)

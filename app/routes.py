@@ -304,16 +304,25 @@ def prices():
     uk_now = get_uk_now()
     current_time_utc = uk_now.astimezone(timezone.utc)
     
-    # Calculate results
-    lowest_price = PriceCalculator.find_lowest_price(prices_data)
-    absolute_cheapest_block = PriceCalculator.find_cheapest_block(prices_data, duration)
-    future_cheapest_block = PriceCalculator.find_future_cheapest_block(prices_data, duration, current_time_utc)
-    
     # Calculate daily averages grouped by calendar date (supports up to 2 days)
     daily_averages_by_date = PriceCalculator.calculate_daily_averages_by_date(prices_data)
     
+    # Calculate cheapest metrics per calendar day
+    cheapest_per_day = PriceCalculator.calculate_cheapest_per_day(prices_data, duration, current_time_utc)
+    
+    # For backward compatibility: if single day, set individual variables for template
+    # If multiple days, these will be None and template will use cheapest_per_day
+    lowest_price = None
+    absolute_cheapest_block = None
+    future_cheapest_block = None
+    if len(cheapest_per_day) == 1:
+        # Single day: maintain backward compatibility
+        day_data = cheapest_per_day[0]
+        lowest_price = day_data['lowest_price']
+        absolute_cheapest_block = day_data['cheapest_block']
+        future_cheapest_block = day_data['cheapest_remaining_block']
+    
     # For backward compatibility with savings calculations, use first day's average
-    # (savings will be calculated per-day in future if needed)
     daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
     
     # Calculate cost if capacity provided (use future block if available, otherwise absolute)
@@ -328,7 +337,32 @@ def prices():
     # Format for chart (include highlighting data)
     chart_data = PriceCalculator.format_price_data(prices_data)
     
-    # Create sets of block time slots for template highlighting
+    # Build highlighting data for charts and tables (per-day)
+    # Create dictionaries mapping date_iso to lists of time slots (lists are JSON-serializable)
+    absolute_cheapest_block_times_by_date = {}
+    future_cheapest_block_times_by_date = {}
+    lowest_price_times_by_date = {}
+    
+    for day_data in cheapest_per_day:
+        date_iso = day_data['date_iso']
+        
+        # Cheapest block times for this day (convert set to list for JSON serialization)
+        if day_data['cheapest_block'] and day_data['cheapest_block'].get('slots'):
+            absolute_cheapest_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['cheapest_block']['slots']
+            ]
+        
+        # Cheapest remaining block times for this day (convert set to list for JSON serialization)
+        if day_data['cheapest_remaining_block'] and day_data['cheapest_remaining_block'].get('slots'):
+            future_cheapest_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['cheapest_remaining_block']['slots']
+            ]
+        
+        # Lowest price time for this day
+        if day_data['lowest_price']:
+            lowest_price_times_by_date[date_iso] = day_data['lowest_price']['time_from']
+    
+    # For backward compatibility: build single-day highlighting sets
     absolute_cheapest_block_times = set()
     if absolute_cheapest_block and absolute_cheapest_block.get('slots'):
         absolute_cheapest_block_times = {slot['valid_from'] for slot in absolute_cheapest_block['slots']}
@@ -337,7 +371,7 @@ def prices():
     if future_cheapest_block and future_cheapest_block.get('slots'):
         future_cheapest_block_times = {slot['valid_from'] for slot in future_cheapest_block['slots']}
     
-    # Add highlighting information for chart (both blocks)
+    # Build chart highlighting indices (for single-day backward compatibility)
     absolute_cheapest_block_indices = []
     if absolute_cheapest_block:
         for idx, price in enumerate(prices_data):
@@ -353,7 +387,7 @@ def prices():
     chart_data['absolute_cheapest_block_indices'] = absolute_cheapest_block_indices
     chart_data['future_cheapest_block_indices'] = future_cheapest_block_indices
     
-    # Find index of lowest price for chart highlighting
+    # Find index of lowest price for chart highlighting (single-day)
     lowest_price_index = None
     if lowest_price:
         for idx, price in enumerate(prices_data):
@@ -361,6 +395,16 @@ def prices():
                 lowest_price_index = idx
                 break
     chart_data['lowest_price_index'] = lowest_price_index
+    
+    # Build per-day lowest price indices for chart (multi-day support)
+    lowest_price_indices_by_date = {}
+    for day_data in cheapest_per_day:
+        date_iso = day_data['date_iso']
+        if day_data['lowest_price']:
+            for idx, price in enumerate(prices_data):
+                if price['valid_from'] == day_data['lowest_price']['time_from']:
+                    lowest_price_indices_by_date[date_iso] = idx
+                    break
     
     # Prepare UK timezone data for template display
     # Convert all price times to UK timezone for template
@@ -371,6 +415,7 @@ def prices():
         dt_uk = utc_to_uk(price['valid_from'])
         price_uk['time_uk'] = format_uk_time(dt_uk)
         price_uk['date_uk'] = format_uk_date(dt_uk)
+        price_uk['date_iso'] = dt_uk.date().strftime('%Y-%m-%d')  # ISO date for lookups
         price_uk['datetime_uk'] = dt_uk
         prices_with_uk_times.append(price_uk)
     
@@ -409,6 +454,11 @@ def prices():
                          future_cheapest_block_times=future_cheapest_block_times,
                          daily_average_price=daily_average_price,
                          daily_averages_by_date=daily_averages_by_date,
+                         cheapest_per_day=cheapest_per_day,
+                         absolute_cheapest_block_times_by_date=absolute_cheapest_block_times_by_date,
+                         future_cheapest_block_times_by_date=future_cheapest_block_times_by_date,
+                         lowest_price_times_by_date=lowest_price_times_by_date,
+                         lowest_price_indices_by_date=lowest_price_indices_by_date,
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,
                          stats_2025=stats_2025,

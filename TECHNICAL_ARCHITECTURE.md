@@ -640,6 +640,11 @@ RegionRequestTracker.record_region_request(region)
 ### 6.1 Price Calculator
 
 **app/price_calculator.py:**
+
+All price calculations are performed **per calendar day** (UK local date). When prices span multiple days (up to 2 days), calculations are performed independently for each day.
+
+**Key Methods:**
+
 ```python
 from datetime import datetime
 import logging
@@ -648,8 +653,31 @@ logger = logging.getLogger(__name__)
 
 class PriceCalculator:
     @staticmethod
+    def group_prices_by_date(prices):
+        """Group prices by UK calendar date."""
+        # Groups prices by date derived from valid_from timestamp (UK local time)
+        # Returns dict mapping date objects to lists of prices
+    
+    @staticmethod
+    def calculate_cheapest_per_day(prices, duration_hours, current_time_utc=None):
+        """
+        Calculate cheapest slot and blocks per calendar day.
+        
+        Groups prices by UK calendar date and calculates:
+        - Lowest 30-minute price per day
+        - Cheapest block per day
+        - Cheapest remaining block per day (excludes that day's cheapest block)
+        
+        Returns list of day results, each containing:
+        - date, date_display, date_iso
+        - lowest_price (30-min slot for that day)
+        - cheapest_block (cheapest block for that day)
+        - cheapest_remaining_block (cheapest remaining block for that day)
+        """
+    
+    @staticmethod
     def find_lowest_price(prices):
-        """Find the lowest single 30-minute price."""
+        """Find the lowest single 30-minute price from a list of prices."""
         if not prices:
             return None
         
@@ -691,6 +719,17 @@ class PriceCalculator:
                 }
         
         return cheapest_block
+```
+
+**Per-Day Calculation Strategy:**
+
+1. **Date Grouping**: Prices are grouped by UK calendar date using `group_prices_by_date()`
+2. **Independent Calculations**: For each day:
+   - `find_lowest_price()` is called on that day's prices
+   - `find_cheapest_block()` is called on that day's prices
+   - `find_cheapest_block()` is called on remaining prices (future slots, excluding cheapest block slots)
+3. **Display**: Results are displayed with date labels when multiple days are present
+4. **Backward Compatibility**: Single-day data displays without date labels (unchanged behavior)
     
     @staticmethod
     def calculate_charging_cost(average_price, battery_capacity_kwh):

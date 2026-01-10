@@ -48,106 +48,240 @@
         </div>
         {% endif %}
 
+        {% if cheapest_per_day|length == 1 %}
+            <!-- Single day: display as before (backward compatible) -->
+            <div class="row">
+                {% set day_data = cheapest_per_day[0] %}
+                <!-- Lowest Price -->
+                {% if day_data.lowest_price %}
+                <div class="col-md-4 mb-4">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">💰 Lowest 30-Minute Price</h5>
+                        </div>
+                        <div class="card-body">
+                            <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
+                            <p class="mb-0">
+                                <strong>Time:</strong> 
+                                {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
+                                {{ day_data.lowest_price.time_to_uk.strftime('%H:%M') }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Cheapest Block -->
+                {% if day_data.cheapest_block %}
+                <div class="col-md-4 mb-4">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">⚡ Cheapest {{ duration }}h Block</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1">
+                                <strong>Average price:</strong> 
+                                <span class="h4 text-warning">{{ "%.2f"|format(day_data.cheapest_block.average_price) }} p/kWh</span>
+                            </p>
+                            {% set day_avg = daily_averages_by_date[0] if daily_averages_by_date else None %}
+                            {% if day_avg and day_data.cheapest_block.average_price < day_avg.average_price %}
+                            {% set abs_savings_pkwh = day_avg.average_price - day_data.cheapest_block.average_price %}
+                            {% set abs_savings_pct = (abs_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
+                            <p class="mb-1">
+                                <small class="text-success">
+                                    <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh ({{ "%.1f"|format(abs_savings_pct) }}%) vs daily average
+                                    {% if capacity %}
+                                        {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
+                                        <br>({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
+                                    {% endif %}
+                                </small>
+                            </p>
+                            {% endif %}
+                            <p class="mb-1">
+                                <strong>Time:</strong> 
+                                {{ day_data.cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                                {{ day_data.cheapest_block.end_time_uk.strftime('%H:%M') }}
+                            </p>
+                            {% set abs_block_end_uk = day_data.cheapest_block.end_time_uk %}
+                            {% if abs_block_end_uk < current_time_uk %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                            {% else %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Future Cheapest Block -->
+                {% if day_data.cheapest_remaining_block %}
+                <div class="col-md-4 mb-4">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">🔮 Cheapest Remaining {{ duration }}h Block</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-1">
+                                <strong>Average price:</strong> 
+                                <span class="h4 text-info">{{ "%.2f"|format(day_data.cheapest_remaining_block.average_price) }} p/kWh</span>
+                            </p>
+                            {% set day_avg = daily_averages_by_date[0] if daily_averages_by_date else None %}
+                            {% if day_avg and day_data.cheapest_remaining_block.average_price < day_avg.average_price %}
+                            {% set future_savings_pkwh = day_avg.average_price - day_data.cheapest_remaining_block.average_price %}
+                            {% set future_savings_pct = (future_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
+                            <p class="mb-1">
+                                <small class="text-success">
+                                    <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh ({{ "%.1f"|format(future_savings_pct) }}%) vs daily average
+                                    {% if capacity %}
+                                        {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
+                                        <br>({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
+                                    {% endif %}
+                                </small>
+                            </p>
+                            {% endif %}
+                            <p class="mb-1">
+                                <strong>Time:</strong> 
+                                {{ day_data.cheapest_remaining_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                                {{ day_data.cheapest_remaining_block.end_time_uk.strftime('%H:%M') }}
+                            </p>
+                            {% if estimated_cost %}
+                            <p class="mb-1">
+                                <strong>Estimated Cost:</strong> 
+                                <span class="h5 text-info">£{{ "%.2f"|format(estimated_cost) }}</span>
+                            </p>
+                            {% endif %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <!-- Multiple days: display per-day results grouped under date headers -->
+            {% for day_data in cheapest_per_day %}
+                <!-- Date Header -->
+                <div class="row mb-3 mt-4">
+                    <div class="col-12">
+                        <h3 class="mb-0">{{ day_data.date_display }}</h3>
+                        <hr class="mt-2 mb-3">
+                    </div>
+                </div>
+                
+                <!-- Cards for this date -->
+                <div class="row">
+                        <!-- Lowest Price for Day {{ day_data.date_display }} -->
+                        {% if day_data.lowest_price %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">💰 Lowest 30-Minute Price</h5>
+                                </div>
+                                <div class="card-body">
+                                    <h3 class="text-success">{{ "%.2f"|format(day_data.lowest_price.price) }} p/kWh</h3>
+                                    <p class="mb-0">
+                                        <strong>Time:</strong> 
+                                        {{ day_data.lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
+                                        {{ day_data.lowest_price.time_to_uk.strftime('%H:%M') }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Cheapest Block for Day {{ day_data.date_display }} -->
+                        {% if day_data.cheapest_block %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">⚡ Cheapest {{ duration }}h Block</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-1">
+                                        <strong>Average price:</strong> 
+                                        <span class="h4 text-warning">{{ "%.2f"|format(day_data.cheapest_block.average_price) }} p/kWh</span>
+                                    </p>
+                                    {% set day_avg = None %}
+                                    {% for avg in daily_averages_by_date %}
+                                        {% if avg.date == day_data.date_iso %}
+                                            {% set day_avg = avg %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if day_avg and day_data.cheapest_block.average_price < day_avg.average_price %}
+                                    {% set abs_savings_pkwh = day_avg.average_price - day_data.cheapest_block.average_price %}
+                                    {% set abs_savings_pct = (abs_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
+                                    <p class="mb-1">
+                                        <small class="text-success">
+                                            <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh ({{ "%.1f"|format(abs_savings_pct) }}%) vs daily average
+                                            {% if capacity %}
+                                                {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
+                                                <br>({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
+                                            {% endif %}
+                                        </small>
+                                    </p>
+                                    {% endif %}
+                                    <p class="mb-1">
+                                        <strong>Time:</strong> 
+                                        {{ day_data.cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                                        {{ day_data.cheapest_block.end_time_uk.strftime('%H:%M') }}
+                                    </p>
+                                    {% set abs_block_end_uk = day_data.cheapest_block.end_time_uk %}
+                                    {% if abs_block_end_uk < current_time_uk %}
+                                    <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                                    {% else %}
+                                    <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} -->
+                        {% if day_data.cheapest_remaining_block %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">🔮 Cheapest Remaining {{ duration }}h Block</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-1">
+                                        <strong>Average price:</strong> 
+                                        <span class="h4 text-info">{{ "%.2f"|format(day_data.cheapest_remaining_block.average_price) }} p/kWh</span>
+                                    </p>
+                                    {% set day_avg = None %}
+                                    {% for avg in daily_averages_by_date %}
+                                        {% if avg.date == day_data.date_iso %}
+                                            {% set day_avg = avg %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if day_avg and day_data.cheapest_remaining_block.average_price < day_avg.average_price %}
+                                    {% set future_savings_pkwh = day_avg.average_price - day_data.cheapest_remaining_block.average_price %}
+                                    {% set future_savings_pct = (future_savings_pkwh / day_avg.average_price * 100) if day_avg.average_price > 0 else 0 %}
+                                    <p class="mb-1">
+                                        <small class="text-success">
+                                            <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh ({{ "%.1f"|format(future_savings_pct) }}%) vs daily average
+                                            {% if capacity %}
+                                                {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
+                                                <br>({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
+                                            {% endif %}
+                                        </small>
+                                    </p>
+                                    {% endif %}
+                                    <p class="mb-1">
+                                        <strong>Time:</strong> 
+                                        {{ day_data.cheapest_remaining_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
+                                        {{ day_data.cheapest_remaining_block.end_time_uk.strftime('%H:%M') }}
+                                    </p>
+                                    <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% if cheapest_per_day|length == 1 and not cheapest_per_day[0].cheapest_remaining_block and duration and duration > 0 %}
         <div class="row">
-            <!-- Lowest Price -->
-            {% if lowest_price %}
-            <div class="col-md-4 mb-4">
-                <div class="card border-success">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0">💰 Lowest 30-Minute Price</h5>
-                    </div>
-                    <div class="card-body">
-                        <h3 class="text-success">{{ "%.2f"|format(lowest_price.price) }} p/kWh</h3>
-                        <p class="mb-0">
-                            <strong>Time:</strong> 
-                            {{ lowest_price.time_from_uk.strftime('%d/%m %H:%M') }} - 
-                            {{ lowest_price.time_to_uk.strftime('%H:%M') }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Cheapest Block -->
-            {% if absolute_cheapest_block %}
-            <div class="col-md-4 mb-4">
-                <div class="card border-warning">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">⚡ Cheapest {{ duration }}h Block</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-1">
-                            <strong>Average price:</strong> 
-                            <span class="h4 text-warning">{{ "%.2f"|format(absolute_cheapest_block.average_price) }} p/kWh</span>
-                        </p>
-                        {% if daily_average_price and absolute_cheapest_block.average_price < daily_average_price %}
-                        {% set abs_savings_pkwh = daily_average_price - absolute_cheapest_block.average_price %}
-                        <p class="mb-1">
-                            <small class="text-success">
-                                <strong>Savings:</strong> {{ "%.2f"|format(abs_savings_pkwh) }} p/kWh vs daily average
-                                {% if capacity %}
-                                    {% set abs_total_savings = (abs_savings_pkwh * capacity) / 100 %}
-                                    ({{ "%.2f"|format(abs_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(abs_total_savings) }}</strong>)
-                                {% endif %}
-                            </small>
-                        </p>
-                        {% endif %}
-                        <p class="mb-1">
-                            <strong>Time:</strong> 
-                            {{ absolute_cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
-                            {{ absolute_cheapest_block.end_time_uk.strftime('%H:%M') }}
-                        </p>
-                        {% set abs_block_end_uk = absolute_cheapest_block.end_time_uk %}
-                        {% if abs_block_end_uk < current_time_uk %}
-                        <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
-                        {% else %}
-                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Future Cheapest Block -->
-            {% if future_cheapest_block %}
-            <div class="col-md-4 mb-4">
-                <div class="card border-info">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">🔮 Cheapest Remaining {{ duration }}h Block</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-1">
-                            <strong>Average price:</strong> 
-                            <span class="h4 text-info">{{ "%.2f"|format(future_cheapest_block.average_price) }} p/kWh</span>
-                        </p>
-                        {% if daily_average_price and future_cheapest_block.average_price < daily_average_price %}
-                        {% set future_savings_pkwh = daily_average_price - future_cheapest_block.average_price %}
-                        <p class="mb-1">
-                            <small class="text-success">
-                                <strong>Savings:</strong> {{ "%.2f"|format(future_savings_pkwh) }} p/kWh vs daily average
-                                {% if capacity %}
-                                    {% set future_total_savings = (future_savings_pkwh * capacity) / 100 %}
-                                    ({{ "%.2f"|format(future_savings_pkwh) }} p/kWh × {{ capacity }} kWh = <strong>£{{ "%.2f"|format(future_total_savings) }}</strong>)
-                                {% endif %}
-                            </small>
-                        </p>
-                        {% endif %}
-                        <p class="mb-1">
-                            <strong>Time:</strong> 
-                            {{ future_cheapest_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
-                            {{ future_cheapest_block.end_time_uk.strftime('%H:%M') }}
-                        </p>
-                        {% if estimated_cost %}
-                        <p class="mb-1">
-                            <strong>Estimated Cost:</strong> 
-                            <span class="h5 text-info">£{{ "%.2f"|format(estimated_cost) }}</span>
-                        </p>
-                        {% endif %}
-                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
-                    </div>
-                </div>
-            </div>
-            {% elif duration and duration > 0 %}
             <div class="col-md-4 mb-4">
                 <div class="card border-secondary">
                     <div class="card-header bg-secondary text-white">
@@ -158,8 +292,8 @@
                     </div>
                 </div>
             </div>
-            {% endif %}
         </div>
+        {% endif %}
     </section>
     
     <!-- Section 1: User Inputs -->
@@ -240,8 +374,6 @@
 
     {% include 'components/_feature_voting.html' %}
 
-    {% include 'components/_stats_2025_regional.html' %}
-
     <!-- Section 3: Price Chart -->
     <section class="mb-4">
         <h2 class="h5 mb-3">Price Chart</h2>
@@ -280,15 +412,16 @@
                         </thead>
                         <tbody>
                             {% for price in prices %}
-                            {% set is_lowest = lowest_price and price.value_inc_vat == lowest_price.price and price.valid_from == lowest_price.time_from %}
-                            {% set is_in_absolute_block = price.valid_from in absolute_cheapest_block_times %}
-                            {% set is_in_future_block = price.valid_from in future_cheapest_block_times %}
+                            {% set price_date_iso = price.date_iso %}
+                            {% set is_lowest = price_date_iso in lowest_price_times_by_date and price.valid_from == lowest_price_times_by_date[price_date_iso] %}
+                            {% set is_in_absolute_block = price_date_iso in absolute_cheapest_block_times_by_date and price.valid_from in absolute_cheapest_block_times_by_date[price_date_iso] %}
+                            {% set is_in_future_block = price_date_iso in future_cheapest_block_times_by_date and price.valid_from in future_cheapest_block_times_by_date[price_date_iso] %}
                             {% if loop.first %}
                                 {% set show_date = True %}
                             {% else %}
                                 {% set prev_price = prices[loop.index0 - 1] %}
-                                {% set prev_date = prev_price.date_uk %}
-                                {% set show_date = price.date_uk != prev_date %}
+                                {% set prev_date = prev_price.date_iso %}
+                                {% set show_date = price.date_iso != prev_date %}
                             {% endif %}
                             <tr {% if is_in_future_block %}class="table-info"{% elif is_in_absolute_block %}class="table-warning"{% elif is_lowest %}class="table-success"{% endif %}>
                                 <td>
@@ -298,11 +431,10 @@
                                     {{ price.time_uk }}
                                 </td>
                                 <td>
-                                    
                                     <span class="visually-hidden">Price: </span>{{ "%.2f"|format(price.value_inc_vat) }}
                                     {% if is_lowest %}<span class="badge bg-success ms-2" aria-label="Lowest price">Lowest</span>{% endif %}
-                                    {% if is_in_future_block %}<span class="badge bg-info ms-2" aria-label="Part of cheapest remaining block">Cheapest Remaining</span>{% endif %}
                                     {% if is_in_absolute_block %}<span class="badge bg-warning text-dark ms-2" aria-label="Part of cheapest block">Cheapest</span>{% endif %}
+                                    {% if is_in_future_block and not is_in_absolute_block %}<span class="badge bg-info ms-2" aria-label="Part of cheapest remaining block">Cheapest Remaining</span>{% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -318,6 +450,8 @@
         {% endif %}
     </section>
 
+    {% include 'components/_stats_2025_regional.html' %}
+    
     {% include 'components/_feature_suggestion.html' %}
     
 </article>
@@ -331,14 +465,84 @@
     const absoluteCheapestBlockIndices = chartData.absolute_cheapest_block_indices || [];
     const futureCheapestBlockIndices = chartData.future_cheapest_block_indices || [];
     const lowestPriceIndex = chartData.lowest_price_index;
+    
+    // Per-day highlighting data (for multi-day support)
+    const absoluteCheapestBlockTimesByDate = {{ absolute_cheapest_block_times_by_date | tojson }};
+    const futureCheapestBlockTimesByDate = {{ future_cheapest_block_times_by_date | tojson }};
+    const lowestPriceTimesByDate = {{ lowest_price_times_by_date | tojson }};
+    const pricesWithDates = {{ prices | tojson }};
+    
+    // Build per-day indices for chart highlighting
+    const absoluteCheapestBlockIndicesByDate = {};
+    const futureCheapestBlockIndicesByDate = {};
+    const lowestPriceIndicesByDate = {};
+    
+    if (pricesWithDates && pricesWithDates.length > 0) {
+        pricesWithDates.forEach((price, index) => {
+            const dateIso = price.date_iso;
+            if (!dateIso) return;
+            
+            // Cheapest block indices
+            if (absoluteCheapestBlockTimesByDate[dateIso] && absoluteCheapestBlockTimesByDate[dateIso].includes(price.valid_from)) {
+                if (!absoluteCheapestBlockIndicesByDate[dateIso]) {
+                    absoluteCheapestBlockIndicesByDate[dateIso] = [];
+                }
+                absoluteCheapestBlockIndicesByDate[dateIso].push(index);
+            }
+            
+            // Cheapest remaining block indices
+            if (futureCheapestBlockTimesByDate[dateIso] && futureCheapestBlockTimesByDate[dateIso].includes(price.valid_from)) {
+                if (!futureCheapestBlockIndicesByDate[dateIso]) {
+                    futureCheapestBlockIndicesByDate[dateIso] = [];
+                }
+                futureCheapestBlockIndicesByDate[dateIso].push(index);
+            }
+            
+            // Lowest price index
+            if (lowestPriceTimesByDate[dateIso] && price.valid_from === lowestPriceTimesByDate[dateIso]) {
+                lowestPriceIndicesByDate[dateIso] = index;
+            }
+        });
+    }
+    
+    // Use per-day data if available (multi-day), otherwise fall back to single-day
+    const usePerDayHighlighting = Object.keys(absoluteCheapestBlockIndicesByDate).length > 0 || 
+                                   Object.keys(futureCheapestBlockIndicesByDate).length > 0;
+    
     const hasDuration = {{ duration|default(0)|float }} > 0;
     
     const ctx = document.getElementById('priceChart');
     if (ctx && chartData.labels && chartData.prices) {
+        // Build combined indices from per-day data if multi-day, otherwise use single-day indices
+        let combinedAbsoluteIndices = [];
+        let combinedFutureIndices = [];
+        let combinedLowestIndices = [];
+        
+        if (usePerDayHighlighting) {
+            // Multi-day: combine all per-day indices
+            Object.values(absoluteCheapestBlockIndicesByDate).forEach(indices => {
+                combinedAbsoluteIndices.push(...indices);
+            });
+            Object.values(futureCheapestBlockIndicesByDate).forEach(indices => {
+                combinedFutureIndices.push(...indices);
+            });
+            Object.values(lowestPriceIndicesByDate).forEach(index => {
+                combinedLowestIndices.push(index);
+            });
+        } else {
+            // Single-day: use backward-compatible indices
+            combinedAbsoluteIndices = absoluteCheapestBlockIndices;
+            combinedFutureIndices = futureCheapestBlockIndices;
+            if (lowestPriceIndex !== null && lowestPriceIndex !== undefined) {
+                combinedLowestIndices = [lowestPriceIndex];
+            }
+        }
+        
         // Create a set of all indices that need highlighting (future block takes priority)
         const allHighlightedIndices = new Set([
-            ...absoluteCheapestBlockIndices,
-            ...futureCheapestBlockIndices
+            ...combinedAbsoluteIndices,
+            ...combinedFutureIndices,
+            ...combinedLowestIndices
         ]);
         
         // Create datasets - main line and highlighted points
@@ -349,7 +553,7 @@
             backgroundColor: 'rgba(75, 192, 192, 0.2)',
             tension: 0.1,
             pointRadius: chartData.prices.map((price, index) => {
-                return allHighlightedIndices.has(index) || index === lowestPriceIndex ? 0 : 3;
+                return allHighlightedIndices.has(index) ? 0 : 3;
             }),
             pointHoverRadius: 5,
             pointBackgroundColor: 'rgb(75, 192, 192)',
@@ -357,11 +561,13 @@
             pointBorderWidth: 2
         }];
         
-        // Add cheapest block highlighting (yellow/warning) - only if not overlapping with future block
-        if (absoluteCheapestBlockIndices.length > 0) {
+        // Add cheapest block highlighting (yellow/warning) - exclude future block and lowest price
+        if (combinedAbsoluteIndices.length > 0) {
             const absoluteData = chartData.prices.map((price, index) => {
-                // Only highlight if not in future block (future takes priority)
-                return absoluteCheapestBlockIndices.includes(index) && !futureCheapestBlockIndices.includes(index) 
+                // Only highlight if in cheapest block AND not in future block AND not lowest price
+                return combinedAbsoluteIndices.includes(index) && 
+                       !combinedFutureIndices.includes(index) && 
+                       !combinedLowestIndices.includes(index)
                     ? price : null;
             });
             
@@ -381,10 +587,12 @@
             });
         }
         
-        // Add future cheapest block highlighting (blue/info) - takes priority
-        if (futureCheapestBlockIndices.length > 0) {
+        // Add future cheapest block highlighting (blue/info) - exclude lowest price
+        if (combinedFutureIndices.length > 0) {
             const futureData = chartData.prices.map((price, index) => {
-                return futureCheapestBlockIndices.includes(index) ? price : null;
+                // Only highlight if in future block AND not lowest price
+                return combinedFutureIndices.includes(index) && !combinedLowestIndices.includes(index)
+                    ? price : null;
             });
             
             datasets.push({
@@ -403,7 +611,29 @@
             });
         }
         
-        // Add lowest price highlighting (if no blocks and duration not specified)
+        // Add lowest price highlighting (green) - takes highest priority
+        if (combinedLowestIndices.length > 0) {
+            const lowestData = chartData.prices.map((price, index) => {
+                return combinedLowestIndices.includes(index) ? price : null;
+            });
+            
+            datasets.push({
+                label: 'Lowest 30-Minute Price',
+                data: lowestData,
+                borderColor: 'rgb(25, 135, 84)',  // Bootstrap success (green) - matches table-success and border-success
+                backgroundColor: 'rgba(25, 135, 84, 0.3)',
+                pointRadius: 10,
+                pointHoverRadius: 12,
+                pointBackgroundColor: 'rgb(25, 135, 84)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 3,
+                tension: 0.1,
+                showLine: false,
+                pointStyle: 'circle'
+            });
+        }
+        
+        // Legacy: Add lowest price highlighting (if no blocks and duration not specified)
         if (lowestPriceIndex !== null && !hasDuration && absoluteCheapestBlockIndices.length === 0 && futureCheapestBlockIndices.length === 0) {
             const lowestData = chartData.prices.map((price, index) => {
                 return index === lowestPriceIndex ? price : null;
