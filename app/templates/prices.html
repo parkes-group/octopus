@@ -212,29 +212,6 @@
                                     </p>
                                 {% endif %}
                             {% endif %}
-                            {% if day_data.cheapest_block %}
-                                {% set cheapest_block_price = day_data.cheapest_block.average_price %}
-                                {% set worst_block_price = day_data.worst_block.average_price %}
-                                {% set diff_vs_cheapest_pct_raw = ((worst_block_price - cheapest_block_price) / cheapest_block_price * 100) if cheapest_block_price > 0 else 0 %}
-                                {% set diff_vs_cheapest_pct = diff_vs_cheapest_pct_raw if diff_vs_cheapest_pct_raw > 0 else 0 %}
-                                <p class="mb-1">
-                                    <small class="text-danger">
-                                        <strong>{{ "%.1f"|format(diff_vs_cheapest_pct) }}%</strong> more expensive than the cheapest charging window
-                                    </small>
-                                </p>
-                                {% if capacity %}
-                                    {% set worst_cost = (day_data.worst_block.average_price * capacity) / 100 %}
-                                    {% set cheapest_cost = (day_data.cheapest_block.average_price * capacity) / 100 %}
-                                    {% set cost_diff = worst_cost - cheapest_cost %}
-                                    {% if cost_diff > 0 %}
-                                    <p class="mb-1">
-                                        <small class="text-danger">
-                                            ≈ £{{ "%.2f"|format(cost_diff) }} more expensive than cheapest window
-                                        </small>
-                                    </p>
-                                    {% endif %}
-                                {% endif %}
-                            {% endif %}
                             <p class="mb-1">
                                 <strong>Time:</strong> 
                                 {{ day_data.worst_block.start_time_uk.strftime('%d/%m %H:%M') }} - 
@@ -429,29 +406,6 @@
                                                     <strong>{{ "%.1f"|format(diff_pct) }}%</strong> more expensive than the daily average
                                                 </small>
                                             </p>
-                                        {% endif %}
-                                    {% endif %}
-                                    {% if day_data.cheapest_block %}
-                                        {% set cheapest_block_price = day_data.cheapest_block.average_price %}
-                                        {% set worst_block_price = day_data.worst_block.average_price %}
-                                        {% set diff_vs_cheapest_pct_raw = ((worst_block_price - cheapest_block_price) / cheapest_block_price * 100) if cheapest_block_price > 0 else 0 %}
-                                        {% set diff_vs_cheapest_pct = diff_vs_cheapest_pct_raw if diff_vs_cheapest_pct_raw > 0 else 0 %}
-                                        <p class="mb-1">
-                                            <small class="text-danger">
-                                                <strong>{{ "%.1f"|format(diff_vs_cheapest_pct) }}%</strong> more expensive than the cheapest charging window
-                                            </small>
-                                        </p>
-                                        {% if capacity %}
-                                            {% set worst_cost = (day_data.worst_block.average_price * capacity) / 100 %}
-                                            {% set cheapest_cost = (day_data.cheapest_block.average_price * capacity) / 100 %}
-                                            {% set cost_diff = worst_cost - cheapest_cost %}
-                                            {% if cost_diff > 0 %}
-                                            <p class="mb-1">
-                                                <small class="text-danger">
-                                                    ≈ £{{ "%.2f"|format(cost_diff) }} more expensive than cheapest window
-                                                </small>
-                                            </p>
-                                            {% endif %}
                                         {% endif %}
                                     {% endif %}
                                     <p class="mb-1">
@@ -831,27 +785,7 @@
             });
         }
         
-        // Add lowest price highlighting (green) - takes highest priority
-        if (combinedLowestIndices.length > 0) {
-            const lowestData = chartData.prices.map((price, index) => {
-                return combinedLowestIndices.includes(index) ? price : null;
-            });
-            
-            datasets.push({
-                label: 'Lowest 30-Min',
-                data: lowestData,
-                borderColor: 'rgb(25, 135, 84)',  // Bootstrap success (green) - matches table-success and border-success
-                backgroundColor: 'rgba(25, 135, 84, 0.3)',
-                pointRadius: 10,
-                pointHoverRadius: 12,
-                pointBackgroundColor: 'rgb(25, 135, 84)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 3,
-                tension: 0.1,
-                showLine: false,
-                pointStyle: 'circle'
-            });
-        }
+        // Note: Lowest 30-min price highlighting removed from chart (still shown in table)
         
         // Add worst block highlighting (orange/amber) - exclude other highlighted blocks
         if (combinedWorstIndices.length > 0) {
@@ -880,25 +814,7 @@
             });
         }
         
-        // Legacy: Add lowest price highlighting (if no blocks and duration not specified)
-        if (lowestPriceIndex !== null && !hasDuration && absoluteCheapestBlockIndices.length === 0 && futureCheapestBlockIndices.length === 0) {
-            const lowestData = chartData.prices.map((price, index) => {
-                return index === lowestPriceIndex ? price : null;
-            });
-            
-            datasets.push({
-                label: 'Lowest Price',
-                data: lowestData,
-                borderColor: 'rgb(25, 135, 84)',  // Green
-                backgroundColor: 'rgba(25, 135, 84, 0.3)',
-                pointRadius: 8,
-                pointHoverRadius: 10,
-                pointBackgroundColor: 'rgb(25, 135, 84)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                showLine: false
-            });
-        }
+        // Note: Legacy lowest price highlighting removed from chart (still shown in table)
         
         new Chart(ctx, {
             type: 'line',
