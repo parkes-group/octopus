@@ -331,11 +331,11 @@
         
         <div class="card mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-3">Change Charging, Battery Capacity and Region Options</h2>
+                <h2 class="h5 mb-3">Change Block Duration, Usage / Battery Capacity and Region Options</h2>
                 <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
 
                     <div class="col-md-3">
-                        <label for="duration" class="form-label">Charging Duration (hours)</label>
+                        <label for="duration" class="form-label">Block Duration (hours)</label>
                         <input type="number" 
                                class="form-control" 
                                id="duration" 
@@ -351,7 +351,7 @@
                     </div>
                     
                     <div class="col-md-3">
-                        <label for="capacity" class="form-label">Add your Battery Capacity (kWh)</label>
+                        <label for="capacity" class="form-label">Usage / Battery Capacity (kWh)</label>
                         <input type="number" 
                                class="form-control" 
                                id="capacity" 
