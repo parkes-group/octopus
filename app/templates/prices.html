@@ -250,6 +250,17 @@
         {% else %}
             <!-- Multiple days: display per-day results grouped under date headers -->
             {% for day_data in cheapest_per_day %}
+                {% set day_date = day_data.date %}
+                {% set today_date = current_time_uk.date() %}
+                {% set is_today = (day_date == today_date) %}
+                {% set is_tomorrow = (not is_today) %}
+                
+                {% if is_tomorrow %}
+                    <!-- Tomorrow section container with visual separation -->
+                    <div class="day-section tomorrow">
+                        <h2 class="day-heading tomorrow-heading h4 mb-3">Tomorrow's Agile Octopus Electricity Prices</h2>
+                {% endif %}
+                
                 <!-- Summary ABOVE cards -->
                 {% set position = 'above' %}
                 {% include 'components/_daily_price_summary.html' %}
@@ -443,6 +454,10 @@
                 <!-- Summary BELOW cards -->
                 {% set position = 'below' %}
                 {% include 'components/_daily_price_summary.html' %}
+                
+                {% if is_tomorrow %}
+                    </div><!-- End tomorrow section container -->
+                {% endif %}
             {% endfor %}
         {% endif %}
         

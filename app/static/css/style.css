@@ -1,5 +1,38 @@
 /* Custom styles for Octopus Pricing Assistant - Mobile-First Design */
 
+/* Multi-day pricing section styling */
+.day-section.tomorrow {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-top: 2rem;
+}
+
+.day-heading {
+    margin-bottom: 1rem;
+}
+
+.day-divider {
+    margin: 2rem 0 1.5rem 0;
+    border-top: 2px solid #dee2e6;
+}
+
+@media (max-width: 768px) {
+    .day-section.tomorrow {
+        padding: 1rem;
+        margin-top: 1.5rem;
+        border-radius: 6px;
+    }
+    
+    .day-heading {
+        margin-bottom: 0.75rem;
+    }
+    
+    .day-divider {
+        margin: 1.5rem 0 1rem 0;
+    }
+}
+
 :root {
     --primary-color: #0d6efd;
     --success-color: #198754;
