@@ -225,7 +225,7 @@ def prices():
     region = request.args.get('region')
     product_code = request.args.get('product')
     duration = request.args.get('duration', type=float, default=3.5)
-    capacity = request.args.get('capacity', type=float)
+    capacity = request.args.get('capacity', type=float, default=10.0)
     
     # Discover Agile products for dropdown
     agile_products = []

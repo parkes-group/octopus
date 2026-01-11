@@ -13,6 +13,7 @@
         {% if product_code and product_name %}
         <div class="alert alert-info mb-3">
             <strong>Using tariff:</strong> {{ product_code }} — {{ product_name }}
+            <p class="text-muted small mb-3">Block duration: {{ duration }} hours - Usage: {{ capacity }} kWh</p>
         </div>
         {% endif %}
     </section>
@@ -20,7 +21,6 @@
     <!-- Section 2: Cheapest Blocks -->
     <section class="mb-4">
         <h2 class="h5 mb-3">Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
-
 
         <!-- Daily Average Price(s) -->
         {% if daily_averages_by_date %}
@@ -331,7 +331,7 @@
         
         <div class="card mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-3">Change Block Duration, Usage / Battery Capacity and Region Options</h2>
+                <h2 class="h5 mb-3">Change Block Duration, Usage or Region Options</h2>
                 <form method="GET" action="{{ url_for('main.prices') }}" class="row g-3">
 
                     <div class="col-md-3">
@@ -356,7 +356,7 @@
                                class="form-control" 
                                id="capacity" 
                                name="capacity" 
-                               value="{{ capacity if capacity else '' }}" 
+                               value="{{ capacity }}" 
                                step="0.1" 
                                min="0.1" 
                                placeholder="e.g., 10.0"
