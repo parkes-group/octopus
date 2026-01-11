@@ -22,10 +22,12 @@
     <section class="mb-4">
         <h2 class="h5 mb-3">Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
 
+       {#
         <!-- Daily Average Price(s) -->
         {% if daily_averages_by_date %}
         <div class="card border-secondary mb-4">
             <div class="card-body">
+                
                 {% if daily_averages_by_date|length == 1 %}
                     <!-- Single day: display one average (backward compatible) -->
                     <p class="mb-0">
@@ -47,11 +49,17 @@
             </div>
         </div>
         {% endif %}
+        #}
 
         {% if cheapest_per_day|length == 1 %}
             <!-- Single day: display as before (backward compatible) -->
+            {% set day_data = cheapest_per_day[0] %}
+            
+            <!-- Summary ABOVE cards -->
+            {% set position = 'above' %}
+            {% include 'components/_daily_price_summary.html' %}
+            
             <div class="row">
-                {% set day_data = cheapest_per_day[0] %}
                 <!-- Lowest Price -->
                 {# Commented out: Lowest 30-Minute Price card
                 {% if day_data.lowest_price %}
@@ -235,16 +243,16 @@
                 </div>
                 {% endif %}
             </div>
+            
+            <!-- Summary BELOW cards -->
+            {% set position = 'below' %}
+            {% include 'components/_daily_price_summary.html' %}
         {% else %}
             <!-- Multiple days: display per-day results grouped under date headers -->
             {% for day_data in cheapest_per_day %}
-                <!-- Date Header -->
-                <div class="row mb-3 mt-4">
-                    <div class="col-12">
-                        <h3 class="mb-0">{{ day_data.date_display }}</h3>
-                        <hr class="mt-2 mb-3">
-                    </div>
-                </div>
+                <!-- Summary ABOVE cards -->
+                {% set position = 'above' %}
+                {% include 'components/_daily_price_summary.html' %}
                 
                 <!-- Cards for this date -->
                 <div class="row">
@@ -431,6 +439,10 @@
                         </div>
                         {% endif %}
                 </div>
+                
+                <!-- Summary BELOW cards -->
+                {% set position = 'below' %}
+                {% include 'components/_daily_price_summary.html' %}
             {% endfor %}
         {% endif %}
         

@@ -440,6 +440,18 @@ class PriceCalculator:
             # Calculate lowest price for this day
             lowest_price = PriceCalculator.find_lowest_price(day_prices)
             
+            # Calculate min and max prices for this day (actual price range)
+            min_price = None
+            max_price = None
+            if day_prices:
+                try:
+                    prices_values = [p['value_inc_vat'] for p in day_prices if 'value_inc_vat' in p]
+                    if prices_values:
+                        min_price = min(prices_values)
+                        max_price = max(prices_values)
+                except (KeyError, TypeError, ValueError) as e:
+                    logger.warning(f"Error calculating min/max prices for {date_obj}: {e}")
+            
             # Calculate cheapest block for this day
             cheapest_block = PriceCalculator.find_cheapest_block(day_prices, duration_hours)
             
@@ -576,6 +588,8 @@ class PriceCalculator:
                 'date_display': date_display,
                 'date_iso': date_obj.strftime('%Y-%m-%d'),
                 'lowest_price': lowest_price,
+                'min_price': min_price,
+                'max_price': max_price,
                 'cheapest_block': cheapest_block,
                 'cheapest_remaining_block': cheapest_remaining_block,
                 'worst_block': worst_block

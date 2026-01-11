@@ -1,0 +1,87 @@
+{# Daily Price Summary Component
+   Accepts: day_data, daily_averages_map, capacity, duration, current_time_uk, position ('above' or 'below')
+   Renders summary text based on position
+#}
+
+{# Calculate day label - "Today" if current date, otherwise formatted date #}
+{% set day_date = day_data.date %}
+{% set today_date = current_time_uk.date() %}
+{% if day_date == today_date %}
+    {% set day_label = "Today" %}
+{% else %}
+    {% set day_label = day_data.date_display %}
+{% endif %}
+
+{# Get daily average for this day #}
+{% set daily_avg_price = None %}
+{% if daily_averages_map and day_data.date_iso in daily_averages_map %}
+    {% set daily_avg_price = daily_averages_map[day_data.date_iso] %}
+{% endif %}
+
+{# Get cheapest and worst block prices #}
+{% set cheapest_block_price = day_data.cheapest_block.average_price if day_data.cheapest_block else None %}
+{% set worst_block_price = day_data.worst_block.average_price if day_data.worst_block else None %}
+
+{# Calculate savings percentages #}
+{% set cheapest_saving_pct = None %}
+{% set worst_cost_increase_pct = None %}
+{% if daily_avg_price and cheapest_block_price %}
+    {% set cheapest_saving_pct_raw = ((daily_avg_price - cheapest_block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+    {% set cheapest_saving_pct = cheapest_saving_pct_raw if cheapest_saving_pct_raw > 0 else 0 %}
+{% endif %}
+{% if daily_avg_price and worst_block_price %}
+    {% set worst_cost_increase_pct_raw = ((worst_block_price - daily_avg_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+    {% set worst_cost_increase_pct = worst_cost_increase_pct_raw if worst_cost_increase_pct_raw > 0 else 0 %}
+{% endif %}
+
+{# Calculate estimated costs if capacity available #}
+{% set cheapest_estimated_cost = None %}
+{% set worst_estimated_cost = None %}
+{% if capacity and cheapest_block_price %}
+    {% set cheapest_estimated_cost = (cheapest_block_price * capacity) / 100 %}
+{% endif %}
+{% if capacity and worst_block_price %}
+    {% set worst_estimated_cost = (worst_block_price * capacity) / 100 %}
+{% endif %}
+
+{% if position == 'above' %}
+    {# Summary ABOVE the cards - use actual min/max prices for the day #}
+    {% set day_min_price = day_data.min_price if day_data.min_price is not none else None %}
+    {% set day_max_price = day_data.max_price if day_data.max_price is not none else None %}
+    {% if day_min_price and day_max_price and daily_avg_price %}
+    <div class="mb-3">
+        <p class="lead">
+            <small>
+            Electricity prices for <strong>{{ day_label }}</strong> range from <strong>{{ "%.2f"|format(day_min_price) }}p</strong> to <strong>{{ "%.2f"|format(day_max_price) }}p</strong> per kWh, with a <strong class="text-info">daily average of {{ "%.2f"|format(daily_avg_price) }}p/kWh</strong>.
+            {% if cheapest_estimated_cost and worst_estimated_cost and worst_estimated_cost > 0 %}
+            {% set cost_ratio = cheapest_estimated_cost / worst_estimated_cost %}
+            {% if cost_ratio < 0.5 %}
+            Using energy during the cheapest block can cost less than half of what you'd pay during the most expensive period.
+            {% else %}
+            Using energy during the cheapest block can save significantly compared to the most expensive period.
+            {% endif %}
+            {% else %}
+            Using energy during the cheapest block can save significantly compared to the most expensive period.
+            {% endif %}
+            </small>
+        </p>
+    </div>
+    {% endif %}
+{% elif position == 'below' %}
+    {# Summary BELOW the cards #}
+    {% if daily_avg_price and cheapest_block_price and worst_block_price %}
+    <div class="mt-4 mb-3">
+        <p class="lead">
+            <small>
+            Prices vary widely across the day.
+            {% if cheapest_saving_pct and worst_cost_increase_pct %}
+            By using energy during the cheapest <strong>{{ duration }}-hour</strong> window, you could pay <strong>{{ "%.1f"|format(cheapest_saving_pct) }}%</strong> less than the daily average, while avoiding peak periods that are <strong>{{ "%.1f"|format(worst_cost_increase_pct) }}%</strong> more expensive.
+            {% endif %}
+            {% if cheapest_estimated_cost and worst_estimated_cost %}
+            Smart timing could mean paying <strong>£{{ "%.2f"|format(cheapest_estimated_cost) }}</strong> instead of <strong>£{{ "%.2f"|format(worst_estimated_cost) }}</strong> for the same energy use.
+            {% endif %}
+            </small>
+        </p>
+    </div>
+    {% endif %}
+{% endif %}
