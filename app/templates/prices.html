@@ -59,7 +59,7 @@
             {% set position = 'above' %}
             {% include 'components/_daily_price_summary.html' %}
             
-            <div class="row">
+            <div class="row justify-content-center">
                 <!-- Lowest Price -->
                 {# Commented out: Lowest 30-Minute Price card
                 {% if day_data.lowest_price %}
@@ -150,8 +150,10 @@
                 </div>
                 {% endif %}
                 
-                <!-- Future Cheapest Block -->
-                {% if day_data.cheapest_remaining_block %}
+                <!-- Future Cheapest Block - only show if cheapest block has passed -->
+                {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
+                    {% set cheapest_block_end_uk = day_data.cheapest_block.end_time_uk %}
+                    {% if cheapest_block_end_uk < current_time_uk %}
                 <div class="col-md-4 mb-4">
                     <div class="card border-primary">
                         <div class="card-header bg-primary text-white">
@@ -192,6 +194,7 @@
                         </div>
                     </div>
                 </div>
+                    {% endif %}
                 {% endif %}
                 
                 <!-- Worst Time to Use Energy -->
@@ -266,7 +269,7 @@
                 {% include 'components/_daily_price_summary.html' %}
                 
                 <!-- Cards for this date -->
-                <div class="row">
+                <div class="row justify-content-center">
                         <!-- Lowest Price for Day {{ day_data.date_display }} -->
                         {# Commented out: Lowest 30-Minute Price card
                         {% if day_data.lowest_price %}
@@ -357,8 +360,10 @@
                         </div>
                         {% endif %}
                         
-                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} -->
-                        {% if day_data.cheapest_remaining_block %}
+                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} - only show if cheapest block has passed -->
+                        {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
+                            {% set cheapest_block_end_uk = day_data.cheapest_block.end_time_uk %}
+                            {% if cheapest_block_end_uk < current_time_uk %}
                         <div class="col-md-4 mb-4">
                             <div class="card border-primary">
                                 <div class="card-header bg-primary text-white">
@@ -399,6 +404,7 @@
                                 </div>
                             </div>
                         </div>
+                            {% endif %}
                         {% endif %}
                         
                         <!-- Worst Time to Use Energy for Day {{ day_data.date_display }} -->
