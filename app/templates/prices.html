@@ -150,10 +150,10 @@
                 </div>
                 {% endif %}
                 
-                <!-- Future Cheapest Block - only show if cheapest block has passed -->
+                <!-- Future Cheapest Block - only show if cheapest block has started -->
                 {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
-                    {% set cheapest_block_end_uk = day_data.cheapest_block.end_time_uk %}
-                    {% if cheapest_block_end_uk < current_time_uk %}
+                    {% set cheapest_block_start_uk = day_data.cheapest_block.start_time_uk %}
+                    {% if cheapest_block_start_uk <= current_time_uk %}
                 <div class="col-md-4 mb-4">
                     <div class="card border-primary">
                         <div class="card-header bg-primary text-white">
@@ -360,10 +360,10 @@
                         </div>
                         {% endif %}
                         
-                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} - only show if cheapest block has passed -->
+                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} - only show if cheapest block has started -->
                         {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
-                            {% set cheapest_block_end_uk = day_data.cheapest_block.end_time_uk %}
-                            {% if cheapest_block_end_uk < current_time_uk %}
+                            {% set cheapest_block_start_uk = day_data.cheapest_block.start_time_uk %}
+                            {% if cheapest_block_start_uk <= current_time_uk %}
                         <div class="col-md-4 mb-4">
                             <div class="card border-primary">
                                 <div class="card-header bg-primary text-white">
@@ -602,7 +602,8 @@
                             {% set price_date_iso = price.date_iso %}
                             {% set is_lowest = price_date_iso in lowest_price_times_by_date and price.valid_from == lowest_price_times_by_date[price_date_iso] %}
                             {% set is_in_absolute_block = price_date_iso in absolute_cheapest_block_times_by_date and price.valid_from in absolute_cheapest_block_times_by_date[price_date_iso] %}
-                            {% set is_in_future_block = price_date_iso in future_cheapest_block_times_by_date and price.valid_from in future_cheapest_block_times_by_date[price_date_iso] %}
+                            {% set show_cheapest_remaining_for_date = show_cheapest_remaining_by_date.get(price_date_iso, False) if show_cheapest_remaining_by_date else False %}
+                            {% set is_in_future_block = show_cheapest_remaining_for_date and price_date_iso in future_cheapest_block_times_by_date and price.valid_from in future_cheapest_block_times_by_date[price_date_iso] %}
                             {% set is_in_worst_block = price_date_iso in worst_block_times_by_date and price.valid_from in worst_block_times_by_date[price_date_iso] %}
                             {% if loop.first %}
                                 {% set show_date = True %}
@@ -658,6 +659,7 @@
     // Per-day highlighting data (for multi-day support)
     const absoluteCheapestBlockTimesByDate = {{ absolute_cheapest_block_times_by_date | tojson }};
     const futureCheapestBlockTimesByDate = {{ future_cheapest_block_times_by_date | tojson }};
+    const showCheapestRemainingByDate = {{ show_cheapest_remaining_by_date | tojson }};
     const lowestPriceTimesByDate = {{ lowest_price_times_by_date | tojson }};
     const worstBlockTimesByDate = {{ worst_block_times_by_date | tojson }};
     const pricesWithDates = {{ prices | tojson }};
@@ -681,8 +683,8 @@
                 absoluteCheapestBlockIndicesByDate[dateIso].push(index);
             }
             
-            // Cheapest remaining block indices
-            if (futureCheapestBlockTimesByDate[dateIso] && futureCheapestBlockTimesByDate[dateIso].includes(price.valid_from)) {
+            // Cheapest remaining block indices (only if should be shown for this day)
+            if (showCheapestRemainingByDate[dateIso] && futureCheapestBlockTimesByDate[dateIso] && futureCheapestBlockTimesByDate[dateIso].includes(price.valid_from)) {
                 if (!futureCheapestBlockIndicesByDate[dateIso]) {
                     futureCheapestBlockIndicesByDate[dateIso] = [];
                 }
@@ -768,13 +770,12 @@
             pointBorderWidth: 2
         }];
         
-        // Add cheapest block highlighting (yellow/warning) - exclude future block and lowest price
+        // Add cheapest block highlighting - exclude future block only
         if (combinedAbsoluteIndices.length > 0) {
             const absoluteData = chartData.prices.map((price, index) => {
-                // Only highlight if in cheapest block AND not in future block AND not lowest price
+                // Only highlight if in cheapest block AND not in future block
                 return combinedAbsoluteIndices.includes(index) && 
-                       !combinedFutureIndices.includes(index) && 
-                       !combinedLowestIndices.includes(index)
+                       !combinedFutureIndices.includes(index)
                     ? price : null;
             });
             

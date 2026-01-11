@@ -351,6 +351,7 @@ def prices():
     future_cheapest_block_times_by_date = {}
     lowest_price_times_by_date = {}
     worst_block_times_by_date = {}
+    show_cheapest_remaining_by_date = {}  # Flag to control when cheapest remaining should be shown
     
     for day_data in cheapest_per_day:
         date_iso = day_data['date_iso']
@@ -361,8 +362,18 @@ def prices():
                 slot['valid_from'] for slot in day_data['cheapest_block']['slots']
             ]
         
-        # Cheapest remaining block times for this day (convert set to list for JSON serialization)
-        if day_data['cheapest_remaining_block'] and day_data['cheapest_remaining_block'].get('slots'):
+        # Determine if cheapest remaining should be shown for this day
+        # Rule: show_cheapest_remaining = cheapest_block.start_time <= now
+        show_cheapest_remaining = False
+        if day_data['cheapest_block'] and day_data['cheapest_block'].get('start_time_uk'):
+            cheapest_block_start = day_data['cheapest_block']['start_time_uk']
+            if cheapest_block_start <= uk_now:
+                show_cheapest_remaining = True
+        
+        show_cheapest_remaining_by_date[date_iso] = show_cheapest_remaining
+        
+        # Cheapest remaining block times for this day (only include if should be shown)
+        if show_cheapest_remaining and day_data['cheapest_remaining_block'] and day_data['cheapest_remaining_block'].get('slots'):
             future_cheapest_block_times_by_date[date_iso] = [
                 slot['valid_from'] for slot in day_data['cheapest_remaining_block']['slots']
             ]
@@ -492,6 +503,7 @@ def prices():
                          cheapest_per_day=cheapest_per_day,
                          absolute_cheapest_block_times_by_date=absolute_cheapest_block_times_by_date,
                          future_cheapest_block_times_by_date=future_cheapest_block_times_by_date,
+                         show_cheapest_remaining_by_date=show_cheapest_remaining_by_date,
                          lowest_price_times_by_date=lowest_price_times_by_date,
                          lowest_price_indices_by_date=lowest_price_indices_by_date,
                          worst_block_times_by_date=worst_block_times_by_date,
