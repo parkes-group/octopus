@@ -315,12 +315,14 @@ def prices():
     lowest_price = None
     absolute_cheapest_block = None
     future_cheapest_block = None
+    worst_block = None
     if len(cheapest_per_day) == 1:
         # Single day: maintain backward compatibility
         day_data = cheapest_per_day[0]
         lowest_price = day_data['lowest_price']
         absolute_cheapest_block = day_data['cheapest_block']
         future_cheapest_block = day_data['cheapest_remaining_block']
+        worst_block = day_data['worst_block']
     
     # For backward compatibility with savings calculations, use first day's average
     daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
@@ -348,6 +350,7 @@ def prices():
     absolute_cheapest_block_times_by_date = {}
     future_cheapest_block_times_by_date = {}
     lowest_price_times_by_date = {}
+    worst_block_times_by_date = {}
     
     for day_data in cheapest_per_day:
         date_iso = day_data['date_iso']
@@ -367,6 +370,12 @@ def prices():
         # Lowest price time for this day
         if day_data['lowest_price']:
             lowest_price_times_by_date[date_iso] = day_data['lowest_price']['time_from']
+        
+        # Worst block times for this day (convert set to list for JSON serialization)
+        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
+            worst_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['worst_block']['slots']
+            ]
     
     # For backward compatibility: build single-day highlighting sets
     absolute_cheapest_block_times = set()
@@ -376,6 +385,10 @@ def prices():
     future_cheapest_block_times = set()
     if future_cheapest_block and future_cheapest_block.get('slots'):
         future_cheapest_block_times = {slot['valid_from'] for slot in future_cheapest_block['slots']}
+    
+    worst_block_times = set()
+    if worst_block and worst_block.get('slots'):
+        worst_block_times = {slot['valid_from'] for slot in worst_block['slots']}
     
     # Build chart highlighting indices (for single-day backward compatibility)
     absolute_cheapest_block_indices = []
@@ -393,6 +406,14 @@ def prices():
     chart_data['absolute_cheapest_block_indices'] = absolute_cheapest_block_indices
     chart_data['future_cheapest_block_indices'] = future_cheapest_block_indices
     
+    # Build chart highlighting indices for worst block (single-day backward compatibility)
+    worst_block_indices = []
+    if worst_block:
+        for idx, price in enumerate(prices_data):
+            if price['valid_from'] in worst_block_times:
+                worst_block_indices.append(idx)
+    chart_data['worst_block_indices'] = worst_block_indices
+    
     # Find index of lowest price for chart highlighting (single-day)
     lowest_price_index = None
     if lowest_price:
@@ -404,6 +425,7 @@ def prices():
     
     # Build per-day lowest price indices for chart (multi-day support)
     lowest_price_indices_by_date = {}
+    worst_block_indices_by_date = {}
     for day_data in cheapest_per_day:
         date_iso = day_data['date_iso']
         if day_data['lowest_price']:
@@ -411,6 +433,13 @@ def prices():
                 if price['valid_from'] == day_data['lowest_price']['time_from']:
                     lowest_price_indices_by_date[date_iso] = idx
                     break
+        # Build worst block indices for this day
+        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
+            worst_block_indices_by_date[date_iso] = []
+            worst_slots = {slot['valid_from'] for slot in day_data['worst_block']['slots']}
+            for idx, price in enumerate(prices_data):
+                if price['valid_from'] in worst_slots:
+                    worst_block_indices_by_date[date_iso].append(idx)
     
     # Prepare UK timezone data for template display
     # Convert all price times to UK timezone for template
@@ -465,6 +494,8 @@ def prices():
                          future_cheapest_block_times_by_date=future_cheapest_block_times_by_date,
                          lowest_price_times_by_date=lowest_price_times_by_date,
                          lowest_price_indices_by_date=lowest_price_indices_by_date,
+                         worst_block_times_by_date=worst_block_times_by_date,
+                         worst_block_indices_by_date=worst_block_indices_by_date,
                          daily_averages_map=daily_averages_map,
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,

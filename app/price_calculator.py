@@ -131,6 +131,97 @@ class PriceCalculator:
         return cheapest_block
     
     @staticmethod
+    def find_worst_block(prices, duration_hours):
+        """
+        Find worst (most expensive) contiguous block of N hours (supports decimals, e.g., 3.5 hours).
+        
+        Uses the same logic as find_cheapest_block but finds the highest average price instead.
+        
+        Args:
+            prices: List of price dictionaries with 'value_inc_vat', 'valid_from', 'valid_to'
+            duration_hours: Duration in hours (supports decimals, e.g., 3.5)
+        
+        Returns:
+            dict: Worst block info with 'start_time', 'end_time', 'average_price', 
+                  'total_cost', 'slots', or None if invalid
+        """
+        if not prices or duration_hours < 0.5:
+            return None
+        
+        # Convert hours to half-hour slots (e.g., 3.5 hours = 7 slots)
+        slots_needed = int(duration_hours * 2)
+        
+        if len(prices) < slots_needed:
+            logger.warning(f"Not enough price slots ({len(prices)}) for duration {duration_hours} hours ({slots_needed} slots needed)")
+            return None
+        
+        worst_block = None
+        worst_avg = float('-inf')
+        
+        # Ensure prices are sorted by valid_from (required for contiguous blocks)
+        sorted_prices = sorted(prices, key=lambda x: x.get('valid_from', ''))
+        
+        # Sliding window approach - find worst (most expensive) CONTIGUOUS block
+        for i in range(len(sorted_prices) - slots_needed + 1):
+            block = sorted_prices[i:i + slots_needed]
+            
+            # Verify block has exactly the required number of slots
+            if len(block) != slots_needed:
+                continue
+                
+            try:
+                # CRITICAL: Verify that slots are contiguous in TIME (not just in the list)
+                # Each slot should start exactly 30 minutes after the previous slot ends
+                is_contiguous = True
+                gap_found = None
+                for j in range(len(block) - 1):
+                    current_valid_to = block[j]['valid_to']
+                    next_valid_from = block[j + 1]['valid_from']
+                    # These should be equal (current slot's end = next slot's start)
+                    if current_valid_to != next_valid_from:
+                        is_contiguous = False
+                        gap_found = (j, current_valid_to, next_valid_from)
+                        break
+                
+                if not is_contiguous:
+                    # Skip this block - slots are not contiguous in time
+                    logger.debug(f"Skipping non-contiguous block: gap between slot {gap_found[0]} ({gap_found[1]}) and slot {gap_found[0]+1} ({gap_found[2]})")
+                    continue
+                
+                total_price = sum(slot['value_inc_vat'] for slot in block)
+                avg_price = total_price / slots_needed
+                
+                if avg_price > worst_avg:
+                    worst_avg = avg_price
+                    # Convert UTC times to UK times for display
+                    start_time_uk = utc_to_uk(block[0]['valid_from'])
+                    end_time_uk = utc_to_uk(block[-1]['valid_to'])
+                    
+                    # Verify the block represents a contiguous time period (double-check)
+                    expected_duration = timedelta(hours=duration_hours)
+                    actual_duration = end_time_uk - start_time_uk
+                    # Allow small tolerance (up to 1 minute) for rounding/timezone conversion
+                    duration_diff_seconds = abs((actual_duration - expected_duration).total_seconds())
+                    if duration_diff_seconds > 60:
+                        logger.warning(f"Block duration mismatch (should not happen after contiguous check): expected {duration_hours}h, got {actual_duration.total_seconds()/3600:.2f}h. Start: {start_time_uk}, End: {end_time_uk}")
+                        continue
+                    
+                    worst_block = {
+                        'start_time': block[0]['valid_from'],  # Keep UTC for comparison
+                        'end_time': block[-1]['valid_to'],  # Keep UTC for comparison
+                        'start_time_uk': start_time_uk,  # UK timezone for display
+                        'end_time_uk': end_time_uk,  # UK timezone for display
+                        'average_price': round(avg_price, 2),
+                        'total_cost': round(total_price, 2),
+                        'slots': block  # Store actual block for validation
+                    }
+            except (KeyError, TypeError) as e:
+                logger.error(f"Error processing price block at index {i}: {e}")
+                continue
+        
+        return worst_block
+    
+    @staticmethod
     def find_future_cheapest_block(prices, duration_hours, current_time_utc):
         """
         Find cheapest contiguous block of N hours considering only future time slots.
@@ -356,6 +447,13 @@ class PriceCalculator:
             if cheapest_block:
                 logger.debug(f"Cheapest block for {date_obj}: {cheapest_block.get('start_time_uk')} to {cheapest_block.get('end_time_uk')}, {len(cheapest_block.get('slots', []))} slots")
             
+            # Calculate worst (most expensive) block for this day
+            worst_block = PriceCalculator.find_worst_block(day_prices, duration_hours)
+            
+            # Log worst block for debugging
+            if worst_block:
+                logger.debug(f"Worst block for {date_obj}: {worst_block.get('start_time_uk')} to {worst_block.get('end_time_uk')}, {len(worst_block.get('slots', []))} slots")
+            
             # Calculate cheapest remaining block for this day
             # This should exclude slots already in the cheapest_block for this day
             cheapest_remaining_block = None
@@ -479,7 +577,8 @@ class PriceCalculator:
                 'date_iso': date_obj.strftime('%Y-%m-%d'),
                 'lowest_price': lowest_price,
                 'cheapest_block': cheapest_block,
-                'cheapest_remaining_block': cheapest_remaining_block
+                'cheapest_remaining_block': cheapest_remaining_block,
+                'worst_block': worst_block
             }
             
             results.append(day_result)
