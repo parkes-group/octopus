@@ -577,7 +577,7 @@
         
         // Create datasets - main line and highlighted points
         const datasets = [{
-            label: 'Price (p/kWh)',
+            label: 'Price',
             data: chartData.prices,
             borderColor: 'rgb(75, 192, 192)',
             backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -602,7 +602,7 @@
             });
             
             datasets.push({
-                label: 'Cheapest Block',
+                label: 'Cheapest',
                 data: absoluteData,
                 borderColor: 'rgb(255, 193, 7)',  // Bootstrap warning (yellow/amber) - matches table-warning and border-warning
                 backgroundColor: 'rgba(255, 193, 7, 0.3)',
@@ -626,7 +626,7 @@
             });
             
             datasets.push({
-                label: 'Cheapest Remaining Block',
+                label: 'Cheapest Remaining',
                 data: futureData,
                 borderColor: 'rgb(13, 202, 240)',  // Bootstrap info (cyan/blue) - matches table-info and border-info
                 backgroundColor: 'rgba(13, 202, 240, 0.3)',
@@ -648,7 +648,7 @@
             });
             
             datasets.push({
-                label: 'Lowest 30-Minute Price',
+                label: 'Lowest 30-Min',
                 data: lowestData,
                 borderColor: 'rgb(25, 135, 84)',  // Bootstrap success (green) - matches table-success and border-success
                 backgroundColor: 'rgba(25, 135, 84, 0.3)',
@@ -697,7 +697,7 @@
                         beginAtZero: false,
                         title: {
                             display: true,
-                            text: 'Price (p/kWh)'
+                            text: 'Price'
                         }
                     },
                     x: {
