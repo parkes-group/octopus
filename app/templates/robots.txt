@@ -6,5 +6,4 @@ Allow: /
 
 # Sitemap location
 Sitemap: https://www.agilepricing.co.uk/sitemap.xml
-Sitemap: http://www.agilepricing.co.uk/sitemap.xml
 
