@@ -59,7 +59,44 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Feature voting functionality
     initFeatureVoting();
+    
+    // Sticky CTA bar (index page only) - uses IntersectionObserver
+    initStickyCTA();
 });
+
+/**
+ * Initialize sticky CTA bar using IntersectionObserver.
+ * Shows/hides based on main postcode form visibility.
+ * Bootstrap-only implementation with minimal JS.
+ */
+function initStickyCTA() {
+    const mainForm = document.getElementById('postcode-form');
+    const stickyCTA = document.getElementById('sticky-cta');
+    
+    // Only run on index page (where both elements exist)
+    if (!mainForm || !stickyCTA) {
+        return;
+    }
+    
+    // Observe the main form visibility
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            // When form is not visible, show sticky CTA
+            // When form is visible, hide sticky CTA
+            if (entry.isIntersecting) {
+                stickyCTA.classList.add('d-none');
+            } else {
+                stickyCTA.classList.remove('d-none');
+            }
+        });
+    }, {
+        // Trigger when form is completely out of view
+        threshold: 0
+    });
+    
+    // Start observing the main form
+    observer.observe(mainForm);
+}
 
 /**
  * Initialize feature voting component.

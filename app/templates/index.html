@@ -39,7 +39,7 @@
                 </p>
                 
                 <!-- Combined Form -->
-                <form method="POST" action="{{ url_for('main.index') }}" id="main-form">
+                <form method="POST" action="{{ url_for('main.index') }}" id="postcode-form">
                     {{ postcode_form.hidden_tag() }}
                     
                     <!-- 1. Postcode Entry -->
@@ -162,6 +162,38 @@
     <br>
     <!-- 2025 Statistics -->
     {% include 'components/_stats_2025.html' %}
+
+    <!-- Sticky CTA Bar (Bootstrap only, shows when main form is not visible) -->
+    <div id="sticky-cta" class="fixed-top bg-white shadow-sm border-bottom d-none">
+        <div class="container py-2">
+            <div class="row align-items-center g-2">
+                <div class="col-12 col-md-auto">
+                    <p class="mb-0 fw-bold small">Find the cheapest Agile Octopus prices for your area</p>
+                </div>
+                <div class="col-12 col-md">
+                    <form method="POST" action="{{ url_for('main.index') }}" class="d-flex gap-2">
+                        {{ postcode_form.hidden_tag() }}
+                        <input 
+                            type="text" 
+                            name="postcode" 
+                            class="form-control form-control-sm" 
+                            placeholder="Enter postcode (e.g., SW1A 1AA)" 
+                            autocomplete="postal-code"
+                            inputmode="text"
+                            aria-label="Enter your UK postcode"
+                            required
+                        >
+                        {% if show_product_dropdown and agile_products %}
+                        <input type="hidden" name="product" value="{{ selected_product_code or agile_products[0]['code'] }}">
+                        {% elif selected_product_code %}
+                        <input type="hidden" name="product" value="{{ selected_product_code }}">
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary btn-sm">Find Prices</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </article>
 {% endblock %}
