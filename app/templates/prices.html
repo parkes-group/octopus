@@ -139,9 +139,19 @@
                                 <span class="h5 text-success">£{{ "%.2f"|format(cheapest_block_cost) }}</span>
                             </p>
                             {% endif %}
+                            {% set abs_block_start_uk = day_data.cheapest_block.start_time_uk %}
                             {% set abs_block_end_uk = day_data.cheapest_block.end_time_uk %}
                             {% if abs_block_end_uk < current_time_uk %}
                             <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                            {% elif abs_block_start_uk <= current_time_uk and current_time_uk <= abs_block_end_uk %}
+                                {% set time_remaining = abs_block_end_uk - current_time_uk %}
+                                {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
+                                {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
+                                {% if hours_remaining > 0 %}
+                                    <p class="mb-0"><small class="text-success"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% else %}
+                                    <p class="mb-0"><small class="text-success"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% endif %}
                             {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
                             {% endif %}
@@ -190,7 +200,22 @@
                                 <span class="h5 text-primary">£{{ "%.2f"|format(cheapest_remaining_cost) }}</span>
                             </p>
                             {% endif %}
+                            {% set remaining_block_start_uk = day_data.cheapest_remaining_block.start_time_uk %}
+                            {% set remaining_block_end_uk = day_data.cheapest_remaining_block.end_time_uk %}
+                            {% if remaining_block_end_uk < current_time_uk %}
+                            <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                            {% elif remaining_block_start_uk <= current_time_uk and current_time_uk <= remaining_block_end_uk %}
+                                {% set time_remaining = remaining_block_end_uk - current_time_uk %}
+                                {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
+                                {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
+                                {% if hours_remaining > 0 %}
+                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% else %}
+                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% endif %}
+                            {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -235,9 +260,19 @@
                                 <span class="h5 text-danger">£{{ "%.2f"|format(worst_block_cost) }}</span>
                             </p>
                             {% endif %}
+                            {% set worst_block_start_uk = day_data.worst_block.start_time_uk %}
                             {% set worst_block_end_uk = day_data.worst_block.end_time_uk %}
                             {% if worst_block_end_uk < current_time_uk %}
                             <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                            {% elif worst_block_start_uk <= current_time_uk and current_time_uk <= worst_block_end_uk %}
+                                {% set time_remaining = worst_block_end_uk - current_time_uk %}
+                                {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
+                                {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
+                                {% if hours_remaining > 0 %}
+                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% else %}
+                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                {% endif %}
                             {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
                             {% endif %}
@@ -400,7 +435,22 @@
                                         <span class="h5 text-primary">£{{ "%.2f"|format(cheapest_remaining_cost) }}</span>
                                     </p>
                                     {% endif %}
+                                    {% set remaining_block_start_uk = day_data.cheapest_remaining_block.start_time_uk %}
+                                    {% set remaining_block_end_uk = day_data.cheapest_remaining_block.end_time_uk %}
+                                    {% if remaining_block_end_uk < current_time_uk %}
+                                    <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                                    {% elif remaining_block_start_uk <= current_time_uk and current_time_uk <= remaining_block_end_uk %}
+                                        {% set time_remaining = remaining_block_end_uk - current_time_uk %}
+                                        {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
+                                        {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
+                                        {% if hours_remaining > 0 %}
+                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                        {% else %}
+                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                        {% endif %}
+                                    {% else %}
                                     <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -445,9 +495,19 @@
                                         <span class="h5 text-danger">£{{ "%.2f"|format(worst_block_cost) }}</span>
                                     </p>
                                     {% endif %}
+                                    {% set worst_block_start_uk = day_data.worst_block.start_time_uk %}
                                     {% set worst_block_end_uk = day_data.worst_block.end_time_uk %}
                                     {% if worst_block_end_uk < current_time_uk %}
                                     <p class="mb-0"><small class="text-muted">⏱️ Already passed</small></p>
+                                    {% elif worst_block_start_uk <= current_time_uk and current_time_uk <= worst_block_end_uk %}
+                                        {% set time_remaining = worst_block_end_uk - current_time_uk %}
+                                        {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
+                                        {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
+                                        {% if hours_remaining > 0 %}
+                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                        {% else %}
+                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                        {% endif %}
                                     {% else %}
                                     <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
                                     {% endif %}

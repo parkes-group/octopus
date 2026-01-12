@@ -29,8 +29,8 @@
     {% set cheapest_saving_pct_raw = ((daily_avg_price - cheapest_block_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
     {% set cheapest_saving_pct = cheapest_saving_pct_raw if cheapest_saving_pct_raw > 0 else 0 %}
 {% endif %}
-{% if daily_avg_price and worst_block_price %}
-    {% set worst_cost_increase_pct_raw = ((worst_block_price - daily_avg_price) / daily_avg_price * 100) if daily_avg_price > 0 else 0 %}
+{% if cheapest_block_price and worst_block_price %}
+    {% set worst_cost_increase_pct_raw = ((worst_block_price - cheapest_block_price) / cheapest_block_price * 100) if cheapest_block_price > 0 else 0 %}
     {% set worst_cost_increase_pct = worst_cost_increase_pct_raw if worst_cost_increase_pct_raw > 0 else 0 %}
 {% endif %}
 
