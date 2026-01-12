@@ -20,7 +20,7 @@
     
     <!-- Section 2: Cheapest Blocks -->
     <section class="mb-4">
-        <h2 class="h5 mb-3">Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
+        <h2 class="h5 mb-3">Today's Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
 
        {#
         <!-- Daily Average Price(s) -->
@@ -148,9 +148,9 @@
                                 {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
                                 {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
                                 {% if hours_remaining > 0 %}
-                                    <p class="mb-0"><small class="text-success"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-success"><strong>⏱️ in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% else %}
-                                    <p class="mb-0"><small class="text-success"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-success"><strong>⏱️ in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% endif %}
                             {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
@@ -160,10 +160,11 @@
                 </div>
                 {% endif %}
                 
-                <!-- Future Cheapest Block - only show if cheapest block has started -->
+                <!-- Cheapest Remaining Block - show if cheapest block has started (card stays visible even after remaining block passes) -->
                 {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
                     {% set cheapest_block_start_uk = day_data.cheapest_block.start_time_uk %}
                     {% if cheapest_block_start_uk <= current_time_uk %}
+                        {# Show this card as long as cheapest block has started, even if remaining block has passed #}
                 <div class="col-md-4 mb-4">
                     <div class="card border-primary">
                         <div class="card-header bg-primary text-white">
@@ -209,9 +210,9 @@
                                 {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
                                 {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
                                 {% if hours_remaining > 0 %}
-                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% else %}
-                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-primary"><strong>⏱️ in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% endif %}
                             {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
@@ -269,9 +270,9 @@
                                 {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
                                 {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
                                 {% if hours_remaining > 0 %}
-                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% else %}
-                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                    <p class="mb-0"><small class="text-danger"><strong>⏱️ in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                 {% endif %}
                             {% else %}
                             <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
@@ -395,10 +396,11 @@
                         </div>
                         {% endif %}
                         
-                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} - only show if cheapest block has started -->
+                        <!-- Cheapest Remaining Block for Day {{ day_data.date_display }} - show if cheapest block has started (card stays visible even after remaining block passes) -->
                         {% if day_data.cheapest_remaining_block and day_data.cheapest_block %}
                             {% set cheapest_block_start_uk = day_data.cheapest_block.start_time_uk %}
                             {% if cheapest_block_start_uk <= current_time_uk %}
+                                {# Show this card as long as cheapest block has started, even if remaining block has passed #}
                         <div class="col-md-4 mb-4">
                             <div class="card border-primary">
                                 <div class="card-header bg-primary text-white">
@@ -444,9 +446,9 @@
                                         {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
                                         {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
                                         {% if hours_remaining > 0 %}
-                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                         {% else %}
-                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                            <p class="mb-0"><small class="text-primary"><strong>⏱️ in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                         {% endif %}
                                     {% else %}
                                     <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
@@ -504,9 +506,9 @@
                                         {% set hours_remaining = (time_remaining.total_seconds() / 3600)|int %}
                                         {% set minutes_remaining = ((time_remaining.total_seconds() % 3600) / 60)|int %}
                                         {% if hours_remaining > 0 %}
-                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ in block - {{ hours_remaining }} hour{% if hours_remaining != 1 %}s{% endif %} {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                         {% else %}
-                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ Currently in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
+                                            <p class="mb-0"><small class="text-danger"><strong>⏱️ in block - {{ minutes_remaining }} minute{% if minutes_remaining != 1 %}s{% endif %} remaining</strong></small></p>
                                         {% endif %}
                                     {% else %}
                                     <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>

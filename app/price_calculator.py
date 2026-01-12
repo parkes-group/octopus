@@ -4,7 +4,7 @@ Finds lowest prices and cheapest charging blocks.
 """
 from datetime import datetime, timezone, timedelta
 import logging
-from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time, format_uk_date, get_uk_now
+from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time, format_uk_date, get_uk_now, UK_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -472,11 +472,20 @@ class PriceCalculator:
             if current_time_utc:
                 # Build set of cheapest block slot valid_from strings for exclusion
                 cheapest_block_slots_utc = set()
+                cheapest_block_started = False
                 if cheapest_block and cheapest_block.get('slots'):
                     cheapest_block_slots_utc = {slot['valid_from'] for slot in cheapest_block['slots']}
                     logger.debug(f"Excluding cheapest block slots on {date_obj}: {sorted(cheapest_block_slots_utc)}")
+                    # Check if cheapest block has started
+                    if cheapest_block.get('start_time_uk'):
+                        cheapest_block_start = cheapest_block['start_time_uk']
+                        # Convert UTC datetime to UK timezone for comparison
+                        current_time_uk = current_time_utc.astimezone(UK_TZ)
+                        cheapest_block_started = cheapest_block_start <= current_time_uk
                 
-                # Filter to future slots within this day, excluding cheapest block slots
+                # Filter remaining slots, excluding cheapest block slots
+                # Important: If cheapest block has started, include ALL remaining slots (past and future)
+                # so we preserve the cheapest remaining block even after it passes
                 # Important: prices must remain sorted by time for find_cheapest_block to work correctly
                 remaining_prices = []
                 excluded_count = 0
@@ -502,14 +511,15 @@ class PriceCalculator:
                                 future_excluded_count += 1
                             continue
                         
-                        # Include only future slots
-                        if price_time_utc >= current_time_utc:
+                        # If cheapest block has started, include ALL remaining slots (to preserve past remaining blocks)
+                        # Otherwise, include only future slots
+                        if cheapest_block_started or price_time_utc >= current_time_utc:
                             remaining_prices.append(price)
                     except (KeyError, ValueError, TypeError) as e:
                         logger.warning(f"Error processing price for remaining block on {date_obj}: {e}")
                         continue
                 
-                logger.debug(f"Filtered remaining prices for {date_obj}: {len(remaining_prices)} remaining (excluded {excluded_count} total, {future_excluded_count} future)")
+                logger.debug(f"Filtered remaining prices for {date_obj}: {len(remaining_prices)} remaining (excluded {excluded_count} total, {future_excluded_count} future, cheapest_block_started={cheapest_block_started})")
                 
                 # Ensure remaining_prices are sorted by time (should already be, but verify)
                 remaining_prices.sort(key=lambda x: x.get('valid_from', ''))
