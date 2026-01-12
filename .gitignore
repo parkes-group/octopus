@@ -72,5 +72,8 @@ app/votes/*.json
 app/votes/*.jsonl
 !app/votes/.gitkeep
 
+# Stats data (production analytics - do not track)
+data/stats/region_request_counts.json
 
-**/region_request_counts.json
+# Log files
+logs/
