@@ -2,6 +2,95 @@
 
 {% set page_name = 'regions' %}
 
+{% block head %}
+<!-- Page-specific Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebPage",
+            "@id": "{{ site_url }}/regions#webpage",
+            "url": "{{ site_url }}/regions{% if product_code %}?product={{ product_code }}{% endif %}",
+            "name": "Agile Octopus Regional Price Comparison",
+            "description": "Compare Agile Octopus electricity prices across all 14 UK regions. See regional variations in cheapest time blocks, cheapest 30-minute slots, and cheapest remaining blocks.",
+            "inLanguage": "en-GB",
+            "isPartOf": {
+                "@type": "WebSite",
+                "name": "{{ site_name }}",
+                "url": "{{ site_url }}"
+            }
+        },
+        {
+            "@type": "Report",
+            "@id": "{{ site_url }}/regions#report",
+            "name": "Agile Octopus Regional Price Comparison{% if product_code %} - {{ product_code }}{% endif %}",
+            "description": "Comparative analysis of Agile Octopus electricity pricing across all 14 UK electricity regions. Shows cheapest 30-minute slot, cheapest continuous block ({{ duration_hours }} hours), and cheapest remaining block for each region.",
+            "about": {
+                "@type": "Thing",
+                "name": "Octopus Agile Tariff Regional Pricing"
+            },
+            "datePublished": "{% if min_date_time_uk %}{{ min_date_time_uk.strftime('%Y-%m-%d') }}{% else %}{{ 'now'|date('%Y-%m-%d') }}{% endif %}",
+            "temporalCoverage": "{% if min_date_time_uk and max_date_time_uk %}{{ min_date_time_uk.strftime('%Y-%m-%d') }}/{{ max_date_time_uk.strftime('%Y-%m-%d') }}{% endif %}",
+            "spatialCoverage": {
+                "@type": "Place",
+                "name": "United Kingdom",
+                "containedIn": {
+                    "@type": "Country",
+                    "name": "United Kingdom"
+                }
+            }
+        },
+        {
+            "@type": "ItemList",
+            "itemListElement": [
+                {% for summary in region_summaries %}
+                {
+                    "@type": "ListItem",
+                    "position": {{ loop.index }},
+                    "item": {
+                        "@type": "Place",
+                        "name": "{{ summary.region_code }} - {{ summary.region_name }}",
+                        "description": "Agile Octopus pricing region {{ summary.region_code }} ({{ summary.region_name }}){% if summary.cheapest_slot_price %} - Cheapest 30-min: {{ "%.2f"|format(summary.cheapest_slot_price) }}p/kWh{% endif %}{% if summary.cheapest_block_average %}, Cheapest {{ duration_hours }}h block: {{ "%.2f"|format(summary.cheapest_block_average) }}p/kWh{% endif %}"
+                    }
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            ]
+        },
+        {
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "Why do Agile Octopus prices vary by region?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "UK electricity pricing varies by region due to local grid supply points (GSPs) and regional demand patterns. Each of the 14 UK regions has slightly different wholesale prices, which affects Agile Octopus unit rates. This comparison shows how the cheapest time blocks differ across regions."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How should I use this regional comparison?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Use this comparison to understand regional price patterns. If you're moving or considering a different area, you can see which regions typically have lower prices. However, the most important factor is finding the cheapest times within your own region to reduce costs."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Do regions affect how much I can save?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Yes, regional variations in base prices affect potential savings. However, the percentage savings from using cheapest blocks (compared to daily average) tend to be similar across regions. The key to maximising savings is consistently using energy during your region's cheapest time blocks."
+                    }
+                }
+            ]
+        }
+    ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <article>
     <header>

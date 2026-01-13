@@ -33,7 +33,7 @@ class Config:
     OCTOPUS_REFERRAL_URL = os.environ.get('OCTOPUS_REFERRAL_URL', 'https://share.octopus.energy/clean-prawn-337')
     
     # SEO Configuration
-    SITE_NAME = os.environ.get('SITE_NAME', 'Octopus Energy Agile Pricing Assistant')
+    SITE_NAME = os.environ.get('SITE_NAME', 'Agile Pricing | Octopus Energy Pricing Assistant')
     SITE_URL = os.environ.get('SITE_URL', 'https://www.agilepricing.co.uk') 
     SITE_DESCRIPTION = os.environ.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.')
     

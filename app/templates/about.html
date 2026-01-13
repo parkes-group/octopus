@@ -2,6 +2,62 @@
 
 {% set page_name = 'about' %}
 
+{% block head %}
+<!-- Page-specific Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebPage",
+            "@id": "{{ site_url }}/about#webpage",
+            "url": "{{ site_url }}/about",
+            "name": "How Agile Pricing Helps You Find the Cheapest Octopus Energy Prices",
+            "description": "Learn how Agile Pricing works, where data comes from, and how to maximise savings on Octopus Agile tariff. Understand the tool's features and data sources.",
+            "inLanguage": "en-GB",
+            "isPartOf": {
+                "@type": "WebSite",
+                "name": "{{ site_name }}",
+                "url": "{{ site_url }}"
+            }
+        },
+        {
+            "@type": "AboutPage",
+            "@id": "{{ site_url }}/about#aboutpage",
+            "url": "{{ site_url }}/about",
+            "name": "About Agile Pricing",
+            "description": "Agile Pricing is a free tool that helps UK households on Octopus Agile tariff find the cheapest half-hourly electricity prices each day. It analyses official Octopus Energy API data to highlight optimal charging windows for home batteries, EVs, and appliances.",
+            "mainEntity": {
+                "@type": "Thing",
+                "name": "Octopus Agile Tariff Price Analysis Tool",
+                "description": "A web application that processes half-hourly electricity pricing data from Octopus Energy's public API to identify the cheapest time blocks for energy use, helping users reduce electricity costs."
+            },
+            "about": [
+                {
+                    "@type": "Thing",
+                    "name": "Octopus Agile Tariff",
+                    "description": "Time-of-use electricity tariff with prices that change every 30 minutes based on wholesale market conditions"
+                },
+                {
+                    "@type": "Thing",
+                    "name": "Energy Price Optimisation",
+                    "description": "Process of identifying and using electricity during cheapest time periods to reduce costs"
+                }
+            ],
+            "mentions": [
+                {
+                    "@type": "Organization",
+                    "name": "Octopus Energy",
+                    "url": "https://octopus.energy"
+                }
+            ],
+            "disambiguatingDescription": "Agile Pricing is not affiliated with Octopus Energy. All pricing data is sourced from Octopus Energy's public API. The tool provides informational guidance only and does not constitute financial or energy advice."
+        }
+    ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <article>
     <header>

@@ -35,51 +35,6 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
-    <!-- Structured Data (JSON-LD) -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@graph": [
-            {
-                "@type": "WebSite",
-                "name": "{{ site_name }}",
-                "description": "{{ site_description }}",
-                "url": "{{ site_url }}",
-                "potentialAction": {
-                    "@type": "SearchAction",
-                    "target": {
-                        "@type": "EntryPoint",
-                        "urlTemplate": "{{ site_url }}/prices?region={search_term_string}"
-                    },
-                    "query-input": "required name=search_term_string"
-                }
-            },
-            {
-                "@type": "SoftwareApplication",
-                "name": "{{ site_name }}",
-                "applicationCategory": "UtilityApplication",
-                "operatingSystem": "Web",
-                "description": "{{ site_description }}",
-                "url": "{{ site_url }}",
-                "areaServed": {
-                    "@type": "Country",
-                    "name": "United Kingdom"
-                },
-                "purpose": "Energy price optimisation for UK households with solar panels and home batteries",
-                "provider": {
-                    "@type": "Organization",
-                    "name": "Parkes Group Enterprise Ltd"
-                },
-                "offers": {
-                    "@type": "Offer",
-                    "price": "0",
-                    "priceCurrency": "GBP"
-                }
-            }
-        ]
-    }
-    </script>
-    
     {% block head %}{% endblock %}
 </head>
 <body>

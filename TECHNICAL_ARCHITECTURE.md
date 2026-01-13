@@ -1129,6 +1129,72 @@ function renderPriceChart(chartData) {
 }
 ```
 
+### 9.4 Structured Data (JSON-LD Schema.org)
+
+**Architecture:**
+- Structured data is **page-specific** and injected only on relevant pages
+- No structured data in `base.html` (only layout, navigation, footer)
+- Each page defines its own schemas in a `{% block head %}` block
+- All structured data uses JSON-LD format (JSON for Linked Data)
+
+**Page-Specific Schemas:**
+
+**Home Page (`/`):**
+- `WebPage`: Describes the homepage, money-saving focus
+- `SoftwareApplication`: Describes the Agile Pricing tool (free, UK-only, utility app)
+- `FAQPage`: 5 FAQs covering "how to save money", "cheapest time", "how it works", "free to use", "cheapest remaining block"
+
+**Prices Page (`/prices`):**
+- `WebPage`: Page-specific description with region/product context
+- `Dataset`: Represents half-hourly Agile Octopus pricing data
+  - Includes `temporalCoverage` (date range)
+  - Includes `spatialCoverage` (UK region)
+  - Includes `measurementTechnique` (half-hourly rates)
+  - Credits Octopus Energy as creator
+- `FAQPage`: 4 FAQs about cheapest times, savings, remaining blocks, price updates
+
+**Regions Comparison Page (`/regions`):**
+- `WebPage`: Describes the comparison page
+- `Report`: Comparative analysis across all 14 UK regions
+  - Describes the comparison report (not individual region pages)
+  - Includes temporal and spatial coverage
+- `ItemList`: One item per region (14 total)
+  - Each item describes the region with pricing summary
+  - No region-specific URLs (this is a comparison report, not region pages)
+- `FAQPage`: 3 FAQs about regional variations, how to use comparison, savings impact
+
+**About Page (`/about`):**
+- `WebPage`: Standard webpage description
+- `AboutPage`: Explains what Agile Pricing is
+  - Describes data source (Octopus Energy API)
+  - Includes non-affiliation disclaimer
+  - Mentions tool features and purpose
+
+**Canonical Tags:**
+- All pages include self-referencing canonical tags in `base.html`
+- Format: `<link rel="canonical" href="{{ site_url }}{{ request.path }}">`
+- Ensures clean indexing and prevents duplicate content issues
+
+**SEO Rationale:**
+- **Page-specific schemas** prevent duplicate content signals and ensure accurate page classification
+- **FAQPage** enables rich results in Google Search (FAQ snippets)
+- **Dataset schema** helps search engines understand pricing data structure
+- **Report schema** correctly categorises the regions comparison as analysis, not individual pages
+- **AboutPage** clearly communicates tool purpose and disclaimers
+
+**Validation:**
+- Structured data should be validated using:
+  - Google Rich Results Test: https://search.google.com/test/rich-results
+  - Schema.org validator: https://validator.schema.org/
+- All schemas render server-side (Jinja templates), ensuring crawlers see structured data
+
+**Guidance for Future Pages:**
+- Each new page should define its own structured data in `{% block head %}`
+- Choose schemas appropriate to page content (WebPage, FAQPage, Dataset, etc.)
+- Never add structured data to `base.html`
+- Include canonical tag (already handled by base.html)
+- Ensure schemas match visible page content
+
 ---
 
 ## 10. Configuration Management

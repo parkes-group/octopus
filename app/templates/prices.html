@@ -2,6 +2,101 @@
 
 {% set page_name = 'prices' %}
 
+{% block head %}
+<!-- Page-specific Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebPage",
+            "@id": "{{ site_url }}/prices#webpage",
+            "url": "{{ site_url }}/prices{% if region and product_code %}?region={{ region }}&product={{ product_code }}{% endif %}",
+            "name": "Agile Pricing | Octopus Agile Octopus Prices{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}",
+            "description": "View today's half-hourly Agile Octopus electricity prices{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}. See the cheapest time blocks and compare to daily averages.",
+            "inLanguage": "en-GB",
+            "isPartOf": {
+                "@type": "WebSite",
+                "name": "{{ site_name }}",
+                "url": "{{ site_url }}"
+            }
+        }{% if prices and prices|length > 0 %},
+        {
+            "@type": "Dataset",
+            "@id": "{{ site_url }}/prices#dataset",
+            "name": "Agile Pricing | Octopus Agile Half-Hourly Electricity Prices{% if region and regions %}{% for r in regions %}{% if r.region == region %} - {{ r.name }}{% endif %}{% endfor %}{% endif %}",
+            "description": "Half-hourly electricity unit rates for Octopus Agile tariff{% if product_code %} ({{ product_code }}){% endif %}{% if region and regions %}{% for r in regions %}{% if r.region == region %} in the {{ r.name }} region{% endif %}{% endfor %}{% endif %}. Derived from official Octopus Energy API data.",
+            "url": "{{ site_url }}/prices{% if region and product_code %}?region={{ region }}&product={{ product_code }}{% endif %}",
+            "keywords": "Octopus Agile, Agile Pricing, electricity prices, half-hourly rates, UK electricity pricing",
+            "license": "https://octopus.energy/terms/",
+            "creator": {
+                "@type": "Organization",
+                "name": "Octopus Energy"
+            },
+            "publisher": {
+                "@type": "Organization",
+                "name": "{{ site_name }}",
+                "url": "{{ site_url }}"
+            },
+            "temporalCoverage": "{% if prices and prices|length > 0 %}{% set first_price = prices[0] %}{% set last_price = prices[-1] %}{% if first_price.datetime_uk and last_price.datetime_uk %}{{ first_price.datetime_uk.date().strftime('%Y-%m-%d') }}/{{ last_price.datetime_uk.date().strftime('%Y-%m-%d') }}{% elif first_price.date_iso and last_price.date_iso %}{{ first_price.date_iso }}/{{ last_price.date_iso }}{% endif %}{% endif %}",
+            "spatialCoverage": {
+                "@type": "Place",
+                "name": "{% if region and regions %}{% for r in regions %}{% if r.region == region %}{{ r.name }}{% endif %}{% endfor %}{% else %}United Kingdom{% endif %}",
+                "containedIn": {
+                    "@type": "Country",
+                    "name": "United Kingdom"
+                }
+            },
+            "measurementTechnique": "Half-hourly electricity unit rate pricing",
+            "variableMeasured": "Electricity price per kWh (pence, including VAT)",
+            "distribution": {
+                "@type": "DataDownload",
+                "contentUrl": "https://api.octopus.energy/v1/products/{% if product_code %}{{ product_code }}{% else %}AGILE-24-10-01{% endif %}/electricity-tariffs/",
+                "encodingFormat": "application/json"
+            }
+        }{% endif %},
+        {
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "What is the cheapest time to use electricity today?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "The cheapest time varies daily and by region. This page shows you the cheapest 30-minute slot and cheapest continuous block (e.g., 3.5 hours) for today based on real-time Octopus Agile pricing data."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How much can I save using the cheapest block?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Savings depend on your usage and the price difference between the cheapest block and daily average. The page shows percentage savings and estimated costs when you enter your usage (kWh). Many users save 15-30% by shifting usage to cheapest blocks."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What is a cheapest remaining block?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "The cheapest remaining block is the cheapest continuous time period still available later today (from now onwards). This helps you plan battery charging, EV charging, or appliance use for the best remaining prices."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "When do Agile Octopus prices update?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Octopus publishes next-day prices around 4 PM UK time each day. Prices change every 30 minutes throughout the day based on wholesale market conditions. This page updates automatically when new prices are available."
+                    }
+                }
+            ]
+        }
+    ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <article>
     <header>
