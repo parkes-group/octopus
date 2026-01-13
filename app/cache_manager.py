@@ -25,6 +25,75 @@ class CacheManager:
     CACHE_DIR = Path('app/cache')
     
     @staticmethod
+    def determine_cache_expiry_from_edge_prices(first_entry, last_entry):
+        """
+        Determine cache expiry datetime based on the first and last price entries.
+        
+        Octopus returns price data in reverse chronological order, so we check both
+        the first and last entries to detect if next-day prices have been published.
+        
+        Args:
+            first_entry: The first price entry from the API response (dict with 'valid_to' key)
+            last_entry: The last price entry from the API response (dict with 'valid_to' key)
+        
+        Returns:
+            datetime or None: 
+                - If either entry is for tomorrow (UK date): returns tomorrow at 16:00 UK time
+                - If both entries are not for tomorrow: returns None (use existing expiry logic)
+        """
+        from app.timezone_utils import utc_to_uk, get_uk_now, UK_TZ
+        
+        if not first_entry or not last_entry:
+            logger.warning("Cannot determine cache expiry: first or last entry missing, using existing expiry logic")
+            return None
+        
+        try:
+            # Convert both timestamps to UK timezone
+            first_price_uk = utc_to_uk(first_entry.get('valid_to', ''))
+            last_price_uk = utc_to_uk(last_entry.get('valid_to', ''))
+            
+            first_price_date = first_price_uk.date()
+            last_price_date = last_price_uk.date()
+            
+            # Get today's date in UK timezone
+            uk_now = get_uk_now()
+            today_uk = uk_now.date()
+            
+            # Check if either entry is for tomorrow
+            if first_price_date > today_uk or last_price_date > today_uk:
+                # At least one entry is for tomorrow - Octopus has published next-day prices
+                # Use the later date (in case one is today and one is tomorrow)
+                tomorrow_date = max(first_price_date, last_price_date)
+                
+                # Set expiry to tomorrow at 16:00 UK time
+                tomorrow_16_00 = datetime.combine(
+                    tomorrow_date,
+                    datetime.min.time().replace(hour=16, minute=0, second=0, microsecond=0)
+                ).replace(tzinfo=UK_TZ)
+                
+                logger.info(
+                    f"Next-day publication detected (first entry: {first_price_date}, last entry: {last_price_date}) → "
+                    f"expiry set to {tomorrow_16_00.strftime('%Y-%m-%d %H:%M')} UK"
+                )
+                return tomorrow_16_00
+            else:
+                # Both entries are for today or earlier - next-day prices not yet published
+                logger.info(
+                    f"Next-day prices not detected (first entry: {first_price_date}, last entry: {last_price_date}) → "
+                    f"using existing expiry logic"
+                )
+                return None
+                
+        except (KeyError, ValueError, AttributeError) as e:
+            # Error parsing or comparing dates - fallback to existing logic
+            logger.error(f"Error determining cache expiry from edge prices: {e}, using existing expiry logic")
+            return None
+        except Exception as e:
+            # Unexpected error - fallback to existing logic
+            logger.error(f"Unexpected error determining cache expiry: {e}, using existing expiry logic")
+            return None
+    
+    @staticmethod
     def _get_cache_expiry_minutes():
         """Get cache expiry minutes from config, with fallback."""
         try:
@@ -101,7 +170,7 @@ class CacheManager:
             return None
     
     @staticmethod
-    def cache_prices(product_code, region_code, prices, expiry_minutes=None):
+    def cache_prices(product_code, region_code, prices, expiry_minutes=None, expires_at=None):
         """
         Cache prices with expiry. Updates the existing cache file in place.
         
@@ -111,20 +180,38 @@ class CacheManager:
             product_code: Octopus product code (e.g., 'AGILE-24-10-01')
             region_code: Octopus region code
             prices: List of price data to cache
-            expiry_minutes: Cache expiry in minutes (defaults to config value)
+            expiry_minutes: Cache expiry in minutes (defaults to config value, ignored if expires_at provided)
+            expires_at: Optional datetime for cache expiry (takes precedence over expiry_minutes)
         
         Returns:
             bool: True if cache was written successfully, False otherwise
         """
         cache_file = CacheManager._get_cache_file(product_code, region_code)
         
-        if expiry_minutes is None:
+        # Determine expiry: expires_at takes precedence, then expiry_minutes, then config default
+        if expires_at is not None:
+            # expires_at is provided (datetime object, may be timezone-aware)
+            expiry_datetime = expires_at
+            # Convert timezone-aware datetime to naive UTC for storage (matches old format)
+            if expiry_datetime.tzinfo is not None:
+                # Convert to UTC and remove timezone info to match existing cache format
+                from datetime import timezone
+                expiry_datetime = expiry_datetime.astimezone(timezone.utc).replace(tzinfo=None)
+        elif expiry_minutes is not None:
+            # expiry_minutes is provided
+            expiry_datetime = datetime.now() + timedelta(minutes=expiry_minutes)
+        else:
+            # Use config default
             expiry_minutes = CacheManager._get_cache_expiry_minutes()
+            expiry_datetime = datetime.now() + timedelta(minutes=expiry_minutes)
+        
+        # Convert to ISO format string for storage (always naive datetime)
+        expires_at_iso = expiry_datetime.isoformat()
         
         data = {
             'prices': prices,
             'fetched_at': datetime.now().isoformat(),
-            'expires_at': (datetime.now() + timedelta(minutes=expiry_minutes)).isoformat()
+            'expires_at': expires_at_iso
         }
         
         # Use atomic write (temp file then rename) for safety

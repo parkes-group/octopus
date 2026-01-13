@@ -68,7 +68,7 @@ flask run
 ### Required Environment Variables (MVP)
 
 - `SECRET_KEY`: Flask secret key for session security
-- `CACHE_EXPIRY_MINUTES`: Cache expiry time in minutes (default: 5)
+- `CACHE_EXPIRY_MINUTES`: Cache expiry time in minutes (default: 5, used as fallback)
 - `LOG_LEVEL`: Logging level (default: INFO)
 
 ### Example .env file
@@ -78,6 +78,26 @@ SECRET_KEY=your-secret-key-here
 CACHE_EXPIRY_MINUTES=5
 LOG_LEVEL=INFO
 ```
+
+### Cache Expiry Logic
+
+The application uses **adaptive cache expiry** that automatically adjusts based on when Octopus publishes the next day's prices:
+
+- **When tomorrow's prices are available**: If either the first or last price entry in the API response is for tomorrow (UK date), the cache expires at **tomorrow 16:00 UK time**. This prevents unnecessary API calls once prices are published.
+
+- **When tomorrow's prices are not yet published**: If both the first and last entries are for today or earlier, the cache uses the **existing expiry logic** (default: 5 minutes from `CACHE_EXPIRY_MINUTES`).
+
+**Why check both first and last entries?**
+- Octopus returns price data in **reverse chronological order** (newest first)
+- By checking both edges of the price list, we can reliably detect next-day publication regardless of ordering direction
+- This ensures the cache adapts correctly during the 16:00–17:00 publication window
+
+**Why this approach?**
+- Octopus does not provide a "last updated" timestamp in their API responses
+- Prices are typically published around 4:00 PM UK time each day
+- This adaptive logic reduces API calls while ensuring fresh data is available as soon as prices are published
+
+**Note:** The `CACHE_EXPIRY_MINUTES` environment variable is used as a fallback when next-day prices are not detected.
 
 ## Project Structure
 

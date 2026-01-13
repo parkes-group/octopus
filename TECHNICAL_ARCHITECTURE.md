@@ -444,6 +444,7 @@ class OctopusAPIClient:
 - Include metadata: `fetched_at`, `expires_at`
 - Cache directory: `app/cache/` (PythonAnywhere-compatible)
 - **Rationale:** Prevents file accumulation, simpler logic, predictable state (exactly 14 files for 14 regions)
+- **Adaptive Cache Expiry:** Cache expiry adapts to when Octopus publishes prices (see 5.3 Cache Expiry Logic below)
 
 **app/cache_manager.py:**
 ```python
@@ -512,17 +513,43 @@ class CacheManager:
             return None
     
     @staticmethod
-    def cache_prices(product_code, region_code, prices, expiry_minutes=None):
-        """Cache prices with expiry. Updates existing cache file in place."""
+    def determine_cache_expiry_from_edge_prices(first_entry, last_entry):
+        """
+        Determine cache expiry based on first and last price entries.
+        
+        Checks both entries because Octopus returns prices in reverse chronological order.
+        If either entry is for tomorrow (UK date): returns tomorrow at 16:00 UK time
+        Otherwise: returns None (use existing expiry logic)
+        """
+        # Converts both entries' valid_to to UK timezone
+        # Compares dates to today's UK date
+        # Returns datetime or None
+        ...
+    
+    @staticmethod
+    def cache_prices(product_code, region_code, prices, expiry_minutes=None, expires_at=None):
+        """
+        Cache prices with expiry. Updates existing cache file in place.
+        
+        Args:
+            expiry_minutes: Optional minutes-based expiry (fallback)
+            expires_at: Optional datetime-based expiry (takes precedence)
+        """
         cache_file = CacheManager._get_cache_file(product_code, region_code)
         
-        if expiry_minutes is None:
+        # expires_at takes precedence, then expiry_minutes, then config default
+        if expires_at is not None:
+            expiry_datetime = expires_at
+        elif expiry_minutes is not None:
+            expiry_datetime = datetime.now() + timedelta(minutes=expiry_minutes)
+        else:
             expiry_minutes = CacheManager._get_cache_expiry_minutes()
+            expiry_datetime = datetime.now() + timedelta(minutes=expiry_minutes)
         
         data = {
             'prices': prices,
             'fetched_at': datetime.now().isoformat(),
-            'expires_at': (datetime.now() + timedelta(minutes=expiry_minutes)).isoformat()
+            'expires_at': expiry_datetime.isoformat()
         }
         
         # Use atomic write (temp file then rename) for PythonAnywhere safety
@@ -556,6 +583,51 @@ class CacheManager:
 - **Cache Miss:** No cache file exists → fetch from API, create cache file
 - **Cache Refresh:** Cache file exists but expired → fetch from API, overwrite existing file
 - **File Persistence:** Cache files remain until manually cleaned up or corrupted (then recreated)
+
+### 5.3 Cache Expiry Logic
+
+The cache system uses **adaptive expiry** that automatically adjusts based on when Octopus publishes the next day's prices.
+
+**Problem:** Octopus does not provide a "last updated" timestamp in their API responses, so we cannot directly determine when prices were last refreshed. Additionally, Octopus returns price data in **reverse chronological order** (newest first).
+
+**Solution:** Inspect both the first and last price entries in the API response to infer freshness:
+
+1. **Extract edge entries:** Read the first and last entries from the price list (regardless of ordering direction)
+2. **Convert to UK timezone:** Convert both `valid_to` timestamps to UK local time (Europe/London)
+3. **Compare dates:** Compare the dates of both entries to today's UK date
+4. **Set expiry:**
+   - **If either entry is for tomorrow:** Octopus has published tomorrow's prices → cache expires at **tomorrow 16:00 UK time**
+   - **If both entries are for today or earlier:** Tomorrow's prices not yet published → use **existing expiry logic** (default: 5 minutes from `CACHE_EXPIRY_MINUTES`)
+
+**Why check both first and last entries?**
+- Octopus returns prices in reverse chronological order (newest first)
+- By checking both edges, we reliably detect next-day publication regardless of ordering
+- This ensures correct behavior during the 16:00–17:00 publication window
+
+**Implementation:**
+- `CacheManager.determine_cache_expiry_from_edge_prices(first_entry, last_entry)` - Helper function that implements the logic
+- Called automatically when prices are fetched from the API in `routes.py`
+- Returns `datetime` if tomorrow's prices detected, `None` to use existing logic
+- All date comparisons use UK timezone (handles BST/GMT transitions correctly)
+
+**Benefits:**
+- Reduces API calls once prices are published (long-lived cache until next day)
+- Preserves existing expiry logic as fallback (no regressions)
+- Handles reverse chronological ordering correctly
+- No hard-coded dates or times
+- Adapts automatically to Octopus publication schedule
+
+**Logging:**
+- Logs the dates of first and last price entries (UK time)
+- Logs whether tomorrow's prices were detected
+- Logs which expiry strategy was used (adaptive vs. existing logic)
+- Logs the final expiry timestamp
+
+**Example log entries:**
+```
+Next-day publication detected (first entry: 2026-01-14, last entry: 2026-01-13) → expiry set to 2026-01-14 16:00 UK
+Next-day prices not detected (first entry: 2026-01-13, last entry: 2026-01-13) → using existing expiry logic
+```
 
 ---
 

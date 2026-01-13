@@ -275,8 +275,21 @@ def prices():
         try:
             api_response = OctopusAPIClient.get_prices(product_code, region)
             prices_data = api_response.get('results', [])
-            CacheManager.cache_prices(product_code, region, prices_data)
-            logger.debug(f"Fetched and cached prices for {product_code} {region}")
+            
+            # Determine cache expiry based on edge prices (handles reverse chronological order)
+            expires_at = None
+            if prices_data and len(prices_data) > 0:
+                first_entry = prices_data[0]
+                last_entry = prices_data[-1]
+                expires_at = CacheManager.determine_cache_expiry_from_edge_prices(first_entry, last_entry)
+            
+            # Cache with adaptive expiry (or fallback to existing logic if expires_at is None)
+            if expires_at is not None:
+                CacheManager.cache_prices(product_code, region, prices_data, expires_at=expires_at)
+                logger.debug(f"Fetched and cached prices for {product_code} {region} with adaptive expiry")
+            else:
+                CacheManager.cache_prices(product_code, region, prices_data)
+                logger.debug(f"Fetched and cached prices for {product_code} {region} with existing expiry logic")
         except Exception as e:
             logger.error(f"Error fetching prices: {e}", exc_info=True)
             # Try to use stale cache if available
@@ -559,8 +572,21 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
                 try:
                     api_response = OctopusAPIClient.get_prices(product_code, region_code)
                     prices_data = api_response.get('results', [])
-                    CacheManager.cache_prices(product_code, region_code, prices_data)
-                    logger.debug(f"Fetched and cached prices for region {region_code}")
+                    
+                    # Determine cache expiry based on edge prices (handles reverse chronological order)
+                    expires_at = None
+                    if prices_data and len(prices_data) > 0:
+                        first_entry = prices_data[0]
+                        last_entry = prices_data[-1]
+                        expires_at = CacheManager.determine_cache_expiry_from_edge_prices(first_entry, last_entry)
+                    
+                    # Cache with adaptive expiry (or fallback to existing logic if expires_at is None)
+                    if expires_at is not None:
+                        CacheManager.cache_prices(product_code, region_code, prices_data, expires_at=expires_at)
+                        logger.debug(f"Fetched and cached prices for region {region_code} with adaptive expiry")
+                    else:
+                        CacheManager.cache_prices(product_code, region_code, prices_data)
+                        logger.debug(f"Fetched and cached prices for region {region_code} with existing expiry logic")
                 except Exception as e:
                     logger.warning(f"Error fetching prices for region {region_code}: {e}")
                     # Skip this region, continue with others
