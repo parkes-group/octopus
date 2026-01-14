@@ -387,7 +387,7 @@ After downloading, validate that the dataset is complete **before** regenerating
 python scripts/validate_raw_data.py
 ```
 
-This will generate: `RAW_DATA_2025_COMPLETENESS_REPORT.md`
+This will generate: `documentation/RAW_DATA_2025_COMPLETENESS_REPORT.md`
 
 Validate derived stats (recommended after regeneration):
 

@@ -32,7 +32,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region A
 
-- **file**: `data\raw\A_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\A_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -45,7 +45,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region B
 
-- **file**: `data\raw\B_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\B_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -58,7 +58,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region C
 
-- **file**: `data\raw\C_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\C_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -71,7 +71,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region D
 
-- **file**: `data\raw\D_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\D_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -84,7 +84,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region E
 
-- **file**: `data\raw\E_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\E_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -97,7 +97,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region F
 
-- **file**: `data\raw\F_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\F_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -110,7 +110,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region G
 
-- **file**: `data\raw\G_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\G_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -123,7 +123,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region H
 
-- **file**: `data\raw\H_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\H_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -136,7 +136,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region J
 
-- **file**: `data\raw\J_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\J_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -149,7 +149,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region K
 
-- **file**: `data\raw\K_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\K_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -162,7 +162,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region L
 
-- **file**: `data\raw\L_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\L_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -175,7 +175,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region M
 
-- **file**: `data\raw\M_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\M_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -188,7 +188,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region N
 
-- **file**: `data\raw\N_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\N_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0
@@ -201,7 +201,7 @@ This report validates the raw historic dataset under `data/raw/` *before* regene
 
 ### Region P
 
-- **file**: `data\raw\P_2025.json`
+- **file**: `D:\VisualStudio\Projects\Octopus\data\raw\P_2025.json`
 - **total_slots**: 17520
 - **UTC dates**: 365 (2025-01-01 → 2025-12-31)
 - **UTC missing dates**: 0

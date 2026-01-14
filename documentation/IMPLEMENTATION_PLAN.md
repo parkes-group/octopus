@@ -20,13 +20,13 @@
 2. Initialize Git repository (if not already done)
 3. Create `.gitignore` file
 4. Create `requirements.txt` with initial dependencies
-5. Create `README.md` with setup instructions
+5. Create `documentation/README.md` with setup instructions
 
 **Files to Create:**
 ```
 .gitignore
 requirements.txt
-README.md
+documentation/README.md
 ```
 
 **Dependencies for requirements.txt:**

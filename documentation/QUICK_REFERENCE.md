@@ -7,6 +7,8 @@
 
 ## Document Structure
 
+All project documentation lives in the `documentation/` folder.
+
 1. **PRD.md** - Product Requirements Document
    - Problem statement, user personas, features, success metrics
    - Use for: Understanding product goals and requirements

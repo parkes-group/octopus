@@ -131,7 +131,12 @@ octopus_app/
 ├── .gitignore
 ├── requirements.txt
 ├── wsgi.py                         # WSGI entry point (PythonAnywhere)
-└── README.md
+└── documentation/                  # Project documentation (moved from repo root)
+    ├── README.md
+    ├── PRD.md
+    ├── TECHNICAL_ARCHITECTURE.md
+    ├── QUICK_REFERENCE.md
+    └── IMPLEMENTATION_PLAN.md
 ```
 
 ### 2.2 Flask App Factory Pattern

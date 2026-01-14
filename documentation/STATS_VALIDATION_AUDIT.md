@@ -37,7 +37,7 @@ Evidence is captured in `RAW_DATA_2025_COMPLETENESS_REPORT.md`.
 Documentation reviewed:
 
 - `scripts/STATS_EXPLANATION.md`
-- `README.md` (Historical Statistics section)
+- `documentation/README.md` (Historical Statistics section)
 - `app/config.py` (assumptions)
 
 Documented intent for historic 2025 stats:

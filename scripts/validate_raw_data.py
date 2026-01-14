@@ -21,7 +21,9 @@ sys.path.insert(0, str(project_root))
 
 from app.config import Config
 
-RAW_DIR = Path("data/raw")
+# Resolve paths relative to project root to avoid CWD issues (WSGI / different shells)
+RAW_DIR = project_root / "data" / "raw"
+DOCS_DIR = project_root / "documentation"
 UK_TZ = ZoneInfo("Europe/London")
 
 
@@ -171,11 +173,12 @@ def write_markdown_report(results: list[dict], year: int, out_path: Path) -> Non
 def main() -> None:
     year = 2025
     RAW_DIR.mkdir(parents=True, exist_ok=True)
+    DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
     regions = list(Config.OCTOPUS_REGION_NAMES.keys())
     results = [validate_region(r, year) for r in regions]
 
-    out_path = Path(f"RAW_DATA_{year}_COMPLETENESS_REPORT.md")
+    out_path = DOCS_DIR / f"RAW_DATA_{year}_COMPLETENESS_REPORT.md"
     write_markdown_report(results, year, out_path)
 
     # Also print a concise verdict to stdout
