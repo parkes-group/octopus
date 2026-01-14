@@ -74,15 +74,21 @@ class Config:
     FEATURE_VOTING_ITEMS = [
         {
             "id": "daily_cheapest_email",
-            "title": "Daily chosen cheapest block email",
-            "description": "Get a daily email showing your chosen duration's cheapest block",
+            "title": "Cheapest block Alerts",
+            "description": "Daily email with your cheapest block.",
             "display_order": 1
         },
         {
             "id": "negative_price_alert",
             "title": "Negative pricing alerts",
-            "description": "Get notified when electricity prices go negative",
+            "description": "Alert when prices go negative.",
             "display_order": 2
+        },
+        {
+            "id": "agile_export_info",
+            "title": "Agile export information",
+            "description": "Show Agile export rates (outgoing) + guidance.",
+            "display_order": 3
         }
     ]
     

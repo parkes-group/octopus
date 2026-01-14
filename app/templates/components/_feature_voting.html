@@ -10,7 +10,7 @@
                 <div class="col-12 col-md-6">
                     <button 
                         type="button" 
-                        class="feature-vote-btn btn btn-outline-primary w-100 h-100 p-4 text-start"
+                        class="feature-vote-btn btn btn-outline-primary w-100 h-100 p-3 p-md-4 text-start"
                         data-feature="{{ item.id }}"
                         aria-label="Vote for {{ item.title }}"
                         role="button">
@@ -19,7 +19,11 @@
                                 <h3 class="h6 mb-2">{{ item.title }}</h3>
                                 <p class="mb-0 small text-muted">{{ item.description }}</p>
                             </div>
-                            <div class="feature-vote-icon ms-3">
+                            <div class="feature-vote-icon ms-3 flex-shrink-0">
+                                <span class="feature-vote-cta d-inline-flex align-items-center gap-1 gap-sm-2 text-nowrap" aria-hidden="true">
+                                    <span class="feature-vote-cta-text small fw-semibold d-none d-sm-inline">Vote</span>
+                                    <span class="feature-vote-thumb" aria-hidden="true">👍</span>
+                                </span>
                                 <span class="feature-vote-check" style="display: none;" aria-hidden="true">✓</span>
                             </div>
                         </div>

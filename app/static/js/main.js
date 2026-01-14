@@ -151,8 +151,12 @@ function initFeatureVoting() {
                 
                 // Show visual feedback on clicked button
                 const checkIcon = this.querySelector('.feature-vote-check');
+                const voteCta = this.querySelector('.feature-vote-cta');
                 if (checkIcon) {
                     checkIcon.style.display = 'inline';
+                }
+                if (voteCta) {
+                    voteCta.style.display = 'none';
                 }
                 this.classList.remove('btn-outline-primary');
                 this.classList.add('btn-success');
@@ -198,6 +202,9 @@ function initFeatureVoting() {
                         if (checkIcon) {
                             checkIcon.style.display = 'none';
                         }
+                        if (voteCta) {
+                            voteCta.style.display = 'inline-flex';
+                        }
                     }
                 })
                 .catch(error => {
@@ -213,6 +220,9 @@ function initFeatureVoting() {
                     this.classList.add('btn-outline-primary');
                     if (checkIcon) {
                         checkIcon.style.display = 'none';
+                    }
+                    if (voteCta) {
+                        voteCta.style.display = 'inline-flex';
                     }
                 });
             });

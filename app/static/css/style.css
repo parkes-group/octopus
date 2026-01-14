@@ -510,6 +510,15 @@ footer a:focus {
     text-align: center;
 }
 
+.feature-vote-cta-text {
+    font-weight: 600;
+}
+
+.feature-vote-thumb {
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
 .feature-vote-check {
     color: var(--success-color);
     font-size: 1.5rem;
