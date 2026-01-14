@@ -317,6 +317,11 @@ The fastest and most reliable way to generate statistics is using the scripts in
    python scripts/download_raw_data.py
    ```
 
+   Validate completeness (recommended before regenerating stats):
+   ```bash
+   python scripts/validate_raw_data.py
+   ```
+
 2. **Generate statistics for all regions** (uses raw data, ~10-15 minutes):
    ```bash
    python scripts/generate_all_stats.py
@@ -370,6 +375,7 @@ Statistics are stored in `data/stats/` as JSON files:
 Raw price data (optional, speeds up regeneration) is stored in `data/raw/`:
 - Format: `{region_code}_{year}.json`
 - Each file contains a full year's worth of half-hourly price data
+  - Expected size for 2025: **17,520** slots per region (365 × 48 half-hour slots per UTC day)
 
 ### Frontend Display
 

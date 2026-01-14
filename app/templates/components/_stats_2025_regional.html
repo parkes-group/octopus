@@ -58,7 +58,7 @@
                         £{{ "%.2f"|format(stats_2025.savings_vs_cap) }}
                     </p>
                     <p class="small text-muted mb-0">
-                        could have been saved<br>
+                        more could have been saved<br>
                         using cheapest blocks
                     </p>
                 </div>
@@ -77,7 +77,6 @@
             <ul class="mb-0 mt-2">
                 <li>Daily usage of {{ "%.1f"|format(stats_2025.assumptions.daily_kwh) }} kWh (4,015 kWh / year)</li>
                 <li>{{ "%.0f"|format(stats_2025.assumptions.get('cheapest_block_usage_percent', 35.0)) }}% of daily usage in cheapest 3.5h blocks</li>
-                <li>Battery charge rate of {{ "%.1f"|format(stats_2025.assumptions.battery_charge_power_kw) }} kW for negative pricing</li>
                 <li>Price cap of {{ "%.2f"|format(stats_2025.price_cap) }}p/kWh (excluding standing charge)</li>
             </ul>
             <em>These are illustrative calculations only. Actual savings depend on your usage patterns and equipment.</em>

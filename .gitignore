@@ -48,6 +48,7 @@ app/cache/*.json
 # Logs
 *.log
 app.log
+logs/
 
 # Testing
 .pytest_cache/

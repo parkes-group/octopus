@@ -17,8 +17,11 @@ logger = logging.getLogger(__name__)
 class StatsCalculator:
     """Calculates historical statistics for Agile Octopus pricing."""
     
-    STATS_DIR = Path('data/stats')
-    RAW_DATA_DIR = Path('data/raw')
+    # Important: resolve paths relative to the project root (not the process CWD).
+    # This avoids "file not found" issues in WSGI/prod where the working directory may differ.
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    STATS_DIR = PROJECT_ROOT / 'data' / 'stats'
+    RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw'
     BLOCK_DURATION_HOURS = 3.5
     
     @staticmethod

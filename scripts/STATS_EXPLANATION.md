@@ -52,16 +52,27 @@ python scripts/download_raw_data.py --product AGILE-24-10-01
 ```
 
 **What it does**:
-- Iterates through all 365 days of the specified year
-- Downloads half-hourly price data for each day from Octopus API
+- Downloads a full year's worth of half-hourly prices for each region from Octopus API
+- Uses an **explicit UTC range**:
+  - `period_from = 2025-01-01T00:00:00Z`
+  - `period_to   = 2025-12-31T23:59:59Z`
+- Traverses **pagination** by following the API response `next` link until exhausted
 - Saves complete year's data to `data/raw/{region_code}_{year}.json`
-- Each file contains ~7,300 price slots (48 slots/day × 365 days)
+
+**Expected size (complete dataset)**:
+- **17,520** price slots per region for 2025 (365 days × 48 half-hour slots per UTC day)
+
+**DST note (important for audits)**:
+- DST does **not** affect UTC-day slot counts (still 48 per UTC day)
+- When grouping by **UK local date (Europe/London)**, you should expect:
+  - One 46-slot local day (DST start: 2025-03-30)
+  - One 50-slot local day (DST end: 2025-10-26)
 
 **Output**:
 - Files saved to: `data/raw/A_2025.json`, `data/raw/B_2025.json`, etc.
 - One file per region containing the entire year's data
 
-**Time**: ~1-2 hours for all 14 regions (depends on API response times)
+**Time**: Typically minutes for all 14 regions (depends on API response times and pagination).
 
 **Why use this**: Once raw data is downloaded, statistics generation is much faster because it reads from local files instead of making API calls.
 
@@ -94,9 +105,9 @@ python scripts/generate_stats.py --region A --year 2025
 **Output**:
 - File saved to: `data/stats/A_2025.json`, `data/stats/B_2025.json`, etc.
 
-**Time**: 
+**Time**:
 - With raw data: ~30 seconds per region
-- Without raw data: ~5-10 minutes per region (365 API calls)
+- Without raw data: much slower (requires many API calls / pagination)
 
 ### 3. `generate_all_stats.py` - Generate Statistics for All Regions
 
@@ -127,9 +138,9 @@ python scripts/generate_all_stats.py --year 2025
 - 14 regional files: `data/stats/A_2025.json` through `data/stats/P_2025.json`
 - 1 national file: `data/stats/national_2025.json`
 
-**Time**: 
+**Time**:
 - With raw data: ~10-15 minutes for all regions
-- Without raw data: ~1-2 hours for all regions
+- Without raw data: significantly slower (requires many API calls / pagination)
 
 **Recommended**: Use this script after downloading raw data for fastest results.
 
@@ -212,9 +223,8 @@ curl -X POST "http://localhost:5000/admin/generate-stats?password=your-password&
 ### Processing Time
 
 The calculation processes all 365 days of 2025. This can take:
-- **Several minutes** for a single region (365 API calls)
-- **Much longer** for all regions mode (365 × 14 regions = 5,110 API calls)
-  - Expect **1-2 hours** or more depending on API response times
+- **Several minutes** for a single region (many API calls / pagination)
+- **Much longer** for all regions mode (many API calls / pagination)
   - The route will return once ALL regions are processed and national averages are calculated
 
 **Recommendation**: Use the standalone scripts (`download_raw_data.py` + `generate_all_stats.py`) instead of the admin route for bulk operations, as they're more reliable for long-running tasks.
@@ -367,7 +377,23 @@ python generate_all_stats.py  # This will fail
 1. Check internet connection
 2. Verify Octopus API is accessible
 3. Check that product code is correct
-4. Some days may have missing data (this is normal and handled gracefully)
+4. If validation shows missing slots/dates, verify pagination is working and rerun the download
+
+### Validate raw data completeness (recommended)
+
+After downloading, validate that the dataset is complete **before** regenerating stats:
+
+```bash
+python scripts/validate_raw_data.py
+```
+
+This will generate: `RAW_DATA_2025_COMPLETENESS_REPORT.md`
+
+**Pass criteria for a complete 2025 dataset (per region):**
+- Total slots: **17,520**
+- UTC dates: **365** (2025-01-01 → 2025-12-31)
+- UTC abnormal days: **0** (every UTC day should have 48 slots)
+- UK local abnormal days: **2** (46-slot day on 2025-03-30, 50-slot day on 2025-10-26)
 
 ### Statistics generation is slow
 

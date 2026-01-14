@@ -2,32 +2,32 @@
   "year": 2025,
   "region_code": "F",
   "product_code": "AGILE-24-10-01",
-  "calculation_date": "2026-01-04T07:05:35.114336+00:00",
-  "days_processed": 364,
-  "days_failed": 1,
+  "calculation_date": "2026-01-14T19:24:52.879784+00:00",
+  "days_processed": 365,
+  "days_failed": 0,
   "cheapest_block": {
     "block_hours": 3.5,
-    "avg_price_p_per_kwh": 14.72
+    "avg_price_p_per_kwh": 12.35
   },
   "daily_average": {
-    "avg_price_p_per_kwh": 17.88
+    "avg_price_p_per_kwh": 19.35
   },
   "savings_vs_daily_average": {
-    "savings_p_per_kwh": 3.16,
-    "savings_percentage": 17.68,
-    "annual_saving_gbp": 44.43
+    "savings_p_per_kwh": 7.0,
+    "savings_percentage": 36.17,
+    "annual_saving_gbp": 98.38
   },
   "price_cap_comparison": {
     "cap_price_p_per_kwh": 28.6,
-    "savings_p_per_kwh": 13.88,
-    "annual_saving_gbp": 195.03
+    "savings_p_per_kwh": 16.25,
+    "annual_saving_gbp": 228.33
   },
   "negative_pricing": {
-    "total_negative_slots": 52,
-    "total_negative_hours": 26.0,
-    "avg_negative_price_p_per_kwh": 1.08,
-    "total_paid_gbp": 0.98,
-    "avg_payment_per_day_gbp": 0.003
+    "total_negative_slots": 341,
+    "total_negative_hours": 170.5,
+    "avg_negative_price_p_per_kwh": 1.17,
+    "total_paid_gbp": 6.99,
+    "avg_payment_per_day_gbp": 0.019
   },
   "assumptions": {
     "daily_kwh": 11.0,

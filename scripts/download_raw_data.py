@@ -1,20 +1,31 @@
 """
-Script to download raw price data for all regions for a full year.
-Saves data to data/raw/ directory for use in statistics calculations.
+Script to download raw (historic) half-hourly Agile prices for 2025 and store them under data/raw/.
+
+This script is the **raw data ingestion entry point** for historic stats.
+
+Key responsibilities:
+- Build a full-year Octopus API query (explicit UTC range)
+- Traverse Octopus pagination until exhausted
+- Persist one JSON file per region: data/raw/{REGION}_{YEAR}.json (overwritten atomically)
+
+Note:
+- This script intentionally does not depend on the app's "today prices" API client method, because
+  that method is designed for real-time pages and does not accept historic date ranges.
 """
 import os
 import sys
 from pathlib import Path
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 
 # Add the project root to the path (scripts are in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.api_client import OctopusAPIClient
 from app.config import Config
 import json
 import logging
+import time
+import requests
 
 # Setup logging
 logging.basicConfig(
@@ -24,6 +35,67 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 RAW_DATA_DIR = Path('data/raw')
+
+def _year_utc_range(year: int) -> tuple[str, str]:
+    """
+    Build an explicit UTC time range covering the full calendar year.
+
+    Required for correctness: do not rely on Octopus API defaults.
+
+    Returns:
+        (period_from, period_to) as ISO-8601 Z strings.
+    """
+    return (f"{year}-01-01T00:00:00Z", f"{year}-12-31T23:59:59Z")
+
+def fetch_prices_paginated(product_code: str, region_code: str, year: int, page_size: int = 1000, sleep_seconds: float = 0.0) -> tuple[list[dict], dict]:
+    """
+    Fetch all unit rates for the given region + product across the full year (UTC) using pagination.
+
+    Returns:
+        (results, meta) where meta includes page_count and total_results.
+    """
+    period_from, period_to = _year_utc_range(year)
+    url = Config.get_prices_url(product_code, region_code)
+
+    params = {
+        "period_from": period_from,
+        "period_to": period_to,
+        "page_size": page_size,
+    }
+
+    pages = 0
+    results: list[dict] = []
+    next_url = url
+    next_params = params
+
+    while next_url:
+        pages += 1
+        logger.info(f"[INGEST] {region_code}: fetching page {pages} ({'with params' if next_params else 'next URL already has params'})")
+        response = requests.get(next_url, params=next_params, timeout=Config.OCTOPUS_API_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+
+        page_results = data.get("results", [])
+        results.extend(page_results)
+
+        next_url = data.get("next")
+        # When following a "next" URL, it already includes query params; don't re-send the original params.
+        next_params = None
+
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+
+    meta = {
+        "product_code": product_code,
+        "region_code": region_code,
+        "year": year,
+        "period_from": period_from,
+        "period_to": period_to,
+        "page_size": page_size,
+        "pages_fetched": pages,
+        "total_price_slots": len(results),
+    }
+    return results, meta
 
 def download_region_data(product_code, region_code, year=2025):
     """
@@ -39,41 +111,19 @@ def download_region_data(product_code, region_code, year=2025):
     """
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     
-    logger.info(f"Starting download for region {region_code} ({Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')})")
+    logger.info(f"Starting full-year download for region {region_code} ({Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')})")
+
+    # Fetch the full year in one explicit ranged query, traversing pagination.
+    # This avoids relying on any implicit defaults and makes completeness measurable.
+    all_prices, meta = fetch_prices_paginated(
+        product_code=product_code,
+        region_code=region_code,
+        year=year,
+        page_size=1000,
+        sleep_seconds=0.0,
+    )
     
-    all_prices = []
-    start_date = date(year, 1, 1)
-    end_date = date(year, 12, 31)
-    current_date = start_date
-    failed_days = 0
-    
-    while current_date <= end_date:
-        date_str = current_date.strftime('%Y-%m-%d')
-        
-        try:
-            logger.debug(f"Fetching {region_code} {date_str}")
-            api_response = OctopusAPIClient.get_prices(product_code, region_code, date_str)
-            prices_data = api_response.get('results', [])
-            
-            if prices_data:
-                all_prices.extend(prices_data)
-                logger.debug(f"Fetched {len(prices_data)} price slots for {date_str}")
-            else:
-                logger.warning(f"No prices returned for {region_code} on {date_str}")
-                failed_days += 1
-            
-            # Progress logging every 30 days
-            days_processed = (current_date - start_date).days + 1
-            if days_processed % 30 == 0:
-                logger.info(f"Region {region_code}: Processed {days_processed} days...")
-            
-        except Exception as e:
-            logger.error(f"Error fetching prices for {region_code} on {date_str}: {e}")
-            failed_days += 1
-        
-        current_date += timedelta(days=1)
-    
-    # Sort all prices chronologically by valid_from
+    # Sort all prices chronologically by valid_from (Octopus often returns reverse chronological)
     try:
         all_prices = sorted(all_prices, key=lambda x: x.get('valid_from', ''))
     except Exception as e:
@@ -87,11 +137,13 @@ def download_region_data(product_code, region_code, year=2025):
         "prices": all_prices,
         "fetched_at": datetime.now().isoformat(),
         "total_price_slots": len(all_prices),
-        "days_processed": (end_date - start_date).days + 1 - failed_days,
-        "days_failed": failed_days
+        "ingestion": meta
     }
     
-    logger.info(f"Region {region_code}: Downloaded {len(all_prices)} price slots ({failed_days} days failed)")
+    logger.info(
+        f"Region {region_code}: Downloaded {len(all_prices)} price slots "
+        f"(pages={meta.get('pages_fetched')}, range={meta.get('period_from')}..{meta.get('period_to')})"
+    )
     
     return raw_data
 
@@ -110,10 +162,12 @@ def save_raw_data(raw_data, region_code, year=2025):
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     filepath = RAW_DATA_DIR / f"{region_code}_{year}.json"
     
+    # Atomic write (temp file then replace) to avoid partial files on interruption.
+    temp_file = filepath.with_suffix('.json.tmp')
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(temp_file, 'w', encoding='utf-8') as f:
             json.dump(raw_data, f, indent=2, ensure_ascii=False)
-        
+        os.replace(temp_file, filepath)
         logger.info(f"Saved raw data to {filepath}")
         return filepath
     except IOError as e:
@@ -176,8 +230,9 @@ def main():
                     'region': region,
                     'filepath': str(filepath),
                     'price_slots': raw_data.get('total_price_slots', 0),
-                    'days_processed': raw_data.get('days_processed', 0),
-                    'days_failed': raw_data.get('days_failed', 0)
+                    'pages_fetched': raw_data.get('ingestion', {}).get('pages_fetched', 0),
+                    'period_from': raw_data.get('ingestion', {}).get('period_from'),
+                    'period_to': raw_data.get('ingestion', {}).get('period_to')
                 })
                 print(f"\n[OK] Successfully downloaded region {region}")
             else:
@@ -203,9 +258,9 @@ def main():
         for item in downloaded_files:
             print(f"  {item['region']}: {item['filepath']}")
             print(f"    - {item['price_slots']} price slots")
-            print(f"    - {item['days_processed']} days processed")
-            if item['days_failed'] > 0:
-                print(f"    - {item['days_failed']} days failed")
+            print(f"    - {item['pages_fetched']} pages fetched")
+            if item.get('period_from') and item.get('period_to'):
+                print(f"    - range: {item['period_from']} .. {item['period_to']}")
     
     if failed_regions:
         print(f"\nFailed regions: {', '.join(failed_regions)}")
