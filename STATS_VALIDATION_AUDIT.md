@@ -163,5 +163,5 @@ Important limitation:
 See:
 
 - `RAW_DATA_2025_COMPLETENESS_REPORT.md` (raw completeness evidence)
-- `validate_stats.py` output (spot-checks and stats-vs-raw consistency)
+- `scripts/validate_stats.py` output (spot-checks and stats-vs-raw consistency)
 

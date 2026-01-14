@@ -322,6 +322,11 @@ The fastest and most reliable way to generate statistics is using the scripts in
    python scripts/validate_raw_data.py
    ```
 
+   Validate derived stats:
+   ```bash
+   python scripts/validate_stats.py
+   ```
+
 2. **Generate statistics for all regions** (uses raw data, ~10-15 minutes):
    ```bash
    python scripts/generate_all_stats.py

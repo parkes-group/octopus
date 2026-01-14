@@ -389,6 +389,12 @@ python scripts/validate_raw_data.py
 
 This will generate: `RAW_DATA_2025_COMPLETENESS_REPORT.md`
 
+Validate derived stats (recommended after regeneration):
+
+```bash
+python scripts/validate_stats.py
+```
+
 **Pass criteria for a complete 2025 dataset (per region):**
 - Total slots: **17,520**
 - UTC dates: **365** (2025-01-01 → 2025-12-31)
