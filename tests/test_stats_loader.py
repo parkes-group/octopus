@@ -4,6 +4,7 @@ Tests for statistics loader.
 import pytest
 import json
 from pathlib import Path
+import shutil
 from unittest.mock import patch
 from app.stats_loader import StatsLoader
 from app.stats_calculator import StatsCalculator
@@ -22,11 +23,8 @@ class TestStatsLoader:
     
     def teardown_method(self):
         """Clean up test fixtures."""
-        # Remove test directory
-        if self.test_stats_dir.exists():
-            for file in self.test_stats_dir.glob('*.json'):
-                file.unlink()
-            self.test_stats_dir.rmdir()
+        # Remove test directory (including year subdirectories)
+        shutil.rmtree(self.test_stats_dir, ignore_errors=True)
         
         # Reset to default
         StatsCalculator.STATS_DIR = self.original_stats_dir
@@ -53,7 +51,8 @@ class TestStatsLoader:
                 'battery_charge_power_kw': 3.5
             }
         }
-        test_file = self.test_stats_dir / 'national_2025.json'
+        test_file = self.test_stats_dir / '2025' / 'national_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(stats_data, f)
         
@@ -79,7 +78,8 @@ class TestStatsLoader:
                 'total_paid_gbp': 1.0
             }
         }
-        test_file = self.test_stats_dir / 'A_2025.json'
+        test_file = self.test_stats_dir / '2025' / 'A_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(stats_data, f)
         
@@ -116,7 +116,8 @@ class TestStatsLoader:
                 'battery_charge_power_kw': 3.5
             }
         }
-        test_file = self.test_stats_dir / 'national_2025.json'
+        test_file = self.test_stats_dir / '2025' / 'national_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(stats_data, f)
         

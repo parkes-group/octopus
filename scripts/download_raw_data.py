@@ -1,5 +1,5 @@
 """
-Script to download raw (historic) half-hourly Agile prices for 2025 and store them under data/raw/.
+Script to download raw half-hourly Agile prices for a given year and store them under data/raw/{YEAR}/.
 
 This script is the **raw data ingestion entry point** for historic stats.
 
@@ -15,7 +15,7 @@ Note:
 import os
 import sys
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 # Add the project root to the path (scripts are in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent
@@ -34,27 +34,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-RAW_DATA_DIR = Path('data/raw')
+RAW_DATA_BASE_DIR = project_root / "data" / "raw"
 
-def _year_utc_range(year: int) -> tuple[str, str]:
+def _dt_to_utc_z(dt: datetime) -> str:
+    dt_utc = dt.astimezone(timezone.utc).replace(microsecond=0)
+    return dt_utc.isoformat().replace("+00:00", "Z")
+
+def _year_utc_range(year: int, *, year_to_date: bool) -> tuple[str, str]:
     """
-    Build an explicit UTC time range covering the full calendar year.
+    Build an explicit UTC time range for the requested year.
+
+    - Full year: [YYYY-01-01T00:00:00Z, YYYY-12-31T23:59:59Z]
+    - Year-to-date (for current year): [YYYY-01-01T00:00:00Z, now_utc]
 
     Required for correctness: do not rely on Octopus API defaults.
 
     Returns:
         (period_from, period_to) as ISO-8601 Z strings.
     """
-    return (f"{year}-01-01T00:00:00Z", f"{year}-12-31T23:59:59Z")
+    period_from = f"{year}-01-01T00:00:00Z"
+    if year_to_date:
+        period_to = _dt_to_utc_z(datetime.now(timezone.utc))
+    else:
+        period_to = f"{year}-12-31T23:59:59Z"
+    return (period_from, period_to)
 
-def fetch_prices_paginated(product_code: str, region_code: str, year: int, page_size: int = 1000, sleep_seconds: float = 0.0) -> tuple[list[dict], dict]:
+def fetch_prices_paginated(
+    product_code: str,
+    region_code: str,
+    year: int,
+    *,
+    year_to_date: bool,
+    page_size: int = 1000,
+    sleep_seconds: float = 0.0,
+) -> tuple[list[dict], dict]:
     """
     Fetch all unit rates for the given region + product across the full year (UTC) using pagination.
 
     Returns:
         (results, meta) where meta includes page_count and total_results.
     """
-    period_from, period_to = _year_utc_range(year)
+    period_from, period_to = _year_utc_range(year, year_to_date=year_to_date)
     url = Config.get_prices_url(product_code, region_code)
 
     params = {
@@ -97,7 +117,7 @@ def fetch_prices_paginated(product_code: str, region_code: str, year: int, page_
     }
     return results, meta
 
-def download_region_data(product_code, region_code, year=2025):
+def download_region_data(product_code, region_code, year=2025, *, year_to_date: bool):
     """
     Download all price data for a region for the entire year.
     
@@ -109,7 +129,9 @@ def download_region_data(product_code, region_code, year=2025):
     Returns:
         dict: Raw data dictionary with all prices, or None if failed
     """
-    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    # Ensure year directory exists
+    raw_year_dir = RAW_DATA_BASE_DIR / str(year)
+    raw_year_dir.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"Starting full-year download for region {region_code} ({Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')})")
 
@@ -119,6 +141,7 @@ def download_region_data(product_code, region_code, year=2025):
         product_code=product_code,
         region_code=region_code,
         year=year,
+        year_to_date=year_to_date,
         page_size=1000,
         sleep_seconds=0.0,
     )
@@ -159,8 +182,9 @@ def save_raw_data(raw_data, region_code, year=2025):
     Returns:
         Path: Path to saved file
     """
-    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    filepath = RAW_DATA_DIR / f"{region_code}_{year}.json"
+    raw_year_dir = RAW_DATA_BASE_DIR / str(year)
+    raw_year_dir.mkdir(parents=True, exist_ok=True)
+    filepath = raw_year_dir / f"{region_code}_{year}.json"
     
     # Atomic write (temp file then replace) to avoid partial files on interruption.
     temp_file = filepath.with_suffix('.json.tmp')
@@ -183,16 +207,15 @@ def main():
     parser.add_argument('--product', '-p', type=str, default=Config.OCTOPUS_PRODUCT_CODE,
                        help='Product code (default: from config)')
     parser.add_argument('--year', '-y', type=int, default=2025, help='Year (default: 2025)')
+    parser.add_argument('--full-year', action='store_true', help='Force full-year range instead of year-to-date for the current year')
     
     args = parser.parse_args()
     
     product_code = args.product
     region_code = args.region
     year = args.year
-    
-    if year != 2025:
-        print(f"Error: Only 2025 data download is supported (got {year})")
-        sys.exit(1)
+    force_full_year = args.full_year
+    year_to_date = (year == datetime.now(timezone.utc).year) and (not force_full_year)
     
     # Get list of regions to process
     if region_code:
@@ -210,6 +233,7 @@ def main():
     
     print(f"Product: {product_code}")
     print(f"Year: {year}")
+    print(f"Coverage: {'year_to_date' if year_to_date else 'full_year'}")
     print(f"Regions: {', '.join(regions_to_process)}")
     print()
     
@@ -222,7 +246,7 @@ def main():
             print(f"Processing region {region}: {Config.OCTOPUS_REGION_NAMES.get(region, 'Unknown')}")
             print(f"{'='*60}\n")
             
-            raw_data = download_region_data(product_code, region, year)
+            raw_data = download_region_data(product_code, region, year, year_to_date=year_to_date)
             
             if raw_data and raw_data.get('prices'):
                 filepath = save_raw_data(raw_data, region, year)

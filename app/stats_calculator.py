@@ -20,14 +20,25 @@ class StatsCalculator:
     # Important: resolve paths relative to the project root (not the process CWD).
     # This avoids "file not found" issues in WSGI/prod where the working directory may differ.
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    # Base directories (year-specific subdirectories are derived from these).
     STATS_DIR = PROJECT_ROOT / 'data' / 'stats'
     RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw'
     BLOCK_DURATION_HOURS = 3.5
     
     @staticmethod
-    def _ensure_stats_dir():
-        """Ensure stats directory exists."""
-        StatsCalculator.STATS_DIR.mkdir(parents=True, exist_ok=True)
+    def _stats_dir_for_year(year: int) -> Path:
+        """Return the stats directory for a given year (e.g. data/stats/2025)."""
+        return StatsCalculator.STATS_DIR / str(year)
+
+    @staticmethod
+    def _raw_dir_for_year(year: int) -> Path:
+        """Return the raw data directory for a given year (e.g. data/raw/2025)."""
+        return StatsCalculator.RAW_DATA_DIR / str(year)
+
+    @staticmethod
+    def _ensure_stats_dir(year: int):
+        """Ensure stats year directory exists."""
+        StatsCalculator._stats_dir_for_year(year).mkdir(parents=True, exist_ok=True)
     
     @staticmethod
     def load_raw_data(region_code, year=2025):
@@ -41,7 +52,7 @@ class StatsCalculator:
         Returns:
             list: List of price dictionaries, or None if file not found
         """
-        filepath = StatsCalculator.RAW_DATA_DIR / f"{region_code}_{year}.json"
+        filepath = StatsCalculator._raw_dir_for_year(year) / f"{region_code}_{year}.json"
         
         if not filepath.exists():
             logger.warning(f"Raw data file not found: {filepath}")
@@ -253,6 +264,200 @@ class StatsCalculator:
         logger.info(f"Statistics calculated successfully: {total_days} days, {total_negative_slots} negative slots")
         
         return results
+
+    @staticmethod
+    def _date_range_for_coverage(year: int, coverage: str) -> tuple[date, date]:
+        """
+        Determine the UTC-date range to process for a given coverage mode.
+
+        coverage:
+          - "full_year": YYYY-01-01 .. YYYY-12-31
+          - "year_to_date": YYYY-01-01 .. (today_utc - 1 day) (i.e., last complete UTC day)
+        """
+        start_date = date(year, 1, 1)
+        if coverage == "year_to_date":
+            today_utc = datetime.now(timezone.utc).date()
+            end_date = min(date(year, 12, 31), today_utc - timedelta(days=1))
+            if end_date < start_date:
+                end_date = start_date
+            return start_date, end_date
+        # Default to full year
+        return start_date, date(year, 12, 31)
+
+    @staticmethod
+    def calculate_year_stats(
+        product_code,
+        region_code="A",
+        *,
+        year: int,
+        coverage: str = "full_year",
+        daily_kwh=None,
+        battery_charge_power_kw=None,
+        price_cap_p_per_kwh=None,
+    ):
+        """
+        Calculate statistics for a given year.
+
+        This reuses the existing 2025 logic and assumptions, but allows the year and coverage
+        window to be explicit.
+
+        Notes:
+        - For year_to_date, we process through the last complete UTC day.
+        - For year=2025 full_year, prefer calculate_2025_stats() to preserve historical output shape.
+        """
+        # Use defaults from config if not provided
+        daily_kwh = daily_kwh or Config.STATS_DAILY_KWH
+        battery_charge_power_kw = battery_charge_power_kw or Config.STATS_BATTERY_CHARGE_POWER_KW
+        price_cap_p_per_kwh = price_cap_p_per_kwh or Config.OFGEM_PRICE_CAP_P_PER_KWH
+
+        start_date, end_date = StatsCalculator._date_range_for_coverage(year, coverage)
+
+        logger.info(f"Starting {year} statistics calculation for {product_code} region {region_code} (coverage={coverage})")
+        logger.info(f"Processing range (UTC dates): {start_date.isoformat()} .. {end_date.isoformat()}")
+        logger.info(f"Assumptions: {daily_kwh} kWh/day, {battery_charge_power_kw} kW charge rate, {price_cap_p_per_kwh} p/kWh price cap")
+
+        # Try to load from raw data file first
+        all_prices = StatsCalculator.load_raw_data(region_code, year=year)
+        use_raw_data = all_prices is not None
+
+        if use_raw_data:
+            logger.info(f"Using raw data file for region {region_code} ({len(all_prices)} price slots)")
+        else:
+            logger.info("Raw data file not found, will fetch from API (this will take longer)")
+            all_prices = []
+
+        # Initialize accumulators
+        cheapest_block_prices = []
+        daily_average_prices = []
+        negative_slots = []
+        total_days = 0
+        failed_days = 0
+
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.strftime("%Y-%m-%d")
+            try:
+                if use_raw_data:
+                    prices_data = [p for p in all_prices if p.get("valid_from", "").startswith(date_str)]
+                else:
+                    logger.debug(f"Fetching prices for {date_str}")
+                    api_response = OctopusAPIClient.get_prices(product_code, region_code, date_str)
+                    prices_data = api_response.get("results", [])
+
+                if not prices_data:
+                    logger.warning(f"No prices found for {date_str}")
+                    failed_days += 1
+                    current_date += timedelta(days=1)
+                    continue
+
+                prices_data = sorted(prices_data, key=lambda x: x.get("valid_from", ""))
+
+                cheapest_block = PriceCalculator.find_cheapest_block(prices_data, StatsCalculator.BLOCK_DURATION_HOURS)
+                if cheapest_block:
+                    cheapest_block_prices.append(cheapest_block["average_price"])
+
+                daily_avg = PriceCalculator.calculate_daily_average_price(prices_data)
+                if daily_avg:
+                    daily_average_prices.append(daily_avg)
+
+                for price in prices_data:
+                    if price.get("value_inc_vat", 0) <= 0:
+                        negative_slots.append(
+                            {
+                                "date": date_str,
+                                "price_p_per_kwh": price["value_inc_vat"],
+                                "valid_from": price["valid_from"],
+                                "valid_to": price["valid_to"],
+                            }
+                        )
+
+                total_days += 1
+
+                if total_days % 30 == 0:
+                    logger.info(f"Processed {total_days} days...")
+
+            except Exception as e:
+                logger.error(f"Error processing {date_str}: {e}", exc_info=True)
+                failed_days += 1
+
+            current_date += timedelta(days=1)
+
+        logger.info(f"Completed processing: {total_days} successful days, {failed_days} failed days")
+
+        avg_cheapest_block = sum(cheapest_block_prices) / len(cheapest_block_prices) if cheapest_block_prices else 0
+        avg_daily_average = sum(daily_average_prices) / len(daily_average_prices) if daily_average_prices else 0
+
+        # Savings vs daily average
+        savings_p_per_kwh = avg_daily_average - avg_cheapest_block
+        savings_percentage = (savings_p_per_kwh / avg_daily_average * 100) if avg_daily_average > 0 else 0
+
+        # Savings: for year_to_date we want "year so far" (days processed), otherwise annualised (365).
+        cheapest_block_usage_kwh = daily_kwh * (Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0)
+        savings_days = total_days if coverage == "year_to_date" else 365
+        annual_savings_vs_daily_avg = (savings_p_per_kwh * cheapest_block_usage_kwh * savings_days) / 100
+
+        # Price cap comparison (year so far for year_to_date; otherwise annualised)
+        savings_vs_cap_p_per_kwh = price_cap_p_per_kwh - avg_cheapest_block
+        annual_savings_vs_cap = (savings_vs_cap_p_per_kwh * cheapest_block_usage_kwh * savings_days) / 100
+
+        total_negative_slots = len(negative_slots)
+        total_negative_hours = total_negative_slots * 0.5
+
+        avg_negative_price_p_per_kwh = 0.0
+        if total_negative_slots > 0:
+            total_negative_price_pence = sum(abs(slot["price_p_per_kwh"]) for slot in negative_slots)
+            avg_negative_price_p_per_kwh = total_negative_price_pence / total_negative_slots
+
+        total_paid_pence = 0
+        for slot in negative_slots:
+            kwh_per_slot = battery_charge_power_kw * 0.5
+            payment_pence = abs(slot["price_p_per_kwh"]) * kwh_per_slot
+            total_paid_pence += payment_pence
+
+        total_paid_gbp = total_paid_pence / 100
+        avg_payment_per_day = total_paid_gbp / total_days if total_days > 0 else 0
+
+        calc_time = datetime.now(UK_TZ).isoformat()
+        results = {
+            "year": year,
+            "coverage": coverage,
+            "days_covered": total_days,
+            "last_updated": calc_time,
+            "region_code": region_code,
+            "product_code": product_code,
+            "calculation_date": calc_time,
+            "days_processed": total_days,
+            "days_failed": failed_days,
+            "cheapest_block": {"block_hours": StatsCalculator.BLOCK_DURATION_HOURS, "avg_price_p_per_kwh": round(avg_cheapest_block, 2)},
+            "daily_average": {"avg_price_p_per_kwh": round(avg_daily_average, 2)},
+            "savings_vs_daily_average": {
+                "savings_p_per_kwh": round(savings_p_per_kwh, 2),
+                "savings_percentage": round(savings_percentage, 2),
+                "annual_saving_gbp": round(annual_savings_vs_daily_avg, 2),
+            },
+            "price_cap_comparison": {
+                "cap_price_p_per_kwh": price_cap_p_per_kwh,
+                "savings_p_per_kwh": round(savings_vs_cap_p_per_kwh, 2),
+                "annual_saving_gbp": round(annual_savings_vs_cap, 2),
+            },
+            "negative_pricing": {
+                "total_negative_slots": total_negative_slots,
+                "total_negative_hours": round(total_negative_hours, 1),
+                "avg_negative_price_p_per_kwh": round(avg_negative_price_p_per_kwh, 2),
+                "total_paid_gbp": round(total_paid_gbp, 2),
+                "avg_payment_per_day_gbp": round(avg_payment_per_day, 3),
+            },
+            "assumptions": {
+                "daily_kwh": daily_kwh,
+                "battery_charge_power_kw": battery_charge_power_kw,
+                "cheapest_block_usage_percent": Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT,
+                "usage_shifted_to_cheapest_blocks": True,
+                "usage_limited_to_negative_slots": True,
+            },
+        }
+
+        logger.info(f"Statistics calculated successfully: {total_days} days, {total_negative_slots} negative slots")
+        return results
     
     @staticmethod
     def save_stats(stats_data, filename=None):
@@ -266,14 +471,16 @@ class StatsCalculator:
         Returns:
             Path: Path to saved file
         """
-        StatsCalculator._ensure_stats_dir()
-        
         if filename is None:
             year = stats_data.get('year', 2025)
             region = stats_data.get('region_code', 'national')
             filename = f"{region}_{year}.json"
+        else:
+            year = stats_data.get('year', 2025)
+
+        StatsCalculator._ensure_stats_dir(year)
         
-        filepath = StatsCalculator.STATS_DIR / filename
+        filepath = StatsCalculator._stats_dir_for_year(year) / filename
         
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -302,7 +509,7 @@ class StatsCalculator:
         if filename is None:
             filename = f"{region_code}_{year}.json"
         
-        filepath = StatsCalculator.STATS_DIR / filename
+        filepath = StatsCalculator._stats_dir_for_year(year) / filename
         
         if not filepath.exists():
             logger.warning(f"Statistics file not found: {filepath}")
@@ -333,7 +540,7 @@ class StatsCalculator:
         Returns:
             dict: National statistics dictionary with averaged values
         """
-        StatsCalculator._ensure_stats_dir()
+        StatsCalculator._ensure_stats_dir(year)
         
         # Get all region codes from config
         region_codes = list(Config.OCTOPUS_REGION_NAMES.keys())
@@ -380,11 +587,20 @@ class StatsCalculator:
         daily_kwh = assumptions.get('daily_kwh', Config.STATS_DAILY_KWH)
         cheapest_block_usage_percent = assumptions.get('cheapest_block_usage_percent', Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT)
         cheapest_block_usage_kwh = daily_kwh * (cheapest_block_usage_percent / 100.0)
-        annual_savings_vs_daily_avg = (savings_p_per_kwh * cheapest_block_usage_kwh * 365) / 100
+        # Determine savings day multiplier:
+        # - for year_to_date datasets, use the number of processed days (averaged across regions)
+        # - otherwise keep the legacy annualisation factor (365)
+        savings_days = 365
+        if year != 2025 and regional_stats and regional_stats[0].get("coverage") == "year_to_date":
+            total_days = sum(s.get("days_processed", 0) for s in regional_stats)
+            avg_days = total_days / num_regions if num_regions > 0 else 0
+            savings_days = max(0, int(avg_days))
+
+        annual_savings_vs_daily_avg = (savings_p_per_kwh * cheapest_block_usage_kwh * savings_days) / 100
         
         # Calculate savings vs price cap
         savings_vs_cap_p_per_kwh = price_cap - avg_cheapest_block
-        annual_savings_vs_cap = (savings_vs_cap_p_per_kwh * cheapest_block_usage_kwh * 365) / 100
+        annual_savings_vs_cap = (savings_vs_cap_p_per_kwh * cheapest_block_usage_kwh * savings_days) / 100
         
         # Average negative pricing statistics (not sum - these represent the same time period across regions)
         negative_slots_list = [
@@ -403,7 +619,7 @@ class StatsCalculator:
         total_negative_slots = sum(negative_slots_list) / len(negative_slots_list) if negative_slots_list else 0
         total_negative_hours = sum(negative_hours_list) / len(negative_hours_list) if negative_hours_list else 0
         total_paid_gbp = sum(total_paid_list) / len(total_paid_list) if total_paid_list else 0
-        avg_payment_per_day = total_paid_gbp / 365 if total_paid_gbp > 0 else 0
+        avg_payment_per_day = total_paid_gbp / savings_days if total_paid_gbp > 0 and savings_days > 0 else 0
         
         # Calculate average negative price per kWh from regional averages
         avg_negative_prices = [
@@ -418,11 +634,12 @@ class StatsCalculator:
         avg_days = total_days / num_regions if num_regions > 0 else 0
         
         # Build national statistics
+        calc_time = datetime.now(UK_TZ).isoformat()
         national_stats = {
             "year": year,
             "region_code": "national",  # Use 'national' identifier for national averages
             "product_code": product_code,
-            "calculation_date": datetime.now(UK_TZ).isoformat(),
+            "calculation_date": calc_time,
             "days_processed": int(avg_days),
             "days_failed": 0,
             "is_national_average": True,  # Flag to indicate this is averaged from regions
@@ -459,6 +676,12 @@ class StatsCalculator:
                 "usage_limited_to_negative_slots": True
             }
         }
+
+        # For non-2025 datasets, include explicit coverage metadata (used for year-to-date outputs).
+        if year != 2025:
+            national_stats["coverage"] = regional_stats[0].get("coverage", "full_year")
+            national_stats["days_covered"] = int(avg_days)
+            national_stats["last_updated"] = calc_time
         
         logger.info(f"National averages calculated from {num_regions} regions")
         return national_stats

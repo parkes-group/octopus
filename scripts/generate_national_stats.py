@@ -4,6 +4,7 @@ Script to generate national averages from all regional statistics.
 import os
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Add the project root to the path (scripts are in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent
@@ -33,10 +34,6 @@ def main():
     
     product_code = args.product
     year = args.year
-    
-    if year != 2025:
-        print(f"Error: Only 2025 statistics are supported (got {year})")
-        sys.exit(1)
     
     print(f"Calculating national averages from all regional statistics")
     print(f"Product: {product_code}")

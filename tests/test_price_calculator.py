@@ -3,6 +3,7 @@ Tests for price calculator.
 """
 import pytest
 from app.price_calculator import PriceCalculator
+from datetime import datetime, timedelta, timezone
 
 class TestPriceCalculator:
     """Test cases for PriceCalculator."""
@@ -43,10 +44,19 @@ class TestPriceCalculator:
     
     def test_find_cheapest_block_decimal_duration(self):
         """Test finding cheapest block with decimal duration (3.5 hours = 7 slots)."""
-        prices = [
-            {'value_inc_vat': 20.0, 'valid_from': f'2024-01-15T{i:02d}:00:00Z', 'valid_to': f'2024-01-15T{i:02d}:30:00Z'}
-            for i in range(10)
-        ]
+        # Build contiguous 30-minute slots (no gaps) so a 3.5h window (7 slots) is possible.
+        start = datetime(2024, 1, 15, 0, 0, tzinfo=timezone.utc)
+        prices = []
+        for i in range(10):
+            vf = start + timedelta(minutes=30 * i)
+            vt = vf + timedelta(minutes=30)
+            prices.append(
+                {
+                    "value_inc_vat": 20.0,
+                    "valid_from": vf.isoformat().replace("+00:00", "Z"),
+                    "valid_to": vt.isoformat().replace("+00:00", "Z"),
+                }
+            )
         # Make middle block cheaper
         prices[2]['value_inc_vat'] = 10.0
         prices[3]['value_inc_vat'] = 10.0

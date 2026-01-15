@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 class RegionRequestTracker:
     """Manages file-based tracking of region request counts."""
     
-    STATS_DIR = Path('data/stats')
+    # Resolve relative to project root to avoid CWD-dependent failures (WSGI/prod).
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    STATS_DIR = PROJECT_ROOT / 'data' / 'stats'
     COUNTS_FILE = STATS_DIR / 'region_request_counts.json'
     
     @staticmethod
@@ -66,7 +68,9 @@ class RegionRequestTracker:
         """
         RegionRequestTracker._ensure_stats_dir()
         
-        # Use atomic write (temp file then rename) for PythonAnywhere safety
+        # Use atomic write (temp file then rename) for PythonAnywhere safety.
+        # On Windows, antivirus/indexers can momentarily lock the destination file; we fall back to a direct write
+        # in that rare case so analytics never breaks the main request flow.
         temp_file = RegionRequestTracker.COUNTS_FILE.with_suffix('.json.tmp')
         
         try:
@@ -75,7 +79,19 @@ class RegionRequestTracker:
                 json.dump(counts, f, indent=2, ensure_ascii=False)
             
             # Atomic rename
-            os.replace(temp_file, RegionRequestTracker.COUNTS_FILE)
+            try:
+                os.replace(temp_file, RegionRequestTracker.COUNTS_FILE)
+            except PermissionError as e:
+                logger.warning(
+                    f"Atomic rename failed for {RegionRequestTracker.COUNTS_FILE} ({e}); falling back to direct write"
+                )
+                with open(RegionRequestTracker.COUNTS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(counts, f, indent=2, ensure_ascii=False)
+                try:
+                    if temp_file.exists():
+                        temp_file.unlink()
+                except Exception:
+                    pass
             
         except Exception as e:
             logger.error(f"Error writing region counts file {RegionRequestTracker.COUNTS_FILE}: {e}")

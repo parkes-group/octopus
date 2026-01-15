@@ -5,6 +5,7 @@ Can be run directly without Flask server.
 import os
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Add the project root to the path (scripts are in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent
@@ -17,7 +18,7 @@ def main():
     """Generate statistics for a region."""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Generate 2025 historical statistics')
+    parser = argparse.ArgumentParser(description='Generate historical statistics for a given year')
     parser.add_argument('--region', '-r', type=str, help='Region code (A, B, C, etc.)')
     parser.add_argument('--product', '-p', type=str, default=Config.OCTOPUS_PRODUCT_CODE,
                        help='Product code (default: from config)')
@@ -34,10 +35,6 @@ def main():
         print("Example: python generate_stats.py --region N")
         sys.exit(1)
     
-    if year != 2025:
-        print(f"Error: Only 2025 statistics are supported (got {year})")
-        sys.exit(1)
-    
     print(f"Starting statistics generation for {product_code} region {region_code} (year {year})")
     print(f"Region name: {Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')}")
     print("This may take several minutes...")
@@ -45,10 +42,19 @@ def main():
     
     try:
         # Calculate statistics
-        stats_data = StatsCalculator.calculate_2025_stats(
-            product_code=product_code,
-            region_code=region_code
-        )
+        if year == 2025:
+            stats_data = StatsCalculator.calculate_2025_stats(
+                product_code=product_code,
+                region_code=region_code
+            )
+        else:
+            current_year_utc = datetime.now(timezone.utc).year
+            stats_data = StatsCalculator.calculate_year_stats(
+                product_code=product_code,
+                region_code=region_code,
+                year=year,
+                coverage="year_to_date" if year == current_year_utc else "full_year",
+            )
         
         # Save to file
         filepath = StatsCalculator.save_stats(stats_data)

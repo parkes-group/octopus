@@ -4,6 +4,7 @@ Tests for statistics calculator.
 import pytest
 import json
 from pathlib import Path
+import shutil
 from unittest.mock import patch, Mock
 from app.stats_calculator import StatsCalculator
 from app.config import Config
@@ -28,15 +29,9 @@ class TestStatsCalculator:
     
     def teardown_method(self):
         """Clean up test fixtures."""
-        # Remove test directories
-        if self.test_stats_dir.exists():
-            for file in self.test_stats_dir.glob('*.json'):
-                file.unlink()
-            self.test_stats_dir.rmdir()
-        if self.test_raw_dir.exists():
-            for file in self.test_raw_dir.glob('*.json'):
-                file.unlink()
-            self.test_raw_dir.rmdir()
+        # Remove test directories (including year subdirectories)
+        shutil.rmtree(self.test_stats_dir, ignore_errors=True)
+        shutil.rmtree(self.test_raw_dir, ignore_errors=True)
         
         # Reset to defaults
         StatsCalculator.STATS_DIR = self.original_stats_dir
@@ -50,7 +45,8 @@ class TestStatsCalculator:
     def test_load_raw_data_success(self):
         """Test loading raw data from file."""
         # Create test raw data file
-        test_file = self.test_raw_dir / 'A_2025.json'
+        test_file = self.test_raw_dir / '2025' / 'A_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         test_data = {
             'prices': [
                 {'value_inc_vat': 16.0, 'valid_from': '2025-01-01T00:00:00Z', 'valid_to': '2025-01-01T00:30:00Z'},
@@ -71,7 +67,8 @@ class TestStatsCalculator:
     def test_calculate_2025_stats_negative_pricing_includes_zero(self, mock_daily_avg, mock_block):
         """Test that negative pricing calculation includes zero-price slots."""
         # Create test raw data with negative and zero prices
-        test_file = self.test_raw_dir / 'A_2025.json'
+        test_file = self.test_raw_dir / '2025' / 'A_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         test_data = {
             'prices': [
                 {'value_inc_vat': -1.5, 'valid_from': '2025-01-01T00:00:00Z', 'valid_to': '2025-01-01T00:30:00Z'},
@@ -107,7 +104,8 @@ class TestStatsCalculator:
     def test_calculate_2025_stats_negative_pricing_excludes_positive(self, mock_daily_avg, mock_block):
         """Test that positive prices are excluded from negative pricing."""
         # Create test raw data with only positive prices
-        test_file = self.test_raw_dir / 'A_2025.json'
+        test_file = self.test_raw_dir / '2025' / 'A_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         test_data = {
             'prices': [
                 {'value_inc_vat': 16.0, 'valid_from': '2025-01-01T00:00:00Z', 'valid_to': '2025-01-01T00:30:00Z'},
@@ -165,7 +163,8 @@ class TestStatsCalculator:
             'cheapest_block': {'avg_price_p_per_kwh': 14.0},
             'daily_average': {'avg_price_p_per_kwh': 18.0}
         }
-        test_file = self.test_stats_dir / 'A_2025.json'
+        test_file = self.test_stats_dir / '2025' / 'A_2025.json'
+        test_file.parent.mkdir(parents=True, exist_ok=True)
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(stats_data, f)
         
@@ -198,7 +197,8 @@ class TestStatsCalculator:
                     'battery_charge_power_kw': 3.5
                 }
             }
-            test_file = self.test_stats_dir / f'{region_code}_2025.json'
+            test_file = self.test_stats_dir / '2025' / f'{region_code}_2025.json'
+            test_file.parent.mkdir(parents=True, exist_ok=True)
             with open(test_file, 'w', encoding='utf-8') as f:
                 json.dump(stats_data, f)
         

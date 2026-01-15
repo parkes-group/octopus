@@ -5,6 +5,7 @@ Uses raw data files from data/raw/ directory.
 import os
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 # Add the project root to the path (scripts are in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent
@@ -35,10 +36,6 @@ def main():
     product_code = args.product
     year = args.year
     
-    if year != 2025:
-        print(f"Error: Only 2025 statistics are supported (got {year})")
-        sys.exit(1)
-    
     # Get all region codes
     region_codes = list(Config.OCTOPUS_REGION_NAMES.keys())
     
@@ -58,10 +55,19 @@ def main():
         print(f"{'='*60}")
         
         try:
-            stats_data = StatsCalculator.calculate_2025_stats(
-                product_code=product_code,
-                region_code=region_code
-            )
+            if year == 2025:
+                stats_data = StatsCalculator.calculate_2025_stats(
+                    product_code=product_code,
+                    region_code=region_code
+                )
+            else:
+                current_year_utc = datetime.now(timezone.utc).year
+                stats_data = StatsCalculator.calculate_year_stats(
+                    product_code=product_code,
+                    region_code=region_code,
+                    year=year,
+                    coverage="year_to_date" if year == current_year_utc else "full_year",
+                )
             
             if stats_data:
                 filepath = StatsCalculator.save_stats(stats_data)

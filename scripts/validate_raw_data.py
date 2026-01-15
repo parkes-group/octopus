@@ -1,5 +1,5 @@
 """
-Validate completeness of raw historic price data under data/raw/ for year 2025.
+Validate completeness of raw historic price data under data/raw/{YEAR}/.
 
 This is intentionally separate from stats generation:
 - It checks *inputs* (raw data) before any derived stats are regenerated.
@@ -22,14 +22,12 @@ sys.path.insert(0, str(project_root))
 from app.config import Config
 
 # Resolve paths relative to project root to avoid CWD issues (WSGI / different shells)
-RAW_DIR = project_root / "data" / "raw"
+RAW_BASE_DIR = project_root / "data" / "raw"
 DOCS_DIR = project_root / "documentation"
 UK_TZ = ZoneInfo("Europe/London")
 
 
-def expected_utc_dates_for_year(year: int) -> set[str]:
-    start = date(year, 1, 1)
-    end = date(year, 12, 31)
+def expected_utc_dates_for_range(start: date, end: date) -> set[str]:
     out = set()
     cur = start
     while cur <= end:
@@ -48,8 +46,9 @@ def parse_utc_iso_z(ts: str) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def validate_region(region: str, year: int) -> dict:
-    path = RAW_DIR / f"{region}_{year}.json"
+def validate_region(region: str, year: int, *, expected_end_utc: date) -> dict:
+    raw_dir = RAW_BASE_DIR / str(year)
+    path = raw_dir / f"{region}_{year}.json"
     if not path.exists():
         return {"region": region, "status": "missing_file", "path": str(path)}
 
@@ -60,12 +59,22 @@ def validate_region(region: str, year: int) -> dict:
     utc_dates = [p.get("valid_from", "")[:10] for p in prices if p.get("valid_from")]
     utc_counts = Counter(utc_dates)
 
-    expected_dates = expected_utc_dates_for_year(year)
+    expected_dates = expected_utc_dates_for_range(date(year, 1, 1), expected_end_utc)
     present_dates = set(utc_counts.keys())
     missing_dates = sorted(expected_dates - present_dates)
     extra_dates = sorted(present_dates - expected_dates)
 
-    abnormal_utc_days = {d: c for d, c in utc_counts.items() if c != 48}
+    # UTC per-day slots should be 48, except the current UTC day can legitimately be partial for year-to-date datasets.
+    last_expected_utc = expected_end_utc.isoformat()
+    partial_current_utc_day_slots = None
+    abnormal_utc_days = {}
+    for d, c in utc_counts.items():
+        if c == 48:
+            continue
+        if d == last_expected_utc and expected_end_utc == datetime.now(timezone.utc).date() and c < 48:
+            partial_current_utc_day_slots = c
+            continue
+        abnormal_utc_days[d] = c
 
     # UK-local-day grouping (for DST sanity checks)
     uk_counts = Counter()
@@ -89,6 +98,7 @@ def validate_region(region: str, year: int) -> dict:
         "utc_missing_dates": missing_dates,
         "utc_extra_dates": extra_dates,
         "utc_abnormal_day_counts": dict(sorted(abnormal_utc_days.items())),
+        "utc_partial_current_day_slots": partial_current_utc_day_slots,
         "uk_unique_dates": len(uk_counts),
         "uk_abnormal_day_counts": dict(sorted(uk_abnormal_days.items())),
         "ingestion_meta": data.get("ingestion", {}),
@@ -104,10 +114,13 @@ def write_markdown_report(results: list[dict], year: int, out_path: Path) -> Non
     lines.append("")
     lines.append("## Expectations for a complete dataset")
     lines.append("")
-    lines.append(f"- **Annual slots per region (UTC half-hours):** {365 * 48} (365 days × 48 slots/day)")
-    lines.append(f"- **UTC date coverage:** {year}-01-01 through {year}-12-31 (365 distinct UTC dates)")
+    now_utc_date = datetime.now(timezone.utc).date()
+    expected_end_utc = date(year, 12, 31) if year < now_utc_date.year else min(date(year, 12, 31), now_utc_date)
+    expected_days = (expected_end_utc - date(year, 1, 1)).days + 1
+    lines.append(f"- **Expected UTC coverage end:** {expected_end_utc.isoformat()} ({'year_to_date' if expected_end_utc != date(year, 12, 31) else 'full_year'})")
+    lines.append(f"- **Expected UTC dates:** {expected_days} (from {year}-01-01)")
     lines.append("- **UTC per-day slots:** 48 for every UTC day (DST does not affect UTC-day counts)")
-    lines.append("- **UK local-day DST sanity check:** one 46-slot local day (DST start) and one 50-slot local day (DST end); other local days 48")
+    lines.append("- **UK local-day DST sanity check:** DST affects UK local-day slot counts around the transition dates; this does not affect UTC-day counts")
     lines.append("")
     lines.append("## Per-region summary")
     lines.append("")
@@ -171,25 +184,33 @@ def write_markdown_report(results: list[dict], year: int, out_path: Path) -> Non
 
 
 def main() -> None:
-    year = 2025
-    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate raw historic price data completeness")
+    parser.add_argument("--year", "-y", type=int, default=2025, help="Year (default: 2025)")
+    args = parser.parse_args()
+
+    year = args.year
+    raw_dir = RAW_BASE_DIR / str(year)
+    raw_dir.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
 
     regions = list(Config.OCTOPUS_REGION_NAMES.keys())
-    results = [validate_region(r, year) for r in regions]
+    now_utc_date = datetime.now(timezone.utc).date()
+    expected_end_utc = date(year, 12, 31) if year < now_utc_date.year else min(date(year, 12, 31), now_utc_date)
+    results = [validate_region(r, year, expected_end_utc=expected_end_utc) for r in regions]
 
     out_path = DOCS_DIR / f"RAW_DATA_{year}_COMPLETENESS_REPORT.md"
     write_markdown_report(results, year, out_path)
 
     # Also print a concise verdict to stdout
     ok = [r for r in results if r.get("status") == "ok"]
-    all_total_ok = all(r["total_slots"] == 365 * 48 for r in ok)
-    all_utc_dates_ok = all(r["utc_unique_dates"] == 365 and len(r["utc_missing_dates"]) == 0 and len(r["utc_abnormal_day_counts"]) == 0 for r in ok)
+    expected_days = (expected_end_utc - date(year, 1, 1)).days + 1
+    all_utc_dates_ok = all(r["utc_unique_dates"] == expected_days and len(r["utc_missing_dates"]) == 0 and len(r["utc_abnormal_day_counts"]) == 0 for r in ok)
 
     print(f"Wrote {out_path}")
     print(f"Regions validated: {len(ok)}/{len(regions)}")
-    print(f"Slot totals ok (expect {365*48}): {all_total_ok}")
-    print(f"UTC date coverage ok (365 dates, all 48 slots): {all_utc_dates_ok}")
+    print(f"UTC date coverage ok ({expected_days} dates, 48 slots except possible partial current UTC day): {all_utc_dates_ok}")
 
 
 if __name__ == "__main__":
