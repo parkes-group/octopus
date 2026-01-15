@@ -1,89 +1,118 @@
-{% if stats_2025 and region and regions %}
-{% for r in regions %}
-{% if r.region == region %}
-<section class="mb-4">
-    <h2 class="h5 mb-3">2025 Historical Statistics for {{ r.name }} (Region {{ region }})</h2>
-    <div class="row g-3">
-        
-        <!-- Negative Pricing -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="h6 text-muted mb-2">Free Electricity</h3>
-                    <p class="h4 mb-1 text-info">
-                        {{ "%.1f"|format(stats_2025.negative_pricing.total_hours) }} hours
-                    </p>
-                </div>
-            </div>
-        </div>
+{% set show_note = show_note if show_note is defined else true %}
 
-        <!-- Average Cheapest Block Price -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="h6 text-muted mb-2">Avg Cheapest 3.5h Price</h3>
-                    <p class="h4 mb-1">
-                        {{ "%.2f"|format(stats_2025.cheapest_block_price) }}<small class="text-muted">p/kWh</small>
-                    </p>
-                    <p class="small text-muted mb-0">
-                        vs {{ "%.2f"|format(stats_2025.daily_average_price) }}p/kWh<br>
-                        daily average
-                    </p>
+{% macro render_stats_section(stats_obj, stats_year, region, regions) -%}
+    {% set is_ytd = (stats_obj.coverage == 'year_to_date') if stats_obj and stats_obj.coverage is defined else false %}
+    {% for r in regions %}
+        {% if r.region == region %}
+            <section class="mb-4">
+                <h2 class="h5 mb-2">
+                    {% if is_ytd %}{{ stats_year }} year-to-date Agile statistics for {{ r.name }} (Region {{ region }}){% else %}{{ stats_year }} historical statistics for {{ r.name }} (Region {{ region }}){% endif %}
+                </h2>
+                {% if is_ytd and stats_obj.days_covered %}
+                    <p class="text-muted small mb-3">Days covered so far in {{ stats_year }}: <strong>{{ stats_obj.days_covered }}</strong></p>
+                {% else %}
+                    <div class="mb-3"></div>
+                {% endif %}
+                <div class="row g-3">
+                    
+                    <!-- Negative Pricing -->
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="h6 text-muted mb-2">Free Electricity{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                                <p class="h4 mb-1 text-info">
+                                    {{ "%.1f"|format(stats_obj.negative_pricing.total_hours) }} hours
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Average Cheapest Block Price -->
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="h6 text-muted mb-2">Avg Cheapest 3.5h Price{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                                <p class="h4 mb-1">
+                                    {{ "%.2f"|format(stats_obj.cheapest_block_price) }}<small class="text-muted">p/kWh</small>
+                                </p>
+                                <p class="small text-muted mb-0">
+                                    vs {{ "%.2f"|format(stats_obj.daily_average_price) }}p/kWh<br>
+                                    daily average
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Savings vs Daily Average -->
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="h6 text-muted mb-2">{% if is_ytd %}Estimated Savings ({{ stats_year }} YTD){% else %}Potential Annual Savings{% endif %}</h3>
+                                <p class="h4 mb-1 text-success">
+                                    £{{ "%.2f"|format(stats_obj.savings_vs_daily_avg) }}
+                                </p>
+                                <p class="small text-muted mb-0">
+                                    vs daily average<br>
+                                    <span class="text-success">{{ "%.1f"|format(stats_obj.savings_vs_daily_avg_pct) }}%</span> cheaper
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Savings vs Price Cap -->
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h3 class="h6 text-muted mb-2">vs Price Cap{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                                <p class="h4 mb-1 text-primary">
+                                    £{{ "%.2f"|format(stats_obj.savings_vs_cap) }}
+                                </p>
+                                <p class="small text-muted mb-0">
+                                    more could have been saved<br>
+                                    using cheapest blocks
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Savings vs Daily Average -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="h6 text-muted mb-2">Potential Annual Savings</h3>
-                    <p class="h4 mb-1 text-success">
-                        £{{ "%.2f"|format(stats_2025.savings_vs_daily_avg) }}
-                    </p>
-                    <p class="small text-muted mb-0">
-                        vs daily average<br>
-                        <span class="text-success">{{ "%.1f"|format(stats_2025.savings_vs_daily_avg_pct) }}%</span> cheaper
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Savings vs Price Cap -->
-        <div class="col-12 col-md-6 col-lg-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h3 class="h6 text-muted mb-2">vs Price Cap</h3>
-                    <p class="h4 mb-1 text-primary">
-                        £{{ "%.2f"|format(stats_2025.savings_vs_cap) }}
-                    </p>
-                    <p class="small text-muted mb-0">
-                        more could have been saved<br>
-                        using cheapest blocks
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        
-        
-        
-    </div>
-    
-    <!-- Assumptions Note -->
-    <div class="alert alert-secondary mt-3 mb-0" role="note">
-        <small>
-            <strong>Note:</strong> These statistics are specific to {{ r.name }} (Region {{ region }}) based on 2025 data and assume:
-            <ul class="mb-0 mt-2">
-                <li>Daily usage of {{ "%.1f"|format(stats_2025.assumptions.daily_kwh) }} kWh (4,015 kWh / year)</li>
-                <li>{{ "%.0f"|format(stats_2025.assumptions.get('cheapest_block_usage_percent', 35.0)) }}% of daily usage in cheapest 3.5h blocks</li>
-                <li>Price cap of {{ "%.2f"|format(stats_2025.price_cap) }}p/kWh (excluding standing charge)</li>
-            </ul>
-            <em>These are illustrative calculations only. Actual savings depend on your usage patterns and equipment.</em>
-        </small>
-    </div>
-</section>
+                
+                {% if show_note %}
+                    <!-- Assumptions Note -->
+                    <div class="alert alert-secondary mt-3 mb-0" role="note">
+                        <small>
+                            <strong>Note:</strong>
+                            These statistics are specific to {{ r.name }} (Region {{ region }}) based on data from Octopus and assume:
+                            <ul class="mb-0 mt-2">
+                                <li>Daily usage of {{ "%.1f"|format(stats_obj.assumptions.daily_kwh) }} kWh (4,015 kWh / year)</li>
+                                <li>{{ "%.0f"|format(stats_obj.assumptions.get('cheapest_block_usage_percent', 35.0)) }}% of daily usage in the cheapest 3.5h blocks</li>
+                                <li>Price cap of {{ "%.2f"|format(stats_obj.price_cap) }}p/kWh (excluding standing charge)</li>
+                            </ul>
+                            <em>Figures are illustrative and based on regional averages. Savings depend on your usage and timing—no guarantees.</em>
+                        </small>
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+    {% endfor %}
+{%- endmacro %}
+
+{# Build a list of year blocks to render. Prefer showing both 2026 then 2025 when available. #}
+{% set blocks = [] %}
+{% if stats is defined %}
+    {% set _year = (year if year is defined else (stats.year if stats and stats.year is defined else 2025)) %}
+    {% set _ = blocks.append({'stats': stats, 'year': _year}) %}
+{% else %}
+    {% if stats_2026 is defined and stats_2026 %}
+        {% set _ = blocks.append({'stats': stats_2026, 'year': 2026}) %}
+    {% endif %}
+    {% if stats_2025 is defined and stats_2025 %}
+        {% set _ = blocks.append({'stats': stats_2025, 'year': 2025}) %}
+    {% endif %}
 {% endif %}
-{% endfor %}
+
+{% if region and regions %}
+    {% for b in blocks %}
+        {{ render_stats_section(b.stats, b.year, region, regions) }}
+    {% endfor %}
 {% endif %}
 

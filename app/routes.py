@@ -200,9 +200,10 @@ def index():
             # Form validation failed or missing product
             submitted_postcode = request.form.get('postcode', '')
     
-    # Load 2025 statistics for display (national averages)
+    # Load statistics for display (national averages)
     from app.stats_loader import StatsLoader
-    stats_2025 = StatsLoader.get_stats_for_display(region_code='national')
+    stats_2025 = StatsLoader.get_stats_for_display(region_code='national', year=2025)
+    stats_2026 = StatsLoader.get_stats_for_display(region_code='national', year=2026)
     
     # Render template
     return render_template('index.html',
@@ -217,6 +218,7 @@ def index():
                          error=error_message,
                          submitted_postcode=submitted_postcode,
                          stats_2025=stats_2025,
+                         stats_2026=stats_2026,
                          page_name='index')
 
 @bp.route('/prices')
@@ -493,9 +495,10 @@ def prices():
         'capacity': capacity
     }
     
-    # Load 2025 statistics for display (use selected region)
+    # Load statistics for display (use selected region)
     from app.stats_loader import StatsLoader
-    stats_2025 = StatsLoader.get_stats_for_display(region_code=region)
+    stats_2025 = StatsLoader.get_stats_for_display(region_code=region, year=2025)
+    stats_2026 = StatsLoader.get_stats_for_display(region_code=region, year=2026)
     
     return render_template('prices.html',
                          region=region,
@@ -525,6 +528,7 @@ def prices():
                          estimated_cost=estimated_cost,
                          chart_data=chart_data,
                          stats_2025=stats_2025,
+                         stats_2026=stats_2026,
                          current_time_uk=uk_now,
                          page_name='prices')
 

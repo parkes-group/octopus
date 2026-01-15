@@ -807,7 +807,15 @@
         {% endif %}
     </section>
 
-    {% include 'components/_stats_2025_regional.html' %}
+    <section class="mb-4">
+        
+        {% with stats=stats_2026, year=2026, show_note=false %}
+            {% include 'components/_stats_2025_regional.html' %}
+        {% endwith %}
+        {% with stats=stats_2025, year=2025, show_note=true %}
+            {% include 'components/_stats_2025_regional.html' %}
+        {% endwith %}
+    </section>
     
     {% include 'components/_feature_suggestion.html' %}
     

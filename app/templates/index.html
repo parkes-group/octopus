@@ -108,9 +108,26 @@
 <article>
     <header>
         <h1 class="mb-3">Save Money with Cheapest Octopus Agile Electricity Prices</h1>
-        <p class="lead mb-4 text-muted">
-            <small>Discover the cheapest charging windows for your region and see how much you can save compared to daily average and peak prices. </small>
+        
+        {% if stats_2026 %}
+            {% set avg_daily = stats_2026.daily_average_price %}
+            {% set avg_cheapest = stats_2026.cheapest_block_price %}
+            {% set cap = stats_2026.price_cap %}
+            {% set pct_daily_vs_cheapest = ((avg_daily - avg_cheapest) / avg_daily * 100) if avg_daily else 0 %}
+            {% set pct_cap_vs_cheapest = ((cap - avg_cheapest) / cap * 100) if cap else 0 %}
+            {% set daily_kwh = stats_2026.assumptions.daily_kwh %}
+            {% set cost_avg = (avg_daily * daily_kwh) / 100 %}
+            {% set cost_cheapest = (avg_cheapest * daily_kwh) / 100 %}
+
+        <p class="lead mb-3 text-muted">
+            <small>
+                So far in <strong>2026 (year-to-date)</strong>, Agile electricity prices have continued to vary throughout the day.
+                Based on price data to date, the average Agile price is {{ "%.2f"|format(avg_daily) }}p/kWh, while the average cheapest 3.5h block is {{ "%.2f"|format(avg_cheapest) }}p/kWh
+                (<strong>{{ "%.1f"|format(pct_daily_vs_cheapest) }}%</strong> cheaper; <strong>{{ "%.1f"|format(pct_cap_vs_cheapest) }}%</strong> below the price cap).
+                Smart timing could mean paying about <strong>£{{ "%.2f"|format(cost_cheapest) }}</strong> instead of <strong>£{{ "%.2f"|format(cost_avg) }}</strong> for the same {{ "%.1f"|format(daily_kwh) }} kWh/day.
+            </small>
         </p>
+        {% else %}
         <!-- Savings Callout -->
         <div class="alert alert-secondary mb-3" role="alert">
             <p class="lead mb-0">
@@ -118,6 +135,8 @@
                 <small class="text-muted">Octopus Agile pricing gives you the tools to make the savings.</small>
             </p>
         </div>
+
+        {% endif %}
     </header>
     
     <section>
@@ -260,10 +279,15 @@
             </div>
         </div>
     </section>
+    <!-- 2026 YTD Statistics -->
 
-    <br>
-    <!-- 2025 Statistics -->
-    {% include 'components/_stats_2025.html' %}
+    {% with stats=stats_2026, year=2026, show_note=false %}
+        {% include 'components/_stats_2025.html' %}
+    {% endwith %}
+    {% with stats=stats_2025, year=2025, show_note=true %}
+        {% include 'components/_stats_2025.html' %}
+    {% endwith %}
+
     
     <!-- Internal Links to Other Pages -->
     <section class="my-5">
