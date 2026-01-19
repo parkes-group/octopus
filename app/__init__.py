@@ -113,12 +113,13 @@ def create_app(config_class=None):
     # from app.auth import bp as auth_bp
     # app.register_blueprint(auth_bp, url_prefix='/auth')
     
-    # Ensure cache directory exists
-    cache_dir = Path('app/cache')
+    # Ensure cache directory exists (anchor to project root, not CWD)
+    project_root = Path(__file__).resolve().parent.parent
+    cache_dir = project_root / 'app' / 'cache'
     cache_dir.mkdir(parents=True, exist_ok=True)
     
     # Ensure votes directory exists
-    votes_dir = Path('app/votes')
+    votes_dir = project_root / 'app' / 'votes'
     votes_dir.mkdir(parents=True, exist_ok=True)
     
     # Setup 301 redirects for production (www and HTTPS)

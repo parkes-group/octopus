@@ -22,7 +22,11 @@ class CacheManager:
     Files are named: {product_code}_{region_code}.json (no date in filename).
     """
     
-    CACHE_DIR = Path('app/cache')
+    # IMPORTANT: This must be anchored to the project root, not the process CWD.
+    # PythonAnywhere scheduled tasks may run with CWD=/home/<user>, which would otherwise write to
+    # /home/<user>/app/cache instead of /home/<user>/<project>/app/cache.
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    CACHE_DIR = PROJECT_ROOT / 'app' / 'cache'
     
     @staticmethod
     def determine_cache_expiry_from_edge_prices(first_entry, last_entry):
