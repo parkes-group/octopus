@@ -148,3 +148,13 @@ class TestPriceCalculator:
         result = PriceCalculator.calculate_daily_averages_by_date([])
         assert result == []
 
+    def test_filter_prices_from_uk_date_drops_past_days(self):
+        # Start date = 2026-01-20 (UK); include one slot from 19th and one from 20th.
+        start_date_uk = datetime(2026, 1, 20, 12, 0, tzinfo=timezone.utc).date()
+        prices = [
+            {"value_inc_vat": 10.0, "valid_from": "2026-01-19T23:00:00Z", "valid_to": "2026-01-19T23:30:00Z"},
+            {"value_inc_vat": 12.0, "valid_from": "2026-01-20T00:00:00Z", "valid_to": "2026-01-20T00:30:00Z"},
+        ]
+        filtered = PriceCalculator.filter_prices_from_uk_date(prices, start_date_uk)
+        assert len(filtered) == 1
+        assert filtered[0]["valid_from"] == "2026-01-20T00:00:00Z"

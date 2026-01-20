@@ -115,7 +115,9 @@
     
     <!-- Section 2: Cheapest Blocks -->
     <section class="mb-4">
+        {% if cheapest_per_day|length == 1 %}
         <h2 class="h5 mb-3">Today's Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
+        {% endif %}
 
        {#
         <!-- Daily Average Price(s) -->
@@ -395,6 +397,10 @@
                 {% set is_today = (day_date == today_date) %}
                 {% set is_tomorrow = (not is_today) %}
                 
+                {% if is_today %}
+                <h2 class="h5 mb-3">Today's Cheapest Charging Options{% if region and regions %}{% for r in regions %}{% if r.region == region %} for {{ r.name }}{% endif %}{% endfor %}{% endif %}</h2>
+                {% endif %}
+
                 {% if is_tomorrow %}
                     <!-- Tomorrow section container with visual separation -->
                     <div class="day-section tomorrow">

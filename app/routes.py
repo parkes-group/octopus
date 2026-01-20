@@ -318,6 +318,13 @@ def prices():
     from datetime import timezone
     uk_now = get_uk_now()
     current_time_utc = uk_now.astimezone(timezone.utc)
+
+    # If the cache contains "yesterday + today" after midnight, drop past UK-local days.
+    # This prevents the page from showing (and labelling) yesterday as "today".
+    try:
+        prices_data = PriceCalculator.filter_prices_from_uk_date(prices_data, uk_now.date())
+    except Exception as e:
+        logger.warning(f"Error filtering prices to UK today+future: {e}")
     
     # Calculate daily averages grouped by calendar date (supports up to 2 days)
     daily_averages_by_date = PriceCalculator.calculate_daily_averages_by_date(prices_data)

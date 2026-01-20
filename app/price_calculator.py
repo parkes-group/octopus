@@ -402,6 +402,28 @@ class PriceCalculator:
                 continue
         
         return prices_by_date
+
+    @staticmethod
+    def filter_prices_from_uk_date(prices, start_date_uk):
+        """
+        Filter prices so only slots whose UK-local 'valid_from' date is >= start_date_uk are kept.
+
+        This is important when the cache contains "yesterday + today" after midnight:
+        we should not display or compute "today" using a fully past UK day.
+        """
+        if not prices:
+            return []
+
+        filtered = []
+        for price in prices:
+            try:
+                dt_uk = utc_to_uk(price["valid_from"])
+                if dt_uk.date() >= start_date_uk:
+                    filtered.append(price)
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Error filtering price by date: {e}")
+                continue
+        return filtered
     
     @staticmethod
     def calculate_cheapest_per_day(prices, duration_hours, current_time_utc=None):
