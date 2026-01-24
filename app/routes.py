@@ -11,6 +11,7 @@ from app.timezone_utils import get_uk_now
 from app.config import Config
 from app.vote_manager import VoteManager
 from app.region_request_tracker import RegionRequestTracker
+from app.region_slugs import region_code_from_slug, region_slug_from_code, region_name_from_code
 from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
@@ -19,6 +20,273 @@ import os
 logger = logging.getLogger(__name__)
 
 bp = Blueprint('main', __name__)
+
+DEFAULT_DURATION_HOURS = 3.5
+DEFAULT_CAPACITY_KWH = 10.0
+
+def _select_latest_agile_product_code(agile_products):
+    """
+    Pick a default Agile product when multiple exist.
+    Uses lexicographic max on product codes like 'AGILE-24-10-01'.
+    """
+    if not agile_products:
+        return None
+    codes = [p.get('code') for p in agile_products if p.get('code')]
+    if not codes:
+        return None
+    return sorted(codes)[-1]
+
+def _regions_list_with_slugs():
+    regions = Config.get_regions_list()
+    for r in regions:
+        r['slug'] = region_slug_from_code(r.get('region'))
+    return regions
+
+def _prices_page_context(*, region_code, region_slug, product_code, duration, capacity, include_structured_data):
+    """
+    Shared prices page implementation used by:
+    - /prices/<region_slug> (canonical, no redirect)
+    - /prices?region=X (back-compat, canonical points to slug route)
+    """
+    # Discover Agile products for dropdown
+    agile_products = []
+    selected_product_name = None
+    try:
+        agile_products = OctopusAPIClient.get_agile_products()
+    except Exception as e:
+        logger.error(f"Error loading Agile products for prices page: {e}")
+
+    raw_product_code = product_code
+    raw_duration = duration
+    raw_capacity = capacity
+
+    # Default product: "latest" Agile product (derived dynamically)
+    if not product_code:
+        product_code = _select_latest_agile_product_code(agile_products)
+
+    # Default duration/capacity (implied by the URL; keep query string clean when defaults)
+    if duration is None:
+        duration = DEFAULT_DURATION_HOURS
+    if capacity is None:
+        capacity = DEFAULT_CAPACITY_KWH
+
+    if product_code and agile_products:
+        matching = [p for p in agile_products if p.get('code') == product_code]
+        if matching:
+            selected_product_name = matching[0].get('full_name')
+        else:
+            flash('Invalid tariff version selected.', 'error')
+            return None, redirect(url_for('main.index'))
+
+    if not product_code:
+        flash('Please select a tariff version.', 'error')
+        return None, redirect(url_for('main.index'))
+
+    if not region_code:
+        flash('Please select a region.', 'error')
+        return None, redirect(url_for('main.index'))
+
+    # Validate duration (supports decimals, e.g., 3.5 hours)
+    if duration < 0.5 or duration > 6.0:
+        duration = 4.0
+
+    # Get regions list for dropdown (static mapping)
+    regions_list = _regions_list_with_slugs()
+
+    # Cache-first pricing fetch
+    prices_data = CacheManager.get_cached_prices(product_code, region_code)
+    if not prices_data:
+        logger.debug(f"Cache miss or expired for {product_code} {region_code}, fetching from API")
+        try:
+            api_response = OctopusAPIClient.get_prices(product_code, region_code)
+            prices_data = api_response.get('results', [])
+
+            expires_at = None
+            if prices_data:
+                first_entry = prices_data[0]
+                last_entry = prices_data[-1]
+                expires_at = CacheManager.determine_cache_expiry_from_edge_prices(first_entry, last_entry)
+
+            if expires_at is not None:
+                CacheManager.cache_prices(product_code, region_code, prices_data, expires_at=expires_at)
+            else:
+                CacheManager.cache_prices(product_code, region_code, prices_data)
+        except Exception as e:
+            logger.error(f"Error fetching prices: {e}", exc_info=True)
+            flash('Unable to fetch current prices. Please try again later.', 'error')
+            return None, redirect(url_for('main.index'))
+
+    # Track region usage (deduped by session)
+    last_tracked_region = session.get('last_tracked_region')
+    if region_code != last_tracked_region:
+        RegionRequestTracker.record_region_request(region_code)
+        session['last_tracked_region'] = region_code
+
+    # Sort chronologically
+    try:
+        prices_data = sorted(prices_data, key=lambda x: x.get('valid_from', ''))
+    except Exception as e:
+        logger.warning(f"Error sorting prices: {e}")
+
+    uk_now = get_uk_now()
+    current_time_utc = uk_now.astimezone(timezone.utc)
+
+    # Drop past UK-local days if cache spans yesterday+today after midnight
+    try:
+        prices_data = PriceCalculator.filter_prices_from_uk_date(prices_data, uk_now.date())
+    except Exception as e:
+        logger.warning(f"Error filtering prices to UK today+future: {e}")
+
+    daily_averages_by_date = PriceCalculator.calculate_daily_averages_by_date(prices_data)
+    cheapest_per_day = PriceCalculator.calculate_cheapest_per_day(prices_data, duration, current_time_utc)
+
+    lowest_price = None
+    absolute_cheapest_block = None
+    future_cheapest_block = None
+    worst_block = None
+    if len(cheapest_per_day) == 1:
+        day_data = cheapest_per_day[0]
+        lowest_price = day_data['lowest_price']
+        absolute_cheapest_block = day_data['cheapest_block']
+        future_cheapest_block = day_data['cheapest_remaining_block']
+        worst_block = day_data['worst_block']
+
+    daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
+    daily_averages_map = {d['date']: d['average_price'] for d in daily_averages_by_date}
+
+    estimated_cost = None
+    cost_block = future_cheapest_block if future_cheapest_block else absolute_cheapest_block
+    if capacity and cost_block:
+        estimated_cost = PriceCalculator.calculate_charging_cost(cost_block['average_price'], capacity)
+
+    chart_data = PriceCalculator.format_price_data(prices_data)
+
+    # Per-day highlight dictionaries
+    absolute_cheapest_block_times_by_date = {}
+    future_cheapest_block_times_by_date = {}
+    lowest_price_times_by_date = {}
+    worst_block_times_by_date = {}
+    show_cheapest_remaining_by_date = {}
+
+    for day_data in cheapest_per_day:
+        date_iso = day_data['date_iso']
+
+        if day_data['cheapest_block'] and day_data['cheapest_block'].get('slots'):
+            absolute_cheapest_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['cheapest_block']['slots']
+            ]
+
+        show_cheapest_remaining = False
+        if day_data['cheapest_block'] and day_data['cheapest_block'].get('start_time_uk'):
+            if day_data['cheapest_block']['start_time_uk'] <= uk_now:
+                show_cheapest_remaining = True
+        show_cheapest_remaining_by_date[date_iso] = show_cheapest_remaining
+
+        if (
+            show_cheapest_remaining
+            and day_data['cheapest_remaining_block']
+            and day_data['cheapest_remaining_block'].get('slots')
+        ):
+            future_cheapest_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['cheapest_remaining_block']['slots']
+            ]
+
+        if day_data['lowest_price']:
+            lowest_price_times_by_date[date_iso] = day_data['lowest_price']['time_from']
+
+        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
+            worst_block_times_by_date[date_iso] = [
+                slot['valid_from'] for slot in day_data['worst_block']['slots']
+            ]
+
+    # Index maps (multi-day)
+    lowest_price_indices_by_date = {}
+    worst_block_indices_by_date = {}
+    for day_data in cheapest_per_day:
+        date_iso = day_data['date_iso']
+        if day_data['lowest_price']:
+            for idx, price in enumerate(prices_data):
+                if price.get('valid_from') == day_data['lowest_price'].get('time_from'):
+                    lowest_price_indices_by_date[date_iso] = idx
+                    break
+        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
+            worst_block_indices_by_date[date_iso] = []
+            worst_slots = {slot['valid_from'] for slot in day_data['worst_block']['slots']}
+            for idx, price in enumerate(prices_data):
+                if price.get('valid_from') in worst_slots:
+                    worst_block_indices_by_date[date_iso].append(idx)
+
+    # Convert prices to UK-local display fields
+    from app.timezone_utils import utc_to_uk, format_uk_time, format_uk_date
+    prices_with_uk_times = []
+    for price in prices_data:
+        price_uk = price.copy()
+        dt_uk = utc_to_uk(price['valid_from'])
+        price_uk['time_uk'] = format_uk_time(dt_uk)
+        price_uk['date_uk'] = format_uk_date(dt_uk)
+        price_uk['date_iso'] = dt_uk.date().strftime('%Y-%m-%d')
+        price_uk['datetime_uk'] = dt_uk
+        prices_with_uk_times.append(price_uk)
+
+    session['last_prices_state'] = {
+        'region': region_code,
+        'product': product_code,
+        'duration': duration,
+        'capacity': capacity,
+        'product_is_default': raw_product_code in (None, ''),
+        'duration_is_default': raw_duration is None,
+        'capacity_is_default': raw_capacity is None,
+    }
+
+    from app.stats_loader import StatsLoader
+    stats_2025 = StatsLoader.get_stats_for_display(region_code=region_code, year=2025)
+    stats_2026 = StatsLoader.get_stats_for_display(region_code=region_code, year=2026)
+
+    region_name = region_name_from_code(region_code) or f"Region {region_code}"
+    canonical_url = request.url_root.rstrip('/') + url_for('main.prices_region', region_slug=region_slug)
+
+    seo_title = f"{region_name} Octopus Agile Prices | Cheapest Times"
+    seo_description = (
+        f"Octopus Agile prices for {region_name}: see today's half-hourly rates, "
+        "daily average, and the cheapest times to use electricity."
+    )
+
+    return {
+        'region': region_code,
+        'region_slug': region_slug,
+        'region_name': region_name,
+        'canonical_url': canonical_url,
+        'seo_title': seo_title,
+        'seo_description': seo_description,
+        'include_structured_data': include_structured_data,
+        'product_code': product_code,
+        'product_name': selected_product_name,
+        'regions': regions_list,
+        'agile_products': agile_products,
+        'duration': duration,
+        'capacity': capacity,
+        'prices': prices_with_uk_times,
+        'lowest_price': lowest_price,
+        'absolute_cheapest_block': absolute_cheapest_block,
+        'future_cheapest_block': future_cheapest_block,
+        'daily_average_price': daily_average_price,
+        'daily_averages_by_date': daily_averages_by_date,
+        'cheapest_per_day': cheapest_per_day,
+        'absolute_cheapest_block_times_by_date': absolute_cheapest_block_times_by_date,
+        'future_cheapest_block_times_by_date': future_cheapest_block_times_by_date,
+        'show_cheapest_remaining_by_date': show_cheapest_remaining_by_date,
+        'lowest_price_times_by_date': lowest_price_times_by_date,
+        'lowest_price_indices_by_date': lowest_price_indices_by_date,
+        'worst_block_times_by_date': worst_block_times_by_date,
+        'worst_block_indices_by_date': worst_block_indices_by_date,
+        'daily_averages_map': daily_averages_map,
+        'estimated_cost': estimated_cost,
+        'chart_data': chart_data,
+        'stats_2025': stats_2025,
+        'stats_2026': stats_2026,
+        'current_time_uk': uk_now,
+        'page_name': 'prices',
+    }, None
 
 def normalize_postcode(postcode):
     """
@@ -133,7 +401,14 @@ def index():
                 session['last_tracked_region'] = submitted_region
                 # Clear the stored postcode since we're redirecting
                 session.pop('last_postcode_index', None)
-                return redirect(url_for('main.prices', region=submitted_region, product=selected_product_code))
+                slug = region_slug_from_code(submitted_region)
+                if not slug:
+                    logger.warning(f"Region slug resolution failed for code: {submitted_region}")
+                    return redirect(url_for('main.prices', region=submitted_region, product=selected_product_code))
+                latest_code = _select_latest_agile_product_code(agile_products)
+                if latest_code and selected_product_code == latest_code:
+                    return redirect(url_for('main.prices_region', region_slug=slug))
+                return redirect(url_for('main.prices_region', region_slug=slug, product=selected_product_code))
             else:
                 error_message = "Invalid region selected. Please try again."
                 show_region_dropdown = True
@@ -166,7 +441,14 @@ def index():
                     session['last_tracked_region'] = region_result
                     # Clear the stored postcode since we're redirecting
                     session.pop('last_postcode_index', None)
-                    return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
+                    slug = region_slug_from_code(region_result)
+                    if not slug:
+                        logger.warning(f"Region slug resolution failed for code: {region_result}")
+                        return redirect(url_for('main.prices', region=region_result, product=selected_product_code))
+                    latest_code = _select_latest_agile_product_code(agile_products)
+                    if latest_code and selected_product_code == latest_code:
+                        return redirect(url_for('main.prices_region', region_slug=slug))
+                    return redirect(url_for('main.prices_region', region_slug=slug, product=selected_product_code))
                 elif isinstance(region_result, list):
                     # Multiple regions: show dropdown with matching regions only
                     logger.debug(f"Postcode {normalized_postcode} mapped to multiple regions: {region_result}")
@@ -226,318 +508,80 @@ def prices():
     """Display prices and calculations."""
     region = request.args.get('region')
     product_code = request.args.get('product')
-    duration = request.args.get('duration', type=float, default=3.5)
-    capacity = request.args.get('capacity', type=float, default=10.0)
-    
-    # Discover Agile products for dropdown
-    agile_products = []
-    selected_product_name = None
-    try:
-        agile_products = OctopusAPIClient.get_agile_products()
-        if product_code:
-            matching = [p for p in agile_products if p['code'] == product_code]
-            if matching:
-                selected_product_name = matching[0]['full_name']
-            else:
-                # Invalid product code
-                flash('Invalid tariff version selected.', 'error')
-                return redirect(url_for('main.index'))
-    except Exception as e:
-        logger.error(f"Error loading Agile products for prices page: {e}")
-    
-    # Get regions list for dropdown (from static mapping, no API call needed)
-    regions_list = Config.get_regions_list()
-    
-    if not region:
+    duration = request.args.get('duration', type=float)
+    capacity = request.args.get('capacity', type=float)
+
+    # Backward compatibility: region code via query string.
+    region_slug = region_slug_from_code(region) if region else None
+    if not region_slug:
         flash('Please select a region.', 'error')
         return redirect(url_for('main.index'))
-    
-    if not product_code:
-        # Try to auto-select if only one product
-        if len(agile_products) == 1:
-            product_code = agile_products[0]['code']
-            selected_product_name = agile_products[0]['full_name']
-            # Redirect to include product in URL
-            return redirect(url_for('main.prices', region=region, product=product_code, 
-                                   duration=duration, capacity=capacity))
-        else:
-            flash('Please select a tariff version.', 'error')
-            return redirect(url_for('main.index'))
-    
-    # Validate duration (supports decimals, e.g., 3.5 hours)
-    if duration < 0.5 or duration > 6.0:
-        duration = 4.0
-    
-    # Get prices (check cache first - will use cached data if not expired)
-    prices_data = CacheManager.get_cached_prices(product_code, region)
-    
-    if not prices_data:
-        # Cache miss or expired - fetch from API
-        logger.debug(f"Cache miss or expired for {product_code} {region}, fetching from API")
-        try:
-            api_response = OctopusAPIClient.get_prices(product_code, region)
-            prices_data = api_response.get('results', [])
-            
-            # Determine cache expiry based on edge prices (handles reverse chronological order)
-            expires_at = None
-            if prices_data and len(prices_data) > 0:
-                first_entry = prices_data[0]
-                last_entry = prices_data[-1]
-                expires_at = CacheManager.determine_cache_expiry_from_edge_prices(first_entry, last_entry)
-            
-            # Cache with adaptive expiry (or fallback to existing logic if expires_at is None)
-            if expires_at is not None:
-                CacheManager.cache_prices(product_code, region, prices_data, expires_at=expires_at)
-                logger.debug(f"Fetched and cached prices for {product_code} {region} with adaptive expiry")
-            else:
-                CacheManager.cache_prices(product_code, region, prices_data)
-                logger.debug(f"Fetched and cached prices for {product_code} {region} with existing expiry logic")
-        except Exception as e:
-            logger.error(f"Error fetching prices: {e}", exc_info=True)
-            # Try to use stale cache if available
-            flash('Unable to fetch current prices. Please try again later.', 'error')
-            return redirect(url_for('main.index'))
-    
-    # Record region request for analytics only if region has changed from last tracked region
-    # This prevents duplicate tracking on page refreshes, settings changes, or navigation returns
-    last_tracked_region = session.get('last_tracked_region')
-    if region != last_tracked_region:
-        # Region has changed - record the request
-        RegionRequestTracker.record_region_request(region)
-        # Update session with new tracked region
-        session['last_tracked_region'] = region
-    
-    # Sort prices chronologically by valid_from
-    try:
-        prices_data = sorted(prices_data, key=lambda x: x.get('valid_from', ''))
-    except Exception as e:
-        logger.warning(f"Error sorting prices: {e}")
-    
-    # Get current time in UK timezone, convert to UTC for comparisons
-    from app.timezone_utils import get_uk_now
-    from datetime import timezone
-    uk_now = get_uk_now()
-    current_time_utc = uk_now.astimezone(timezone.utc)
 
-    # If the cache contains "yesterday + today" after midnight, drop past UK-local days.
-    # This prevents the page from showing (and labelling) yesterday as "today".
+    context, response = _prices_page_context(
+        region_code=region,
+        region_slug=region_slug,
+        product_code=product_code,
+        duration=duration,
+        capacity=capacity,
+        include_structured_data=False,  # Structured data only on canonical region pages
+    )
+    if response is not None:
+        return response
+    return render_template('prices.html', **context)
+
+@bp.route('/prices/<region_slug>')
+def prices_region(region_slug):
+    """Canonical, region-first prices page (SEO-friendly, crawlable)."""
+    region_code = region_code_from_slug(region_slug)
+    if not region_code:
+        logger.info(f"Region resolution failed for slug: {region_slug}")
+        from flask import abort
+        abort(404)
+
+    product_code = request.args.get('product')
+    duration = request.args.get('duration', type=float)
+    capacity = request.args.get('capacity', type=float)
+
+    context, response = _prices_page_context(
+        region_code=region_code,
+        region_slug=region_slug,
+        product_code=product_code,
+        duration=duration,
+        capacity=capacity,
+        include_structured_data=True,
+    )
+    if response is not None:
+        return response
+    return render_template('prices.html', **context)
+
+@bp.route('/prices/go')
+def prices_go():
+    """Region selector helper: navigates to /prices/<region_slug> preserving selections."""
+    target_slug = request.args.get('region_slug')
+    if not target_slug or not region_code_from_slug(target_slug):
+        logger.info(f"Region resolution failed for slug in /prices/go: {target_slug}")
+        flash('Invalid region selected.', 'error')
+        return redirect(url_for('main.index'))
+
+    product = request.args.get('product')
+    duration = request.args.get('duration', type=float)
+    capacity = request.args.get('capacity', type=float)
+
+    default_product = None
     try:
-        prices_data = PriceCalculator.filter_prices_from_uk_date(prices_data, uk_now.date())
-    except Exception as e:
-        logger.warning(f"Error filtering prices to UK today+future: {e}")
-    
-    # Calculate daily averages grouped by calendar date (supports up to 2 days)
-    daily_averages_by_date = PriceCalculator.calculate_daily_averages_by_date(prices_data)
-    
-    # Calculate cheapest metrics per calendar day
-    cheapest_per_day = PriceCalculator.calculate_cheapest_per_day(prices_data, duration, current_time_utc)
-    
-    # For backward compatibility: if single day, set individual variables for template
-    # If multiple days, these will be None and template will use cheapest_per_day
-    lowest_price = None
-    absolute_cheapest_block = None
-    future_cheapest_block = None
-    worst_block = None
-    if len(cheapest_per_day) == 1:
-        # Single day: maintain backward compatibility
-        day_data = cheapest_per_day[0]
-        lowest_price = day_data['lowest_price']
-        absolute_cheapest_block = day_data['cheapest_block']
-        future_cheapest_block = day_data['cheapest_remaining_block']
-        worst_block = day_data['worst_block']
-    
-    # For backward compatibility with savings calculations, use first day's average
-    daily_average_price = daily_averages_by_date[0]['average_price'] if daily_averages_by_date else None
-    
-    # Create mapping of date_iso -> daily_average_price for savings calculations
-    # This allows blocks to look up their matching daily average by date
-    daily_averages_map = {}
-    for day_avg in daily_averages_by_date:
-        daily_averages_map[day_avg['date']] = day_avg['average_price']
-    
-    # Calculate cost if capacity provided (use future block if available, otherwise absolute)
-    estimated_cost = None
-    cost_block = future_cheapest_block if future_cheapest_block else absolute_cheapest_block
-    if capacity and cost_block:
-        estimated_cost = PriceCalculator.calculate_charging_cost(
-            cost_block['average_price'],
-            capacity
-        )
-    
-    # Format for chart (include highlighting data)
-    chart_data = PriceCalculator.format_price_data(prices_data)
-    
-    # Build highlighting data for charts and tables (per-day)
-    # Create dictionaries mapping date_iso to lists of time slots (lists are JSON-serializable)
-    absolute_cheapest_block_times_by_date = {}
-    future_cheapest_block_times_by_date = {}
-    lowest_price_times_by_date = {}
-    worst_block_times_by_date = {}
-    show_cheapest_remaining_by_date = {}  # Flag to control when cheapest remaining should be shown
-    
-    for day_data in cheapest_per_day:
-        date_iso = day_data['date_iso']
-        
-        # Cheapest block times for this day (convert set to list for JSON serialization)
-        if day_data['cheapest_block'] and day_data['cheapest_block'].get('slots'):
-            absolute_cheapest_block_times_by_date[date_iso] = [
-                slot['valid_from'] for slot in day_data['cheapest_block']['slots']
-            ]
-        
-        # Determine if cheapest remaining should be shown for this day
-        # Rule: show_cheapest_remaining = cheapest_block.start_time <= now
-        show_cheapest_remaining = False
-        if day_data['cheapest_block'] and day_data['cheapest_block'].get('start_time_uk'):
-            cheapest_block_start = day_data['cheapest_block']['start_time_uk']
-            if cheapest_block_start <= uk_now:
-                show_cheapest_remaining = True
-        
-        show_cheapest_remaining_by_date[date_iso] = show_cheapest_remaining
-        
-        # Cheapest remaining block times for this day (only include if should be shown)
-        if show_cheapest_remaining and day_data['cheapest_remaining_block'] and day_data['cheapest_remaining_block'].get('slots'):
-            future_cheapest_block_times_by_date[date_iso] = [
-                slot['valid_from'] for slot in day_data['cheapest_remaining_block']['slots']
-            ]
-        
-        # Lowest price time for this day
-        if day_data['lowest_price']:
-            lowest_price_times_by_date[date_iso] = day_data['lowest_price']['time_from']
-        
-        # Worst block times for this day (convert set to list for JSON serialization)
-        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
-            worst_block_times_by_date[date_iso] = [
-                slot['valid_from'] for slot in day_data['worst_block']['slots']
-            ]
-    
-    # For backward compatibility: build single-day highlighting sets
-    absolute_cheapest_block_times = set()
-    if absolute_cheapest_block and absolute_cheapest_block.get('slots'):
-        absolute_cheapest_block_times = {slot['valid_from'] for slot in absolute_cheapest_block['slots']}
-    
-    future_cheapest_block_times = set()
-    if future_cheapest_block and future_cheapest_block.get('slots'):
-        future_cheapest_block_times = {slot['valid_from'] for slot in future_cheapest_block['slots']}
-    
-    worst_block_times = set()
-    if worst_block and worst_block.get('slots'):
-        worst_block_times = {slot['valid_from'] for slot in worst_block['slots']}
-    
-    # Build chart highlighting indices (for single-day backward compatibility)
-    absolute_cheapest_block_indices = []
-    if absolute_cheapest_block:
-        for idx, price in enumerate(prices_data):
-            if price['valid_from'] in absolute_cheapest_block_times:
-                absolute_cheapest_block_indices.append(idx)
-    
-    future_cheapest_block_indices = []
-    if future_cheapest_block:
-        for idx, price in enumerate(prices_data):
-            if price['valid_from'] in future_cheapest_block_times:
-                future_cheapest_block_indices.append(idx)
-    
-    chart_data['absolute_cheapest_block_indices'] = absolute_cheapest_block_indices
-    chart_data['future_cheapest_block_indices'] = future_cheapest_block_indices
-    
-    # Build chart highlighting indices for worst block (single-day backward compatibility)
-    worst_block_indices = []
-    if worst_block:
-        for idx, price in enumerate(prices_data):
-            if price['valid_from'] in worst_block_times:
-                worst_block_indices.append(idx)
-    chart_data['worst_block_indices'] = worst_block_indices
-    
-    # Find index of lowest price for chart highlighting (single-day)
-    lowest_price_index = None
-    if lowest_price:
-        for idx, price in enumerate(prices_data):
-            if price['valid_from'] == lowest_price['time_from']:
-                lowest_price_index = idx
-                break
-    chart_data['lowest_price_index'] = lowest_price_index
-    
-    # Build per-day lowest price indices for chart (multi-day support)
-    lowest_price_indices_by_date = {}
-    worst_block_indices_by_date = {}
-    for day_data in cheapest_per_day:
-        date_iso = day_data['date_iso']
-        if day_data['lowest_price']:
-            for idx, price in enumerate(prices_data):
-                if price['valid_from'] == day_data['lowest_price']['time_from']:
-                    lowest_price_indices_by_date[date_iso] = idx
-                    break
-        # Build worst block indices for this day
-        if day_data['worst_block'] and day_data['worst_block'].get('slots'):
-            worst_block_indices_by_date[date_iso] = []
-            worst_slots = {slot['valid_from'] for slot in day_data['worst_block']['slots']}
-            for idx, price in enumerate(prices_data):
-                if price['valid_from'] in worst_slots:
-                    worst_block_indices_by_date[date_iso].append(idx)
-    
-    # Prepare UK timezone data for template display
-    # Convert all price times to UK timezone for template
-    from app.timezone_utils import utc_to_uk, format_uk_time, format_uk_date
-    prices_with_uk_times = []
-    for price in prices_data:
-        price_uk = price.copy()
-        dt_uk = utc_to_uk(price['valid_from'])
-        price_uk['time_uk'] = format_uk_time(dt_uk)
-        price_uk['date_uk'] = format_uk_date(dt_uk)
-        price_uk['date_iso'] = dt_uk.date().strftime('%Y-%m-%d')  # ISO date for lookups
-        price_uk['datetime_uk'] = dt_uk
-        prices_with_uk_times.append(price_uk)
-    
-    # Post-MVP: Get user preferences if logged in
-    # user_prefs = None
-    # if 'user_id' in session:
-    #     user = User.query.get(session['user_id'])
-    #     if user and user.preferences:
-    #         user_prefs = user.preferences
-    
-    # Store prices page state in session for navigation
-    session['last_prices_state'] = {
-        'region': region,
-        'product': product_code,
-        'duration': duration,
-        'capacity': capacity
-    }
-    
-    # Load statistics for display (use selected region)
-    from app.stats_loader import StatsLoader
-    stats_2025 = StatsLoader.get_stats_for_display(region_code=region, year=2025)
-    stats_2026 = StatsLoader.get_stats_for_display(region_code=region, year=2026)
-    
-    return render_template('prices.html',
-                         region=region,
-                         product_code=product_code,
-                         product_name=selected_product_name,
-                         regions=regions_list,
-                         agile_products=agile_products,
-                         duration=duration,
-                         capacity=capacity,
-                         prices=prices_with_uk_times,
-                         lowest_price=lowest_price,
-                         absolute_cheapest_block=absolute_cheapest_block,
-                         future_cheapest_block=future_cheapest_block,
-                         absolute_cheapest_block_times=absolute_cheapest_block_times,
-                         future_cheapest_block_times=future_cheapest_block_times,
-                         daily_average_price=daily_average_price,
-                         daily_averages_by_date=daily_averages_by_date,
-                         cheapest_per_day=cheapest_per_day,
-                         absolute_cheapest_block_times_by_date=absolute_cheapest_block_times_by_date,
-                         future_cheapest_block_times_by_date=future_cheapest_block_times_by_date,
-                         show_cheapest_remaining_by_date=show_cheapest_remaining_by_date,
-                         lowest_price_times_by_date=lowest_price_times_by_date,
-                         lowest_price_indices_by_date=lowest_price_indices_by_date,
-                         worst_block_times_by_date=worst_block_times_by_date,
-                         worst_block_indices_by_date=worst_block_indices_by_date,
-                         daily_averages_map=daily_averages_map,
-                         estimated_cost=estimated_cost,
-                         chart_data=chart_data,
-                         stats_2025=stats_2025,
-                         stats_2026=stats_2026,
-                         current_time_uk=uk_now,
-                         page_name='prices')
+        default_product = _select_latest_agile_product_code(OctopusAPIClient.get_agile_products())
+    except Exception:
+        default_product = None
+
+    params = {}
+    if product and (default_product is None or product != default_product):
+        params['product'] = product
+    if duration is not None and abs(duration - DEFAULT_DURATION_HOURS) > 1e-9:
+        params['duration'] = duration
+    if capacity is not None and abs(capacity - DEFAULT_CAPACITY_KWH) > 1e-9:
+        params['capacity'] = capacity
+
+    return redirect(url_for('main.prices_region', region_slug=target_slug, **params))
 
 def _calculate_region_summaries(product_code, duration_hours=3.5):
     """
@@ -627,6 +671,7 @@ def _calculate_region_summaries(product_code, duration_hours=3.5):
             summary = {
                 'region_code': region_code,
                 'region_name': region_name,
+                'region_slug': region_slug_from_code(region_code),
                 'cheapest_slot_price': lowest_price_info['price'] if lowest_price_info else None,
                 'cheapest_slot_time_from_uk': lowest_price_info['time_from_uk'] if lowest_price_info else None,
                 'cheapest_block_average': cheapest_block['average_price'] if cheapest_block else None,
@@ -669,8 +714,10 @@ def regions():
     # Discover Agile products
     agile_products = []
     selected_product_name = None
+    default_product_code = None
     try:
         agile_products = OctopusAPIClient.get_agile_products()
+        default_product_code = _select_latest_agile_product_code(agile_products)
         if product_code:
             matching = [p for p in agile_products if p['code'] == product_code]
             if matching:
@@ -698,6 +745,7 @@ def regions():
     return render_template('regions.html',
                          region_summaries=region_summaries,
                          product_code=product_code,
+                         default_product_code=default_product_code,
                          product_name=selected_product_name,
                          agile_products=agile_products,
                          duration_hours=duration_hours,
@@ -721,12 +769,19 @@ def about():
         came_from_prices = True
         # Reconstruct prices URL from query params if available
         region = request.args.get('region')
+        region_slug = request.args.get('region_slug')
         product = request.args.get('product')
         duration = request.args.get('duration')
         capacity = request.args.get('capacity')
-        if region and product:
-            prices_url = url_for('main.prices', region=region, product=product, 
-                                duration=duration, capacity=capacity)
+        if product and (region_slug or region):
+            if not region_slug and region:
+                region_slug = region_slug_from_code(region)
+            if region_slug:
+                prices_url = url_for('main.prices_region', region_slug=region_slug,
+                                     product=product, duration=duration, capacity=capacity)
+            else:
+                prices_url = url_for('main.prices', region=region, product=product,
+                                     duration=duration, capacity=capacity)
         else:
             prices_url = url_for('main.prices')
     # Check referrer header
@@ -735,12 +790,34 @@ def about():
         # Extract query params from referrer if available
         parsed = urlparse(referrer)
         params = parse_qs(parsed.query)
-        if params.get('region') and params.get('product'):
-            prices_url = url_for('main.prices', 
-                                region=params['region'][0],
-                                product=params['product'][0],
-                                duration=params.get('duration', [None])[0],
-                                capacity=params.get('capacity', [None])[0])
+        # Prefer canonical /prices/<slug> referrers
+        path_parts = (parsed.path or '').strip('/').split('/')
+        if len(path_parts) == 2 and path_parts[0] == 'prices':
+            slug = path_parts[1]
+            if region_code_from_slug(slug):
+                prices_url = url_for(
+                    'main.prices_region',
+                    region_slug=slug,
+                    product=params.get('product', [None])[0],
+                    duration=params.get('duration', [None])[0],
+                    capacity=params.get('capacity', [None])[0],
+                )
+        elif params.get('region') and params.get('product'):
+            slug = region_slug_from_code(params['region'][0])
+            if slug:
+                prices_url = url_for(
+                    'main.prices_region',
+                    region_slug=slug,
+                    product=params['product'][0],
+                    duration=params.get('duration', [None])[0],
+                    capacity=params.get('capacity', [None])[0],
+                )
+            else:
+                prices_url = url_for('main.prices',
+                                     region=params['region'][0],
+                                     product=params['product'][0],
+                                     duration=params.get('duration', [None])[0],
+                                     capacity=params.get('capacity', [None])[0])
         else:
             prices_url = url_for('main.prices')
     
@@ -759,7 +836,11 @@ def robots_txt():
 @bp.route('/sitemap.xml')
 def sitemap_xml():
     """Serve sitemap.xml for search engines."""
-    response = make_response(render_template('sitemap.xml'))
+    response = make_response(render_template(
+        'sitemap.xml',
+        regions=_regions_list_with_slugs(),
+        lastmod=get_uk_now().date().isoformat()
+    ))
     response.mimetype = 'application/xml'
     return response
 

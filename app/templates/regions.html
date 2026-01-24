@@ -139,6 +139,9 @@
                     Today's prices
                 {% endif %}
             </p>
+            <p class="mb-0 mt-2 small">
+                <strong>Tip:</strong> Click a region name to view that region’s full prices page with charts and cheapest blocks.
+            </p>
         </div>
         
         <!-- Mobile: Card View -->
@@ -147,7 +150,17 @@
             <div class="card mb-3">
                 <div class="card-header bg-secondary text-white">
                     <h5 class="mb-0">
-                        {{ summary.region_code }} - {{ summary.region_name }}
+                        {% if summary.region_slug %}
+                            {% if default_product_code and product_code == default_product_code %}
+                                <a class="text-white text-decoration-underline" href="{{ url_for('main.prices_region', region_slug=summary.region_slug) }}">
+                            {% else %}
+                                <a class="text-white text-decoration-underline" href="{{ url_for('main.prices_region', region_slug=summary.region_slug, product=product_code) }}">
+                            {% endif %}
+                                {{ summary.region_code }} - {{ summary.region_name }}
+                            </a>
+                        {% else %}
+                            {{ summary.region_code }} - {{ summary.region_name }}
+                        {% endif %}
                     </h5>
                 </div>
                 <div class="card-body">
@@ -237,7 +250,17 @@
                                 <tr>
                                     <td>
                                         <strong>{{ summary.region_code }}</strong><br>
-                                        <small class="text-muted">{{ summary.region_name }}</small>
+                                        {% if summary.region_slug %}
+                                            {% if default_product_code and product_code == default_product_code %}
+                                                <a class="small text-decoration-underline" href="{{ url_for('main.prices_region', region_slug=summary.region_slug) }}">
+                                            {% else %}
+                                                <a class="small text-decoration-underline" href="{{ url_for('main.prices_region', region_slug=summary.region_slug, product=product_code) }}">
+                                            {% endif %}
+                                                {{ summary.region_name }}
+                                            </a>
+                                        {% else %}
+                                            <small class="text-muted">{{ summary.region_name }}</small>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {% if summary.error %}

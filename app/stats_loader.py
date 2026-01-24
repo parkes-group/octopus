@@ -53,6 +53,27 @@ class StatsLoader:
             dict: Formatted statistics with display-friendly values, or None if not available
         """
         stats = StatsLoader.load_stats(year=year, region_code=region_code)
+
+        # Resilience: if national stats were deleted, rebuild from regional stats on-demand.
+        if not stats and region_code == 'national':
+            try:
+                from app.config import Config
+                from app.stats_calculator import StatsCalculator
+
+                product_code = None
+                for code in Config.OCTOPUS_REGION_NAMES.keys():
+                    regional = StatsCalculator.load_stats(year=year, region_code=code)
+                    if regional and regional.get('product_code'):
+                        product_code = regional.get('product_code')
+                        break
+
+                if product_code:
+                    rebuilt = StatsCalculator.calculate_national_averages(product_code=product_code, year=year)
+                    if rebuilt:
+                        StatsCalculator.save_stats(rebuilt, filename=f"national_{year}.json")
+                        stats = rebuilt
+            except Exception as e:
+                logger.warning(f"Unable to rebuild national stats for {year}: {e}")
         
         if not stats:
             return None

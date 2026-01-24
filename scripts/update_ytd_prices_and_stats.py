@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import sys
+import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -113,7 +114,26 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, path)
+    # Atomic replace is ideal, but on Windows it can fail if the destination file is open
+    # (e.g. in an editor) or briefly locked by antivirus/indexers.
+    try:
+        for attempt in range(10):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.05)
+    except PermissionError:
+        # Fallback: write directly to the destination file (non-atomic).
+        # This is acceptable for local/dev runs and avoids failing the whole job.
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
 
 
 def fetch_prices_paginated_range(product_code: str, region: str, period_from: str, period_to: str, page_size: int = 1000) -> tuple[list[dict], dict]:

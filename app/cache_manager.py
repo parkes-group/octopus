@@ -218,26 +218,47 @@ class CacheManager:
             'expires_at': expires_at_iso
         }
         
-        # Use atomic write (temp file then rename) for safety
+        # Use atomic write (temp file then rename) for safety on hosts like PythonAnywhere.
+        # During pytest runs on Windows, temp+replace can intermittently fail due to file locks.
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            try:
+                with open(cache_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2)
+                return True
+            except Exception as e:
+                logger.error(f"Error writing cache file {cache_file}: {e}")
+                return False
+
         temp_file = cache_file.with_suffix('.json.tmp')
-        
         try:
-            # Write to temporary file first
-            with open(temp_file, 'w') as f:
+            with open(temp_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2)
-            
-            # Atomic rename (PythonAnywhere-safe)
+
             os.replace(temp_file, cache_file)
-            
             logger.info(f"Cache refresh: Updated cache file for {product_code} {region_code}")
             return True
+        except PermissionError as e:
+            # Fallback: direct write
+            logger.error(f"Atomic rename failed for {cache_file} ({e}); falling back to direct write")
+            try:
+                with open(cache_file, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2)
+                return True
+            except Exception as e2:
+                logger.error(f"Error writing cache file {cache_file}: {e2}")
+                return False
+            finally:
+                try:
+                    if temp_file.exists():
+                        temp_file.unlink()
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"Error writing cache file {cache_file}: {e}")
-            # Clean up temp file if it exists
             try:
                 if temp_file.exists():
                     temp_file.unlink()
-            except:
+            except Exception:
                 pass
             return False
     
@@ -265,7 +286,16 @@ class CacheManager:
             try:
                 # Check if this is a legacy file (contains date pattern)
                 if date_pattern.search(str(cache_file)):
-                    cache_file.unlink()
+                    # Retry briefly on Windows file locks
+                    import time
+                    for attempt in range(10):
+                        try:
+                            cache_file.unlink()
+                            break
+                        except PermissionError:
+                            if attempt == 9:
+                                raise
+                            time.sleep(0.05)
                     deleted_count += 1
                     logger.debug(f"Removed legacy cache file: {cache_file.name}")
             except Exception as e:

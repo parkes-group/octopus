@@ -42,8 +42,7 @@ instance/
 .webassets-cache
 
 # Cache files (pricing data)
-app/cache/*.json
-!app/cache/.gitkeep
+app/cache/
 
 # Logs
 *.log
@@ -73,5 +72,8 @@ app/votes/*.json
 app/votes/*.jsonl
 !app/votes/.gitkeep
 
-# Stats data (production analytics - do not track)
-data/stats/region_request_counts.json
+# Data (raw + stats) - do not track
+data/
+
+# Tests - do not track
+tests/

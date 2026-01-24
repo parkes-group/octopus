@@ -28,6 +28,11 @@ def setup_logging(app):
     ))
     console_handler.setLevel(log_level)
     app.logger.addHandler(console_handler)
+
+    # Avoid file handlers during tests (Windows file locks/rollover can break pytest).
+    if app.config.get('TESTING') or os.environ.get('PYTEST_CURRENT_TEST'):
+        app.logger.propagate = False
+        return
     
     # File logging with daily rotation (rotates at midnight)
     # backupCount=5 means keep 5 days of logs (current + 4 backups)
@@ -180,11 +185,29 @@ def create_app(config_class=None):
             state = session['last_prices_state']
             if state.get('region') and state.get('product'):
                 has_prices_history = True
-                prices_url = url_for('main.prices', 
-                                    region=state['region'],
-                                    product=state['product'],
-                                    duration=state.get('duration'),
-                                    capacity=state.get('capacity'))
+                from app.region_slugs import region_slug_from_code
+                slug = region_slug_from_code(state['region'])
+                if slug:
+                    params = {}
+                    if not state.get('product_is_default'):
+                        params['product'] = state['product']
+                    if not state.get('duration_is_default') and state.get('duration') is not None:
+                        params['duration'] = state.get('duration')
+                    if not state.get('capacity_is_default') and state.get('capacity') is not None:
+                        params['capacity'] = state.get('capacity')
+                    prices_url = url_for(
+                        'main.prices_region',
+                        region_slug=slug,
+                        **params
+                    )
+                else:
+                    prices_url = url_for(
+                        'main.prices',
+                        region=state['region'],
+                        product=state['product'],
+                        duration=state.get('duration'),
+                        capacity=state.get('capacity')
+                    )
         
         # Use dynamic site URL based on current request
         # This allows localhost for development and production URL for production
