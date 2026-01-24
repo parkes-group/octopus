@@ -35,7 +35,7 @@ class Config:
     # SEO Configuration
     SITE_NAME = os.environ.get('SITE_NAME', 'Agile Pricing | Octopus Energy Pricing Assistant')
     SITE_URL = os.environ.get('SITE_URL', 'https://www.agilepricing.co.uk') 
-    SITE_DESCRIPTION = os.environ.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today. Identify the best 30-minute charging windows for home batteries and EVs in the UK.')
+    SITE_DESCRIPTION = os.environ.get('SITE_DESCRIPTION', 'Find the cheapest Agile Octopus electricity prices today. Identify the best charging windows for home batteries and EVs in the UK.')
     
     # Historical Statistics Configuration
     # Ofgem price cap unit rate (p/kWh, excluding standing charge)
@@ -54,11 +54,11 @@ class Config:
     SEO_PAGES = {
         'index': {
             'title': 'Octopus Agile Pricing | Agile Prices | Cheapest Prices UK',
-            'description': 'View today’s Agile Octopus electricity prices and instantly find the cheapest 30-minute charging windows for home batteries and EVs across the UK'
+            'description': 'View today’s Agile Octopus electricity prices and instantly find the cheapest usage windows across the UK'
         },
         'prices': {
             'title': 'Prices | Today’s Octopus Agile Pricing | Cheapest Charging',
-            'description': 'See today’s half-hourly Agile Octopus prices, daily averages, and the cheapest charging blocks for home batteries and EVs'
+            'description': 'See today’s half-hourly Agile Octopus prices, daily averages, and the cheapest usage windows'
         },
         'about': {
             'title': 'How Octopus Agile Pricing Works | Price Analysis Tool',
@@ -66,7 +66,7 @@ class Config:
         },
         'regions': {
             'title': 'Octopus Agile Pricing by Region | UK Comparison Tool',
-            'description': 'Compare Agile Octopus electricity prices across all UK regions. See daily averages and cheapest charging windows to optimise battery charging'
+            'description': 'Compare Agile Octopus electricity prices across all UK regions. See daily averages and cheapest usage windows'
         }
     }
     

@@ -8,28 +8,56 @@
 {% if seo_title %}{% block og_title %}{{ seo_title }}{% endblock %}{% endif %}
 {% if seo_description %}{% block og_description %}{{ seo_description }}{% endblock %}{% endif %}
 {% if canonical_url %}{% block og_url %}{{ canonical_url }}{% endblock %}{% endif %}
+{% if include_structured_data %}{% block robots_meta %}<meta name="robots" content="index, follow, max-image-preview:large">{% endblock %}{% endif %}
+{% if og_image_url %}{% block og_image %}<meta property="og:image" content="{{ og_image_url }}">{% endblock %}{% endif %}
+{% if twitter_image_url %}{% block twitter_image %}<meta name="twitter:image" content="{{ twitter_image_url }}">{% endblock %}{% endif %}
+{% if seo_title %}{% block twitter_title %}{{ seo_title }}{% endblock %}{% endif %}
+{% if seo_description %}{% block twitter_description %}{{ seo_description }}{% endblock %}{% endif %}
 
 {% block head %}
 <!-- Page-specific Structured Data (JSON-LD) -->
-{% if include_structured_data and region_slug and region_name and canonical_url %}
+{% if include_structured_data and canonical_url and seo_site_url and seo_dataset_name and seo_dataset_description %}
 <script type="application/ld+json">
 {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    "@id": "{{ canonical_url }}#webpage",
-    "url": "{{ canonical_url }}",
-    "name": "{{ region_name }} Octopus Agile Prices",
-    "description": "{{ seo_description }}",
-    "inLanguage": "en-GB",
-    "isPartOf": {
-        "@type": "WebSite",
-        "name": "{{ site_name }}",
-        "url": "{{ site_url }}"
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "{{ seo_site_url }}/#website",
+      "name": "Agile Pricing | Octopus Energy Pricing Assistant",
+      "url": "{{ seo_site_url }}"
     },
-    "about": {
-        "@type": "Thing",
-        "name": "Octopus Agile pricing for {{ region_name }}"
+    {
+      "@type": "WebPage",
+      "@id": "{{ canonical_url }}#webpage",
+      "url": "{{ canonical_url }}",
+      "name": "{{ seo_title }}",
+      "description": "{{ seo_description }}",
+      "inLanguage": "en-GB",
+      "dateModified": "{{ seo_date_modified }}",
+      "isPartOf": { "@id": "{{ seo_site_url }}/#website" },
+      "breadcrumb": { "@id": "{{ canonical_url }}#breadcrumb" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "{{ canonical_url }}#breadcrumb",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "{{ seo_site_url }}/" },
+        { "@type": "ListItem", "position": 2, "name": "Prices", "item": "{{ seo_site_url }}/prices" },
+        { "@type": "ListItem", "position": 3, "name": "{{ region_name }}", "item": "{{ canonical_url }}" }
+      ]
+    },
+    {
+      "@type": "Dataset",
+      "@id": "{{ canonical_url }}#dataset",
+      "name": "{{ seo_dataset_name }}",
+      "description": "{{ seo_dataset_description }}",
+      "spatialCoverage": { "@type": "Place", "name": "{{ region_name }}" },
+      "temporalCoverage": "{{ seo_date_modified }}",
+      "url": "{{ canonical_url }}",
+      "inLanguage": "en-GB"
     }
+  ]
 }
 </script>
 {% endif %}

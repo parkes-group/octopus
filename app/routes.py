@@ -16,6 +16,7 @@ from urllib.parse import urlparse, parse_qs
 from datetime import timezone
 import logging
 import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,74 @@ bp = Blueprint('main', __name__)
 
 DEFAULT_DURATION_HOURS = 3.5
 DEFAULT_CAPACITY_KWH = 10.0
+
+PRODUCTION_SITE_URL = (Config.SITE_URL or "https://www.agilepricing.co.uk").rstrip("/")
+
+
+def _production_url(path: str) -> str:
+    """Build an absolute production URL (SEO canonical)."""
+    if not path.startswith("/"):
+        path = "/" + path
+    return f"{PRODUCTION_SITE_URL}{path}"
+
+
+def _og_image_url_for_region(region_slug: str) -> str:
+    """
+    Social preview image.
+    - Prefer `/static/images/og-{region-slug}.png` if present
+    - Fallback to `/static/images/og-default.png`
+    """
+    if region_slug:
+        images_dir = Path(__file__).resolve().parent / "static" / "images"
+        candidate = images_dir / f"og-{region_slug}.png"
+        if candidate.exists():
+            return _production_url(f"/static/images/og-{region_slug}.png")
+
+    return _production_url("/static/images/og-default.png")
+
+
+def _build_region_prices_seo(*, region_name: str, region_slug: str, uk_date_iso: str, daily_avg: float | None, cheapest_block_avg: float | None) -> dict:
+    """
+    Centralized SEO + structured-data builder for `/prices/<region_slug>` pages.
+
+    Notes:
+    - Canonical URLs always use the production domain (per SEO requirements).
+    - Description is region-specific and includes daily metrics when available.
+    """
+    canonical_url = _production_url(url_for("main.prices_region", region_slug=region_slug))
+
+    seo_title = f"Octopus Agile Electricity Prices – {region_name} | Cheapest Times Today"
+
+    parts: list[str] = [
+        f"Today’s Octopus Agile electricity prices for {region_name}.",
+        "See the cheapest times to use electricity and compare half-hourly rates across the day.",
+    ]
+    if cheapest_block_avg is not None and daily_avg is not None:
+        parts.append(
+            f"Based on {uk_date_iso} pricing, the average cheapest 3.5h block is {cheapest_block_avg:.2f}p/kWh versus a daily average of {daily_avg:.2f}p/kWh."
+        )
+    elif daily_avg is not None:
+        parts.append(f"Based on {uk_date_iso} pricing, the daily average is {daily_avg:.2f}p/kWh.")
+
+    seo_description = " ".join(parts)
+
+    dataset_name = f"Octopus Agile Half-Hourly Electricity Prices – {region_name}"
+    dataset_description = (
+        f"Half-hourly Octopus Agile unit rates for {region_name} on {uk_date_iso}. "
+        "Use this dataset to find the cheapest times today."
+    )
+
+    return {
+        "seo_title": seo_title,
+        "seo_description": seo_description,
+        "canonical_url": canonical_url,
+        "seo_site_url": PRODUCTION_SITE_URL,
+        "seo_dataset_name": dataset_name,
+        "seo_dataset_description": dataset_description,
+        "og_image_url": _og_image_url_for_region(region_slug),
+        "twitter_image_url": _og_image_url_for_region(region_slug),
+        "date_modified": uk_date_iso,
+    }
 
 def _select_latest_agile_product_code(agile_products):
     """
@@ -243,21 +312,44 @@ def _prices_page_context(*, region_code, region_slug, product_code, duration, ca
     stats_2026 = StatsLoader.get_stats_for_display(region_code=region_code, year=2026)
 
     region_name = region_name_from_code(region_code) or f"Region {region_code}"
-    canonical_url = request.url_root.rstrip('/') + url_for('main.prices_region', region_slug=region_slug)
 
-    seo_title = f"{region_name} Octopus Agile Prices | Cheapest Times"
-    seo_description = (
-        f"Octopus Agile prices for {region_name}: see today's half-hourly rates, "
-        "daily average, and the cheapest times to use electricity."
-    )
+    # SEO / social / JSON-LD
+    daily_avg_for_seo = daily_average_price
+    cheapest_block_avg_for_seo = absolute_cheapest_block["average_price"] if absolute_cheapest_block else None
+    uk_date_iso = uk_now.date().isoformat()
+
+    seo = _build_region_prices_seo(
+        region_name=region_name,
+        region_slug=region_slug,
+        uk_date_iso=uk_date_iso,
+        daily_avg=daily_avg_for_seo,
+        cheapest_block_avg=cheapest_block_avg_for_seo,
+    ) if include_structured_data else {
+        # Back-compat pages should still point canonical to production region URL.
+        "seo_title": None,
+        "seo_description": None,
+        "canonical_url": _production_url(url_for("main.prices_region", region_slug=region_slug)),
+        "seo_site_url": PRODUCTION_SITE_URL,
+        "seo_dataset_name": None,
+        "seo_dataset_description": None,
+        "og_image_url": None,
+        "twitter_image_url": None,
+        "date_modified": uk_date_iso,
+    }
 
     return {
         'region': region_code,
         'region_slug': region_slug,
         'region_name': region_name,
-        'canonical_url': canonical_url,
-        'seo_title': seo_title,
-        'seo_description': seo_description,
+        'canonical_url': seo.get("canonical_url"),
+        'seo_title': seo.get("seo_title"),
+        'seo_description': seo.get("seo_description"),
+        'og_image_url': seo.get("og_image_url"),
+        'twitter_image_url': seo.get("twitter_image_url"),
+        'seo_date_modified': seo.get("date_modified"),
+        'seo_site_url': seo.get("seo_site_url"),
+        'seo_dataset_name': seo.get("seo_dataset_name"),
+        'seo_dataset_description': seo.get("seo_dataset_description"),
         'include_structured_data': include_structured_data,
         'product_code': product_code,
         'product_name': selected_product_name,
