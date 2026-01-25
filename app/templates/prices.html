@@ -628,7 +628,7 @@
         <div class="card mb-4">
             <div class="card-body">
                 <h2 class="h5 mb-3">Change Block Duration, Usage or Region Options</h2>
-                <form method="GET" action="{{ url_for('main.prices_go') }}" class="row g-3">
+                <form method="POST" action="{{ url_for('main.prices_go') }}" class="row g-3">
 
                     <div class="col-md-3">
                         <label for="duration" class="form-label">Block Duration (hours)</label>

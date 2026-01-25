@@ -27,6 +27,22 @@ DEFAULT_CAPACITY_KWH = 10.0
 
 PRODUCTION_SITE_URL = (Config.SITE_URL or "https://www.agilepricing.co.uk").rstrip("/")
 
+def _track_region_request_on_post(region_code: str) -> None:
+    """
+    Region request counting should happen only on POST actions (user intent),
+    not on GET page loads / refreshes / crawlers.
+    Deduped per session by `last_tracked_region`.
+    """
+    if request.method != "POST":
+        return
+    if not region_code:
+        return
+    last_tracked_region = session.get("last_tracked_region")
+    if region_code == last_tracked_region:
+        return
+    RegionRequestTracker.record_region_request(region_code)
+    session["last_tracked_region"] = region_code
+
 
 def _production_url(path: str) -> str:
     """Build an absolute production URL (SEO canonical)."""
@@ -185,11 +201,7 @@ def _prices_page_context(*, region_code, region_slug, product_code, duration, ca
             flash('Unable to fetch current prices. Please try again later.', 'error')
             return None, redirect(url_for('main.index'))
 
-    # Track region usage (deduped by session)
-    last_tracked_region = session.get('last_tracked_region')
-    if region_code != last_tracked_region:
-        RegionRequestTracker.record_region_request(region_code)
-        session['last_tracked_region'] = region_code
+    # NOTE: region request counting happens only on POST actions (see index() + prices_go()).
 
     # Sort chronologically
     try:
@@ -487,10 +499,8 @@ def index():
             # Validate region exists
             if any(r['region'] == submitted_region for r in regions_list):
                 logger.info(f"Region {submitted_region} selected manually")
-                # Record region request for analytics (manual region selection)
-                RegionRequestTracker.record_region_request(submitted_region)
-                # Store last tracked region in session to prevent duplicate tracking
-                session['last_tracked_region'] = submitted_region
+                # Record region request for analytics (POST only; deduped)
+                _track_region_request_on_post(submitted_region)
                 # Clear the stored postcode since we're redirecting
                 session.pop('last_postcode_index', None)
                 slug = region_slug_from_code(submitted_region)
@@ -527,10 +537,8 @@ def index():
                 elif isinstance(region_result, str):
                     # Single region: redirect to prices page with product
                     logger.debug(f"Postcode {normalized_postcode} successfully mapped to single region {region_result}")
-                    # Record region request for analytics (postcode resolved to single region)
-                    RegionRequestTracker.record_region_request(region_result)
-                    # Store last tracked region in session to prevent duplicate tracking
-                    session['last_tracked_region'] = region_result
+                    # Record region request for analytics (POST only; deduped)
+                    _track_region_request_on_post(region_result)
                     # Clear the stored postcode since we're redirecting
                     session.pop('last_postcode_index', None)
                     slug = region_slug_from_code(region_result)
@@ -646,18 +654,22 @@ def prices_region(region_slug):
         return response
     return render_template('prices.html', **context)
 
-@bp.route('/prices/go')
+@bp.route('/prices/go', methods=['GET', 'POST'])
 def prices_go():
     """Region selector helper: navigates to /prices/<region_slug> preserving selections."""
-    target_slug = request.args.get('region_slug')
-    if not target_slug or not region_code_from_slug(target_slug):
+    target_slug = request.values.get('region_slug')
+    target_region_code = region_code_from_slug(target_slug) if target_slug else None
+    if not target_slug or not target_region_code:
         logger.info(f"Region resolution failed for slug in /prices/go: {target_slug}")
         flash('Invalid region selected.', 'error')
         return redirect(url_for('main.index'))
 
-    product = request.args.get('product')
-    duration = request.args.get('duration', type=float)
-    capacity = request.args.get('capacity', type=float)
+    # Count only on POST (explicit user action), not on GET.
+    _track_region_request_on_post(target_region_code)
+
+    product = request.values.get('product')
+    duration = request.values.get('duration', type=float)
+    capacity = request.values.get('capacity', type=float)
 
     default_product = None
     try:
