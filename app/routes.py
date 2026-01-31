@@ -948,6 +948,88 @@ def sitemap_xml():
     response.mimetype = 'application/xml'
     return response
 
+
+@bp.route("/blog")
+def blog_index():
+    """
+    Minimal blog index.
+    Title + excerpt + date only (per SEO requirements for early-stage site).
+    """
+    posts = [
+        {
+            "title": "Is Octopus Agile really cheaper?",
+            "slug": "is-octopus-agile-really-cheaper",
+            "published": "2026-01-31",
+            "excerpt": "Octopus Agile is not always cheaper. Using 2025 national pricing data, this explains who wins, who loses, and why winter evenings are the danger zone.",
+        }
+    ]
+    return render_template(
+        "blog/index.html",
+        page_name="blog",
+        canonical_url=_production_url(url_for("main.blog_index")),
+        posts=posts,
+        date_modified="2026-01-31",
+    )
+
+
+@bp.route("/blog/is-octopus-agile-really-cheaper")
+def blog_is_octopus_agile_really_cheaper():
+    """
+    Blog post: evidence-led explainer based on 2025 national stats.
+    """
+    published = "2026-01-31"
+    canonical_url = _production_url(url_for("main.blog_is_octopus_agile_really_cheaper"))
+
+    # Pull analysis numbers from the generated stats JSON (not hard-coded).
+    from app.stats_loader import StatsLoader
+    stats = StatsLoader.load_stats(year=2025, region_code="national") or {}
+    usage = stats.get("usage_insights", {}) or {}
+    peak = usage.get("peak_window_analysis", {}) or {}
+    seasonal = usage.get("seasonal_comparison", {}) or {}
+    shiftable = usage.get("shiftable_usage_scenarios", {}) or {}
+
+    daily_avg = (stats.get("daily_average", {}) or {}).get("avg_price_p_per_kwh")
+    cheapest_block_avg = (stats.get("cheapest_block", {}) or {}).get("avg_price_p_per_kwh")
+    peak_avg = peak.get("avg_peak_price_p_per_kwh")
+    offpeak_avg = peak.get("avg_offpeak_price_p_per_kwh")
+    peak_premium_pct = peak.get("peak_premium_percentage")
+    winter_avg = seasonal.get("avg_winter_price_p_per_kwh")
+    summer_avg = seasonal.get("avg_summer_price_p_per_kwh")
+    price_cap_saving = (stats.get("price_cap_comparison", {}) or {}).get("annual_saving_gbp")
+    price_cap_p_per_kwh = (stats.get("price_cap_comparison", {}) or {}).get("cap_price_p_per_kwh")
+    daily_kwh = (stats.get("assumptions", {}) or {}).get("daily_kwh")
+    cheapest_block_usage_percent = (stats.get("assumptions", {}) or {}).get("cheapest_block_usage_percent")
+    shift_vs_peak_saving = ((shiftable.get("savings_vs_peak_only", {}) or {}).get("annual_saving_gbp"))
+    shift_fraction = shiftable.get("shift_fraction")
+    peak_window = peak.get("window_local", {}) or {}
+    shift_fraction_percent = (shift_fraction * 100.0) if isinstance(shift_fraction, (int, float)) else None
+
+    return render_template(
+        "blog/is-octopus-agile-really-cheaper.html",
+        page_name="blog",
+        canonical_url=canonical_url,
+        page_url=canonical_url,
+        date_published=published,
+        date_modified=published,
+        author_name="AgilePricing.co.uk",
+        stats_daily_avg_p_per_kwh=daily_avg,
+        stats_cheapest_block_avg_p_per_kwh=cheapest_block_avg,
+        stats_peak_avg_p_per_kwh=peak_avg,
+        stats_offpeak_avg_p_per_kwh=offpeak_avg,
+        stats_peak_premium_pct=peak_premium_pct,
+        stats_winter_avg_p_per_kwh=winter_avg,
+        stats_summer_avg_p_per_kwh=summer_avg,
+        stats_price_cap_annual_saving_gbp=price_cap_saving,
+        stats_price_cap_p_per_kwh=price_cap_p_per_kwh,
+        stats_daily_kwh=daily_kwh,
+        stats_cheapest_block_usage_percent=cheapest_block_usage_percent,
+        stats_shift_fraction=shift_fraction,
+        stats_shift_fraction_percent=shift_fraction_percent,
+        stats_shift_vs_peak_annual_saving_gbp=shift_vs_peak_saving,
+        stats_peak_window_start=peak_window.get("start"),
+        stats_peak_window_end=peak_window.get("end"),
+    )
+
 @bp.route('/feature-vote', methods=['POST'])
 def feature_vote():
     """Handle feature voting - records a vote for a feature."""

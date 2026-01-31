@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{# ------------------------------------------------------------------------- #}
+{# On-page SEO (required)                                                     #}
+{# Title <= 60 chars, analytical tone.                                        #}
+{# Meta description <= 160 chars, mentions 2025 data.                         #}
+{# ------------------------------------------------------------------------- #}
+{% block seo_title %}Is Octopus Agile really cheaper? 2025 data{% endblock %}
+{% block seo_description %}Using 2025 national data: {{ stats_daily_avg_p_per_kwh }}p avg vs {{ stats_peak_avg_p_per_kwh }}p at {{ stats_peak_window_start }}–{{ stats_peak_window_end }}. Agile isn’t always cheaper.{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_title %}Is Octopus Agile really cheaper? 2025 data{% endblock %}
+{% block og_description %}Based on 2025 national pricing data. Agile can save money, but winter evening usage is the danger zone.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_url %}{{ page_url }}{% endblock %}
+{% block twitter_title %}Is Octopus Agile really cheaper? 2025 data{% endblock %}
+{% block twitter_description %}Using 2025 national data: {{ stats_daily_avg_p_per_kwh }}p avg vs {{ stats_peak_avg_p_per_kwh }}p at {{ stats_peak_window_start }}–{{ stats_peak_window_end }}. Agile isn’t always cheaper.{% endblock %}
+
+{% block head %}
+  {# ----------------------------------------------------------------------- #}
+  {# Structured data (BlogPosting JSON-LD)                                   #}
+  {# ----------------------------------------------------------------------- #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Is Octopus Agile really cheaper?",
+    "description": "An evidence-led explainer using 2025 national Octopus Agile pricing data to show who saves money, who pays more, and why winter evenings matter.",
+    "datePublished": "{{ date_published }}",
+    "dateModified": "{{ date_modified }}",
+    "author": {
+      "@type": "Organization",
+      "name": "{{ author_name }}"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "{{ page_url }}"
+    },
+    "url": "{{ page_url }}"
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<article class="row blog-post">
+  <div class="col-12">
+    <header class="mb-4">
+      <h1>Is Octopus Agile really cheaper?</h1>
+      <p class="text-muted mb-2"><strong>Last updated:</strong> {{ date_modified }}</p>
+      <p class="mb-0 text-muted">
+        This is an evidence-led explainer based on <strong>real Octopus Agile pricing data</strong>, using the site’s <strong>2025 national average</strong> statistics generated from half-hourly prices.
+        To verify these conclusions for your own household, start on the <a href="{{ url_for('main.index') }}">homepage</a> by entering your postcode — you’ll see your region’s live Agile prices and highlighted cheapest and most expensive windows.
+      </p>
+    </header>
+
+    <section class="mb-4">
+      <p>
+        <strong>Octopus Agile is not always cheaper.</strong>
+        Whether it saves money depends primarily on <em>when</em> electricity is used, especially during winter evening peak hours.
+      </p>
+      <p class="mb-0">
+        That’s not marketing. It’s the main trade-off of time‑of‑use pricing: the tariff can be genuinely cheap at some times,
+        and punishingly expensive at others.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h4">TL;DR</h2>
+      <ul class="mb-0">
+        <li><strong>Cheaper for some households</strong> (if you can avoid expensive windows)</li>
+        <li><strong>More expensive for others</strong> (if your usage is concentrated in peak hours)</li>
+        <li><strong>Winter evenings are the danger zone</strong> (and the data shows it clearly)</li>
+      </ul>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h4">Why trust this analysis (and how to verify it)</h2>
+      <p>
+        This post is deliberately sceptical: Agile is not “always cheaper”, and some households do lose money on it.
+        The goal here is to explain <em>why</em> that happens using transparent, reproducible numbers.
+      </p>
+      <p>
+        <strong>AgilePricing exists to answer a single question accurately: is Agile cheaper for this household, in this region, right now?</strong>
+      </p>
+      <p class="mb-0">
+        AgilePricing exists to help you verify the trade‑offs using <strong>live, regional</strong> Agile prices:
+        enter your postcode on the <a href="{{ url_for('main.index') }}">homepage</a> to identify your region, then use the regional tools to see the
+        <strong>latest cheapest and most expensive half‑hour windows</strong> for that region (and how they line up with your routine).
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h4">A trust-first starting point: who Agile often doesn’t suit</h2>
+      <p>
+        Agile is not a hack and it is not a guaranteed saving. It rewards certain usage patterns—and penalises others.
+      </p>
+      <p class="mb-0">
+        If your household uses a large share of electricity in the early evening (cooking, lights, appliances, and in some homes
+        heating or hot water), Agile often does <em>not</em> suit you—especially in winter.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h4">The core idea: it rewards timing, not volume</h2>
+      <p class="mb-0">
+        <strong>Agile pricing rewards *when* you use electricity, not how much.</strong>
+        That is the whole mechanism. The same household can pay very different amounts depending on whether usage lands in cheaper periods or in peak hours.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>What the 2025 national data says (no hype)</h2>
+      <p>Using the 2025 national average:</p>
+      <ul>
+        <li><strong>Daily average Agile price:</strong> {{ stats_daily_avg_p_per_kwh }}p/kWh</li>
+        <li><strong>Cheapest 3.5-hour block average:</strong> {{ stats_cheapest_block_avg_p_per_kwh }}p/kWh</li>
+        <li><strong>Peak window ({{ stats_peak_window_start }}–{{ stats_peak_window_end }}) average:</strong> {{ stats_peak_avg_p_per_kwh }}p/kWh</li>
+        <li><strong>Off-peak average:</strong> {{ stats_offpeak_avg_p_per_kwh }}p/kWh</li>
+        <li><strong>Peak premium vs off-peak:</strong> {{ stats_peak_premium_pct }}%</li>
+      </ul>
+      <p class="mb-0">
+        Those figures are why Agile is not “always cheaper”: the same tariff contains both bargain windows and expensive spikes.
+        If your usage lands in the spikes, the average doesn’t protect you.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>1) Winter behaviour (Nov–Feb): why evenings can wipe out savings</h2>
+      <p>
+        Winter is where many households get caught out because both <em>the level</em> and <em>the shape</em> of prices tend to be harsher.
+        The 2025 national <strong>winter average price</strong> is <strong>{{ stats_winter_avg_p_per_kwh }}p/kWh</strong>, compared with a
+        <strong>summer average</strong> of <strong>{{ stats_summer_avg_p_per_kwh }}p/kWh</strong>.
+      </p>
+      <p>
+        But the bigger issue is the evening peak. The 2025 national average for the <strong>{{ stats_peak_window_start }}–{{ stats_peak_window_end }}</strong> window is
+        <strong>{{ stats_peak_avg_p_per_kwh }}p/kWh</strong>.
+      </p>
+      <p class="mb-0">
+        That’s the danger zone for “normal” household routines: dinner cooking, lighting, laundry, showers, and lots of appliance use.
+        If your electricity use is evening‑heavy, winter peak pricing can wipe out savings from cheaper periods.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>2) Summer behaviour (May–Aug): why Agile can look “easy”</h2>
+      <p>
+        Summer tends to be less volatile and less punishing, with more usable low-price windows.
+        The 2025 national <strong>summer average price</strong> is <strong>{{ stats_summer_avg_p_per_kwh }}p/kWh</strong>.
+      </p>
+      <p class="mb-0">
+        This is why Agile can outperform a fixed tariff even with imperfect behaviour: you don’t need to optimise every appliance,
+        but you do need to avoid living in the peak window.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>3) Usage pattern scenarios</h2>
+
+      <h3 class="h5 mt-3">If you use most electricity between 5pm and 7pm</h3>
+      <p class="mb-0">
+        You’re exposed to the most expensive part of the day. In the 2025 national data, the peak window averages <strong>{{ stats_peak_avg_p_per_kwh }}p/kWh</strong>.
+        If that describes your household (common for families and “out all day, home for dinner” patterns), Agile is often a cost risk.
+      </p>
+
+      <h3 class="h5 mt-3">If you can shift EV, battery, or appliance use overnight</h3>
+      <p>
+        This is where Agile can shine. The 2025 national <strong>cheapest 3.5-hour block average</strong> is <strong>{{ stats_cheapest_block_avg_p_per_kwh }}p/kWh</strong>.
+        If you can move flexible demand (EV charging, home batteries, washing/drying) into cheaper windows, you’re more likely to benefit.
+      </p>
+      <p class="mb-0">
+        To keep assumptions explicit, the site’s stats use <strong>{{ stats_daily_kwh }} kWh/day</strong>. Under that assumption, the
+        <strong>price cap comparison saving</strong> is £{{ stats_price_cap_annual_saving_gbp }}/year ({{ stats_daily_kwh }} kWh/day).
+        And if you compare against a household paying peak-only rates, the <strong>{{ stats_shift_fraction_percent | default("", true) }}% load shifting vs peak-only usage saving</strong> is
+        £{{ stats_shift_vs_peak_annual_saving_gbp }}/year.
+      </p>
+
+      <h3 class="h5 mt-3">If you’re home all day vs evenings only</h3>
+      <p class="mb-0">
+        “Home all day” can actually help if it spreads demand outside the evening peak (for example, running appliances earlier).
+        The opposite pattern—minimal daytime use, heavy evening use—concentrates demand into the expensive window and often makes Agile worse.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>4) Region matters (identical behaviour can cost more or less)</h2>
+      <p class="mb-0">
+        Even if two households use electricity the same way, they can pay different amounts because Agile prices vary by UK region.
+        National averages are useful for understanding the trade‑offs, but they are not enough for a decision.
+      </p>
+      <p>
+        The practical next step is to verify the conclusion using your region’s data:
+        <a href="{{ url_for('main.index') }}">enter your postcode</a> to detect your region, then open the regional pricing tools to see today’s cheap windows and the “worst time to use energy”.
+      </p>
+      <p class="mb-0">
+        The <a href="{{ url_for('main.regions') }}">All Regions</a> page also lets you click into your region’s full prices page with charts and highlighted cheapest/worst windows.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2>Conclusion: Agile is a trade-off, not a win button</h2>
+      <p>
+        The honest summary is simple: Octopus Agile is not always cheaper. It rewards households that can avoid expensive peak hours—especially winter evenings—and it penalises those that can’t.
+      </p>
+      <p class="mb-0">
+        National averages explain how Agile behaves — but they should never decide your tariff.
+        The correct way to assess Agile is to look at your region’s live prices and compare them to when your household actually uses electricity.
+        Start on the <a href="{{ url_for('main.index') }}">homepage</a> to detect your region by postcode, then review today’s cheapest and worst windows using the regional pricing tools.
+      </p>
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h5">Assumptions & scope</h2>
+      <div class="alert alert-secondary mt-3 mb-0" role="note">
+        <small>
+          <strong>Note:</strong>
+          These statistics show national averages across all UK regions based on Octopus data and assume:
+          <ul class="mb-0 mt-2">
+            <li>
+              Daily usage of {{ "%.1f"|format(stats_daily_kwh) }} kWh
+              ({{ "%.0f"|format(stats_daily_kwh * 365) }} kWh / year)
+            </li>
+            <li>
+              {{ "%.0f"|format(stats_cheapest_block_usage_percent) }}% of daily usage in the cheapest 3.5h blocks
+            </li>
+            <li>
+              Price cap of {{ "%.2f"|format(stats_price_cap_p_per_kwh) }}p/kWh (excluding standing charge)
+            </li>
+          </ul>
+          <em>Figures are illustrative and based on regional averages. Savings depend on your usage and timing—no guarantees.</em>
+        </small>
+      </div>
+    </section>
+  </div>
+</article>
+{% endblock %}
+

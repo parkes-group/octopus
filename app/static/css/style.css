@@ -240,6 +240,13 @@ p {
     max-width: 100%;
 }
 
+/* Blog posts should span the available content width on desktop.
+   (Override the global paragraph line-length constraint.) */
+.blog-post p,
+.blog-index p {
+    max-width: 100%;
+}
+
 /* Container padding for mobile */
 .container {
     padding-left: 1rem;

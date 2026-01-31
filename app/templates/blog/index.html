@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block seo_title %}Blog | Agile Pricing{% endblock %}
+{% block seo_description %}Evidence-led explainers using real Octopus Agile pricing data.{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_title %}Blog | Agile Pricing{% endblock %}
+{% block og_description %}Evidence-led explainers using real Octopus Agile pricing data.{% endblock %}
+{% block og_url %}{{ canonical_url }}{% endblock %}
+
+{% block content %}
+<div class="row blog-index">
+  <div class="col-12">
+    <h1>Blog</h1>
+    <p class="text-muted mb-4">Evidence-led explainers based on real half-hourly UK electricity prices.</p>
+
+    {% for post in posts %}
+      <article class="mb-4">
+        <h2 class="h4 mb-1">
+          <a href="{{ url_for('main.blog_is_octopus_agile_really_cheaper') }}">{{ post.title }}</a>
+        </h2>
+        <div class="text-muted small mb-2">{{ post.published }}</div>
+        <p class="mb-0">{{ post.excerpt }}</p>
+      </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
