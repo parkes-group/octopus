@@ -5,12 +5,12 @@ Calculates savings vs daily average, price cap comparison, and negative pricing 
 import json
 import logging
 from pathlib import Path
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone, time
 from collections import defaultdict
 from app.api_client import OctopusAPIClient
 from app.price_calculator import PriceCalculator
 from app.config import Config
-from app.timezone_utils import UK_TZ
+from app.timezone_utils import UK_TZ, utc_to_uk
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,12 @@ class StatsCalculator:
     STATS_DIR = PROJECT_ROOT / 'data' / 'stats'
     RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw'
     BLOCK_DURATION_HOURS = 3.5
+
+    # UK peak window (local time) for usage insights.
+    # We treat the window as: start <= slot_start_time < end
+    # so 19:00-19:30 is peak, 19:30-20:00 is off-peak.
+    PEAK_START_LOCAL = time(17, 0)
+    PEAK_END_LOCAL = time(19, 30)
     
     @staticmethod
     def _stats_dir_for_year(year: int) -> Path:
@@ -113,6 +119,22 @@ class StatsCalculator:
         negative_slots = []
         total_days = 0
         failed_days = 0
+
+        # ---------------------------------------------------------------------
+        # usage_insights accumulators (additive only; does not affect existing stats)
+        # ---------------------------------------------------------------------
+        peak_sum = 0.0
+        peak_count = 0
+        offpeak_sum = 0.0
+        offpeak_count = 0
+
+        winter_sum = 0.0
+        winter_count = 0
+        summer_sum = 0.0
+        summer_count = 0
+
+        shifted_effective_sum = 0.0
+        shifted_effective_days = 0
         
         # Iterate through all days in 2025
         start_date = date(2025, 1, 1)
@@ -158,6 +180,65 @@ class StatsCalculator:
                 daily_avg = PriceCalculator.calculate_daily_average_price(prices_data)
                 if daily_avg:
                     daily_average_prices.append(daily_avg)
+
+                # -------------------------------------------------------------
+                # usage_insights computations for this UTC-day's slots
+                # -------------------------------------------------------------
+                # Peak/off-peak + seasonal comparisons are computed from per-slot
+                # UK-local timestamps, reusing existing timezone conversion logic.
+                for slot in prices_data:
+                    try:
+                        price = float(slot.get("value_inc_vat", 0))
+                        dt_uk = utc_to_uk(slot["valid_from"])
+                        t = dt_uk.timetz().replace(tzinfo=None)
+                        m = dt_uk.month
+                    except Exception:
+                        continue
+
+                    if StatsCalculator.PEAK_START_LOCAL <= t < StatsCalculator.PEAK_END_LOCAL:
+                        peak_sum += price
+                        peak_count += 1
+                    else:
+                        offpeak_sum += price
+                        offpeak_count += 1
+
+                    # Winter: Nov–Feb, Summer: May–Aug (UK local month)
+                    if m in (11, 12, 1, 2):
+                        winter_sum += price
+                        winter_count += 1
+                    if m in (5, 6, 7, 8):
+                        summer_sum += price
+                        summer_count += 1
+
+                # Shiftable usage scenario:
+                # Move X% (default 35%) of daily usage into the cheapest contiguous
+                # 3.5-hour block, keep the remaining usage priced at the average
+                # outside that cheapest block for that day.
+                if cheapest_block and cheapest_block.get("slots") and daily_avg is not None:
+                    try:
+                        cheapest_slots = cheapest_block["slots"]
+                        cheapest_slot_keys = {s.get("valid_from") for s in cheapest_slots if s.get("valid_from")}
+
+                        # Use unrounded block average from the actual slots for determinism.
+                        block_prices = [float(s["value_inc_vat"]) for s in cheapest_slots if "value_inc_vat" in s]
+                        if not block_prices:
+                            raise ValueError("missing_block_prices")
+                        block_avg = sum(block_prices) / len(block_prices)
+
+                        outside_prices = [
+                            float(s["value_inc_vat"])
+                            for s in prices_data
+                            if s.get("valid_from") not in cheapest_slot_keys and "value_inc_vat" in s
+                        ]
+                        outside_avg = (sum(outside_prices) / len(outside_prices)) if outside_prices else float(daily_avg)
+
+                        shift_fraction = Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0
+                        shifted_effective = (shift_fraction * block_avg) + ((1.0 - shift_fraction) * outside_avg)
+                        shifted_effective_sum += shifted_effective
+                        shifted_effective_days += 1
+                    except Exception:
+                        # Don't fail the day's existing stats for an additive metric.
+                        pass
                 
                 # Find negative or zero price slots (including zero means you're paid to use electricity)
                 for price in prices_data:
@@ -260,6 +341,73 @@ class StatsCalculator:
                 "usage_limited_to_negative_slots": True
             }
         }
+
+        # ---------------------------------------------------------------------
+        # Additive usage insights (safe for older frontends to ignore)
+        # ---------------------------------------------------------------------
+        avg_peak = (peak_sum / peak_count) if peak_count > 0 else 0.0
+        avg_offpeak = (offpeak_sum / offpeak_count) if offpeak_count > 0 else 0.0
+        peak_premium_p = avg_peak - avg_offpeak
+        peak_premium_pct = (peak_premium_p / avg_offpeak * 100.0) if avg_offpeak > 0 else 0.0
+
+        avg_winter = (winter_sum / winter_count) if winter_count > 0 else 0.0
+        avg_summer = (summer_sum / summer_count) if summer_count > 0 else 0.0
+        seasonal_diff_p = avg_winter - avg_summer
+        seasonal_diff_pct = (seasonal_diff_p / avg_summer * 100.0) if avg_summer > 0 else 0.0
+
+        shifted_effective = (shifted_effective_sum / shifted_effective_days) if shifted_effective_days > 0 else 0.0
+        # Annualise for full-year datasets (2025 is always full-year in this codebase).
+        annual_days = 365
+        savings_vs_daily_rate_p = avg_daily_average - shifted_effective
+        savings_vs_peak_rate_p = avg_peak - shifted_effective
+        annual_savings_vs_daily_gbp = (savings_vs_daily_rate_p * daily_kwh * annual_days) / 100.0
+        annual_savings_vs_peak_gbp = (savings_vs_peak_rate_p * daily_kwh * annual_days) / 100.0
+
+        results["usage_insights"] = {
+            "peak_window_analysis": {
+                "window_local": {
+                    "start": StatsCalculator.PEAK_START_LOCAL.strftime("%H:%M"),
+                    "end": StatsCalculator.PEAK_END_LOCAL.strftime("%H:%M"),
+                },
+                "avg_peak_price_p_per_kwh": round(avg_peak, 2),
+                "avg_offpeak_price_p_per_kwh": round(avg_offpeak, 2),
+                "peak_premium_p_per_kwh": round(peak_premium_p, 2),
+                "peak_premium_percentage": round(peak_premium_pct, 2),
+                "slots_count_peak": peak_count,
+                "slots_count_offpeak": offpeak_count,
+            },
+            "seasonal_comparison": {
+                "winter_months": [11, 12, 1, 2],
+                "summer_months": [5, 6, 7, 8],
+                "avg_winter_price_p_per_kwh": round(avg_winter, 2),
+                "avg_summer_price_p_per_kwh": round(avg_summer, 2),
+                "difference_p_per_kwh": round(seasonal_diff_p, 2),
+                "difference_percentage": round(seasonal_diff_pct, 2),
+                "slots_count_winter": winter_count,
+                "slots_count_summer": summer_count,
+            },
+            "shiftable_usage_scenarios": {
+                "shift_fraction": round(Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0, 4),
+                "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                "effective_unit_rate_p_per_kwh": round(shifted_effective, 2),
+                "baseline_daily_average_p_per_kwh": round(avg_daily_average, 2),
+                "baseline_peak_only_p_per_kwh": round(avg_peak, 2),
+                "savings_vs_daily_average": {
+                    "savings_p_per_kwh": round(savings_vs_daily_rate_p, 2),
+                    "savings_percentage": round((savings_vs_daily_rate_p / avg_daily_average * 100.0) if avg_daily_average > 0 else 0.0, 2),
+                    "annual_saving_gbp": round(annual_savings_vs_daily_gbp, 2),
+                },
+                "savings_vs_peak_only": {
+                    "savings_p_per_kwh": round(savings_vs_peak_rate_p, 2),
+                    "savings_percentage": round((savings_vs_peak_rate_p / avg_peak * 100.0) if avg_peak > 0 else 0.0, 2),
+                    "annual_saving_gbp": round(annual_savings_vs_peak_gbp, 2),
+                },
+                "assumptions": {
+                    "daily_kwh": daily_kwh,
+                    "annualisation_days": annual_days,
+                },
+            },
+        }
         
         logger.info(f"Statistics calculated successfully: {total_days} days, {total_negative_slots} negative slots")
         
@@ -333,6 +481,22 @@ class StatsCalculator:
         total_days = 0
         failed_days = 0
 
+        # ---------------------------------------------------------------------
+        # usage_insights accumulators (additive only; does not affect existing stats)
+        # ---------------------------------------------------------------------
+        peak_sum = 0.0
+        peak_count = 0
+        offpeak_sum = 0.0
+        offpeak_count = 0
+
+        winter_sum = 0.0
+        winter_count = 0
+        summer_sum = 0.0
+        summer_count = 0
+
+        shifted_effective_sum = 0.0
+        shifted_effective_days = 0
+
         current_date = start_date
         while current_date <= end_date:
             date_str = current_date.strftime("%Y-%m-%d")
@@ -359,6 +523,55 @@ class StatsCalculator:
                 daily_avg = PriceCalculator.calculate_daily_average_price(prices_data)
                 if daily_avg:
                     daily_average_prices.append(daily_avg)
+
+                # -------------------------------------------------------------
+                # usage_insights computations for this UTC-day's slots
+                # -------------------------------------------------------------
+                for slot in prices_data:
+                    try:
+                        price = float(slot.get("value_inc_vat", 0))
+                        dt_uk = utc_to_uk(slot["valid_from"])
+                        t = dt_uk.timetz().replace(tzinfo=None)
+                        m = dt_uk.month
+                    except Exception:
+                        continue
+
+                    if StatsCalculator.PEAK_START_LOCAL <= t < StatsCalculator.PEAK_END_LOCAL:
+                        peak_sum += price
+                        peak_count += 1
+                    else:
+                        offpeak_sum += price
+                        offpeak_count += 1
+
+                    if m in (11, 12, 1, 2):
+                        winter_sum += price
+                        winter_count += 1
+                    if m in (5, 6, 7, 8):
+                        summer_sum += price
+                        summer_count += 1
+
+                if cheapest_block and cheapest_block.get("slots") and daily_avg is not None:
+                    try:
+                        cheapest_slots = cheapest_block["slots"]
+                        cheapest_slot_keys = {s.get("valid_from") for s in cheapest_slots if s.get("valid_from")}
+                        block_prices = [float(s["value_inc_vat"]) for s in cheapest_slots if "value_inc_vat" in s]
+                        if not block_prices:
+                            raise ValueError("missing_block_prices")
+                        block_avg = sum(block_prices) / len(block_prices)
+
+                        outside_prices = [
+                            float(s["value_inc_vat"])
+                            for s in prices_data
+                            if s.get("valid_from") not in cheapest_slot_keys and "value_inc_vat" in s
+                        ]
+                        outside_avg = (sum(outside_prices) / len(outside_prices)) if outside_prices else float(daily_avg)
+
+                        shift_fraction = Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0
+                        shifted_effective = (shift_fraction * block_avg) + ((1.0 - shift_fraction) * outside_avg)
+                        shifted_effective_sum += shifted_effective
+                        shifted_effective_days += 1
+                    except Exception:
+                        pass
 
                 for price in prices_data:
                     if price.get("value_inc_vat", 0) <= 0:
@@ -453,6 +666,72 @@ class StatsCalculator:
                 "cheapest_block_usage_percent": Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT,
                 "usage_shifted_to_cheapest_blocks": True,
                 "usage_limited_to_negative_slots": True,
+            },
+        }
+
+        # ---------------------------------------------------------------------
+        # Additive usage insights (safe for older frontends to ignore)
+        # ---------------------------------------------------------------------
+        avg_peak = (peak_sum / peak_count) if peak_count > 0 else 0.0
+        avg_offpeak = (offpeak_sum / offpeak_count) if offpeak_count > 0 else 0.0
+        peak_premium_p = avg_peak - avg_offpeak
+        peak_premium_pct = (peak_premium_p / avg_offpeak * 100.0) if avg_offpeak > 0 else 0.0
+
+        avg_winter = (winter_sum / winter_count) if winter_count > 0 else 0.0
+        avg_summer = (summer_sum / summer_count) if summer_count > 0 else 0.0
+        seasonal_diff_p = avg_winter - avg_summer
+        seasonal_diff_pct = (seasonal_diff_p / avg_summer * 100.0) if avg_summer > 0 else 0.0
+
+        shifted_effective = (shifted_effective_sum / shifted_effective_days) if shifted_effective_days > 0 else 0.0
+        annualisation_days = total_days if coverage == "year_to_date" else 365
+        savings_vs_daily_rate_p = avg_daily_average - shifted_effective
+        savings_vs_peak_rate_p = avg_peak - shifted_effective
+        annual_savings_vs_daily_gbp = (savings_vs_daily_rate_p * daily_kwh * annualisation_days) / 100.0
+        annual_savings_vs_peak_gbp = (savings_vs_peak_rate_p * daily_kwh * annualisation_days) / 100.0
+
+        results["usage_insights"] = {
+            "peak_window_analysis": {
+                "window_local": {
+                    "start": StatsCalculator.PEAK_START_LOCAL.strftime("%H:%M"),
+                    "end": StatsCalculator.PEAK_END_LOCAL.strftime("%H:%M"),
+                },
+                "avg_peak_price_p_per_kwh": round(avg_peak, 2),
+                "avg_offpeak_price_p_per_kwh": round(avg_offpeak, 2),
+                "peak_premium_p_per_kwh": round(peak_premium_p, 2),
+                "peak_premium_percentage": round(peak_premium_pct, 2),
+                "slots_count_peak": peak_count,
+                "slots_count_offpeak": offpeak_count,
+            },
+            "seasonal_comparison": {
+                "winter_months": [11, 12, 1, 2],
+                "summer_months": [5, 6, 7, 8],
+                "avg_winter_price_p_per_kwh": round(avg_winter, 2),
+                "avg_summer_price_p_per_kwh": round(avg_summer, 2),
+                "difference_p_per_kwh": round(seasonal_diff_p, 2),
+                "difference_percentage": round(seasonal_diff_pct, 2),
+                "slots_count_winter": winter_count,
+                "slots_count_summer": summer_count,
+            },
+            "shiftable_usage_scenarios": {
+                "shift_fraction": round(Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0, 4),
+                "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                "effective_unit_rate_p_per_kwh": round(shifted_effective, 2),
+                "baseline_daily_average_p_per_kwh": round(avg_daily_average, 2),
+                "baseline_peak_only_p_per_kwh": round(avg_peak, 2),
+                "savings_vs_daily_average": {
+                    "savings_p_per_kwh": round(savings_vs_daily_rate_p, 2),
+                    "savings_percentage": round((savings_vs_daily_rate_p / avg_daily_average * 100.0) if avg_daily_average > 0 else 0.0, 2),
+                    "annual_saving_gbp": round(annual_savings_vs_daily_gbp, 2),
+                },
+                "savings_vs_peak_only": {
+                    "savings_p_per_kwh": round(savings_vs_peak_rate_p, 2),
+                    "savings_percentage": round((savings_vs_peak_rate_p / avg_peak * 100.0) if avg_peak > 0 else 0.0, 2),
+                    "annual_saving_gbp": round(annual_savings_vs_peak_gbp, 2),
+                },
+                "assumptions": {
+                    "daily_kwh": daily_kwh,
+                    "annualisation_days": int(annualisation_days),
+                },
             },
         }
 
@@ -682,6 +961,97 @@ class StatsCalculator:
             national_stats["coverage"] = regional_stats[0].get("coverage", "full_year")
             national_stats["days_covered"] = int(avg_days)
             national_stats["last_updated"] = calc_time
+
+        # ---------------------------------------------------------------------
+        # Additive: national usage_insights (average across regions)
+        # ---------------------------------------------------------------------
+        regional_insights = [s.get("usage_insights") for s in regional_stats if isinstance(s.get("usage_insights"), dict)]
+        if regional_insights:
+            def _mean(vals: list[float]) -> float:
+                clean = [float(v) for v in vals if v is not None]
+                return (sum(clean) / len(clean)) if clean else 0.0
+
+            peak_vals = [
+                ins.get("peak_window_analysis", {}).get("avg_peak_price_p_per_kwh")
+                for ins in regional_insights
+            ]
+            offpeak_vals = [
+                ins.get("peak_window_analysis", {}).get("avg_offpeak_price_p_per_kwh")
+                for ins in regional_insights
+            ]
+            avg_peak_nat = _mean(peak_vals)
+            avg_offpeak_nat = _mean(offpeak_vals)
+            peak_premium_p_nat = avg_peak_nat - avg_offpeak_nat
+            peak_premium_pct_nat = (peak_premium_p_nat / avg_offpeak_nat * 100.0) if avg_offpeak_nat > 0 else 0.0
+
+            winter_vals = [
+                ins.get("seasonal_comparison", {}).get("avg_winter_price_p_per_kwh")
+                for ins in regional_insights
+            ]
+            summer_vals = [
+                ins.get("seasonal_comparison", {}).get("avg_summer_price_p_per_kwh")
+                for ins in regional_insights
+            ]
+            avg_winter_nat = _mean(winter_vals)
+            avg_summer_nat = _mean(summer_vals)
+            seasonal_diff_p_nat = avg_winter_nat - avg_summer_nat
+            seasonal_diff_pct_nat = (seasonal_diff_p_nat / avg_summer_nat * 100.0) if avg_summer_nat > 0 else 0.0
+
+            shifted_vals = [
+                ins.get("shiftable_usage_scenarios", {}).get("effective_unit_rate_p_per_kwh")
+                for ins in regional_insights
+            ]
+            shifted_effective_nat = _mean(shifted_vals)
+            annualisation_days = savings_days
+            daily_kwh_nat = assumptions.get("daily_kwh", Config.STATS_DAILY_KWH)
+            savings_vs_daily_rate_p_nat = avg_daily_average - shifted_effective_nat
+            savings_vs_peak_rate_p_nat = avg_peak_nat - shifted_effective_nat
+            annual_savings_vs_daily_gbp_nat = (savings_vs_daily_rate_p_nat * daily_kwh_nat * annualisation_days) / 100.0
+            annual_savings_vs_peak_gbp_nat = (savings_vs_peak_rate_p_nat * daily_kwh_nat * annualisation_days) / 100.0
+
+            national_stats["usage_insights"] = {
+                "peak_window_analysis": {
+                    "window_local": {
+                        "start": StatsCalculator.PEAK_START_LOCAL.strftime("%H:%M"),
+                        "end": StatsCalculator.PEAK_END_LOCAL.strftime("%H:%M"),
+                    },
+                    "avg_peak_price_p_per_kwh": round(avg_peak_nat, 2),
+                    "avg_offpeak_price_p_per_kwh": round(avg_offpeak_nat, 2),
+                    "peak_premium_p_per_kwh": round(peak_premium_p_nat, 2),
+                    "peak_premium_percentage": round(peak_premium_pct_nat, 2),
+                },
+                "seasonal_comparison": {
+                    "winter_months": [11, 12, 1, 2],
+                    "summer_months": [5, 6, 7, 8],
+                    "avg_winter_price_p_per_kwh": round(avg_winter_nat, 2),
+                    "avg_summer_price_p_per_kwh": round(avg_summer_nat, 2),
+                    "difference_p_per_kwh": round(seasonal_diff_p_nat, 2),
+                    "difference_percentage": round(seasonal_diff_pct_nat, 2),
+                },
+                "shiftable_usage_scenarios": {
+                    "shift_fraction": round(
+                        assumptions.get("cheapest_block_usage_percent", Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT) / 100.0, 4
+                    ),
+                    "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                    "effective_unit_rate_p_per_kwh": round(shifted_effective_nat, 2),
+                    "baseline_daily_average_p_per_kwh": round(avg_daily_average, 2),
+                    "baseline_peak_only_p_per_kwh": round(avg_peak_nat, 2),
+                    "savings_vs_daily_average": {
+                        "savings_p_per_kwh": round(savings_vs_daily_rate_p_nat, 2),
+                        "savings_percentage": round((savings_vs_daily_rate_p_nat / avg_daily_average * 100.0) if avg_daily_average > 0 else 0.0, 2),
+                        "annual_saving_gbp": round(annual_savings_vs_daily_gbp_nat, 2),
+                    },
+                    "savings_vs_peak_only": {
+                        "savings_p_per_kwh": round(savings_vs_peak_rate_p_nat, 2),
+                        "savings_percentage": round((savings_vs_peak_rate_p_nat / avg_peak_nat * 100.0) if avg_peak_nat > 0 else 0.0, 2),
+                        "annual_saving_gbp": round(annual_savings_vs_peak_gbp_nat, 2),
+                    },
+                    "assumptions": {
+                        "daily_kwh": daily_kwh_nat,
+                        "annualisation_days": int(annualisation_days) if annualisation_days is not None else 0,
+                    },
+                },
+            }
         
         logger.info(f"National averages calculated from {num_regions} regions")
         return national_stats
