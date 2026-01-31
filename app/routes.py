@@ -76,20 +76,34 @@ def _build_region_prices_seo(*, region_name: str, region_slug: str, uk_date_iso:
     """
     canonical_url = _production_url(url_for("main.prices_region", region_slug=region_slug))
 
-    seo_title = f"Octopus Agile Electricity Prices – {region_name} | Cheapest Times Today"
+    # ---------------------------------------------------------------------
+    # SEO length constraints (per request):
+    # - <title> <= 60 chars
+    # - meta description <= 158 chars
+    # Keep copy short, factual, and region-specific.
+    # ---------------------------------------------------------------------
+    def _clamp(text: str, max_len: int) -> str:
+        text = " ".join((text or "").split())
+        if len(text) <= max_len:
+            return text
+        # Use a single ellipsis character to stay within the limit.
+        return (text[: max(0, max_len - 1)].rstrip() + "…") if max_len > 1 else text[:max_len]
 
-    parts: list[str] = [
-        f"Today’s Octopus Agile electricity prices for {region_name}.",
-        "See the cheapest times to use electricity and compare half-hourly rates across the day.",
-    ]
+    # Keep this intentionally short so it stays under 60 for long region names.
+    seo_title = _clamp(f"Octopus Agile prices – {region_name}", 60)
+
+    # Description: lead with the key numbers when available, otherwise a short promise.
     if cheapest_block_avg is not None and daily_avg is not None:
-        parts.append(
-            f"Based on {uk_date_iso} pricing, the average cheapest 3.5h block is {cheapest_block_avg:.2f}p/kWh versus a daily average of {daily_avg:.2f}p/kWh."
+        seo_description = (
+            f"Today in {region_name}: cheapest 3.5h avg {cheapest_block_avg:.2f}p/kWh vs daily avg {daily_avg:.2f}p/kWh. "
+            f"Updated {uk_date_iso}."
         )
     elif daily_avg is not None:
-        parts.append(f"Based on {uk_date_iso} pricing, the daily average is {daily_avg:.2f}p/kWh.")
+        seo_description = f"Today in {region_name}: live Octopus Agile prices. Daily average {daily_avg:.2f}p/kWh. Updated {uk_date_iso}."
+    else:
+        seo_description = f"Today in {region_name}: live Octopus Agile prices with cheapest and worst windows. Updated {uk_date_iso}."
 
-    seo_description = " ".join(parts)
+    seo_description = _clamp(seo_description, 158)
 
     dataset_name = f"Octopus Agile Half-Hourly Electricity Prices – {region_name}"
     dataset_description = (
