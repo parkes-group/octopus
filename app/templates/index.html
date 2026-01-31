@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 
 {% set page_name = 'index' %}
-{% set page_h1 = 'Save Money with Cheapest Octopus Agile Electricity Prices' %}
-
-{# Keep visible page title (H1) aligned with SERP <title> for this page. #}
-{% block seo_title %}{{ page_h1 }}{% endblock %}
-{% block og_title %}{{ page_h1 }}{% endblock %}
-{% block twitter_title %}{{ page_h1 }}{% endblock %}
 
 {% block head %}
 <!-- Page-specific Structured Data (JSON-LD) -->
@@ -18,7 +12,7 @@
             "@type": "WebPage",
             "@id": "{{ site_url }}/#webpage",
             "url": "{{ site_url }}/",
-            "name": "{{ page_h1 }}",
+            "name": "Octopus Agile Pricing | Agile Prices | Cheapest Prices UK",
             "description": "Find the cheapest Agile Octopus electricity prices for your UK region. Discover optimal usage windows for appliances, home batteries and EVs to reduce electricity costs.",
             "inLanguage": "en-GB",
             "isPartOf": {
@@ -113,7 +107,7 @@
 {% block content %}
 <article>
     <header>
-        <h1 class="mb-3">{{ page_h1 }}</h1>
+        <h1 class="mb-3">Save Money with Cheapest Octopus Agile Electricity Prices</h1>
         
         {% if stats_2026 %}
             {% set avg_daily = stats_2026.daily_average_price %}
