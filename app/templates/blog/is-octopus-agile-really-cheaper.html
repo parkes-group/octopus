@@ -52,7 +52,27 @@
       </p>
     </header>
 
-    <section class="mb-4">
+    {# Two-colour system for readability (alternate A/B panels) #}
+    {% set panel_a = "blog-panel blog-panel-a" %}
+    {% set panel_b = "blog-panel blog-panel-b" %}
+
+    <nav class="blog-toc mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}" aria-label="On this page">
+      <h2 class="h5 mb-2">On this page</h2>
+      <ul class="mb-0">
+        <li><a href="#tldr">TL;DR</a></li>
+        <li><a href="#why-trust">Why trust this analysis (and how to verify it)</a></li>
+        <li><a href="#timing-not-volume">Timing matters more than volume</a></li>
+        <li><a href="#what-2025-shows">What 2025 national data shows</a></li>
+        <li><a href="#winter">Winter behaviour: evening peak risk</a></li>
+        <li><a href="#summer">Summer behaviour: lower volatility</a></li>
+        <li><a href="#scenarios">Usage pattern scenarios</a></li>
+        <li><a href="#region">Region matters</a></li>
+        <li><a href="#conclusion">Conclusion</a></li>
+        <li><a href="#assumptions">Assumptions & scope</a></li>
+      </ul>
+    </nav>
+
+    <section class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
       <p>
         <strong>Octopus Agile is not always cheaper.</strong>
         Whether it saves money depends primarily on <em>when</em> electricity is used, especially during winter evening peak hours.
@@ -63,7 +83,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="tldr" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
       <h2 class="h4">TL;DR</h2>
       <ul class="mb-0">
         <li><strong>Cheaper for some households</strong> (if you can avoid expensive windows)</li>
@@ -72,7 +92,7 @@
       </ul>
     </section>
 
-    <section class="mb-4">
+    <section id="why-trust" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
       <h2 class="h4">Why trust this analysis (and how to verify it)</h2>
       <p>
         This post is deliberately sceptical: Agile is not “always cheaper”, and some households do lose money on it.
@@ -88,7 +108,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
       <h2 class="h4">A trust-first starting point: who Agile often doesn’t suit</h2>
       <p>
         Agile is not a hack and it is not a guaranteed saving. It rewards certain usage patterns—and penalises others.
@@ -99,16 +119,16 @@
       </p>
     </section>
 
-    <section class="mb-4">
-      <h2 class="h4">The core idea: it rewards timing, not volume</h2>
+    <section id="timing-not-volume" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2 class="h4">Timing matters more than volume</h2>
       <p class="mb-0">
         <strong>Agile pricing rewards *when* you use electricity, not how much.</strong>
         That is the whole mechanism. The same household can pay very different amounts depending on whether usage lands in cheaper periods or in peak hours.
       </p>
     </section>
 
-    <section class="mb-4">
-      <h2>What the 2025 national data says (no hype)</h2>
+    <section id="what-2025-shows" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>What 2025 national data shows (no hype)</h2>
       <p>Using the 2025 national average:</p>
       <ul>
         <li><strong>Daily average Agile price:</strong> {{ stats_daily_avg_p_per_kwh }}p/kWh</li>
@@ -123,7 +143,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="winter" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
       <h2>1) Winter behaviour (Nov–Feb): why evenings can wipe out savings</h2>
       <p>
         Winter is where many households get caught out because both <em>the level</em> and <em>the shape</em> of prices tend to be harsher.
@@ -140,7 +160,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="summer" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
       <h2>2) Summer behaviour (May–Aug): why Agile can look “easy”</h2>
       <p>
         Summer tends to be less volatile and less punishing, with more usable low-price windows.
@@ -152,7 +172,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="scenarios" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
       <h2>3) Usage pattern scenarios</h2>
 
       <h3 class="h5 mt-3">If you use most electricity between 5pm and 7pm</h3>
@@ -180,7 +200,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="region" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
       <h2>4) Region matters (identical behaviour can cost more or less)</h2>
       <p class="mb-0">
         Even if two households use electricity the same way, they can pay different amounts because Agile prices vary by UK region.
@@ -195,7 +215,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="conclusion" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
       <h2>Conclusion: Agile is a trade-off, not a win button</h2>
       <p>
         The honest summary is simple: Octopus Agile is not always cheaper. It rewards households that can avoid expensive peak hours—especially winter evenings—and it penalises those that can’t.
@@ -207,7 +227,7 @@
       </p>
     </section>
 
-    <section class="mb-4">
+    <section id="assumptions" class="mb-4">
       <h2 class="h5">Assumptions & scope</h2>
       <div class="alert alert-secondary mt-3 mb-0" role="note">
         <small>

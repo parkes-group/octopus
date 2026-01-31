@@ -247,6 +247,29 @@ p {
     max-width: 100%;
 }
 
+/* Blog layout helpers */
+.blog-toc a {
+    text-decoration: none;
+}
+.blog-toc a:hover {
+    text-decoration: underline;
+}
+.blog-section h2,
+.blog-section h3 {
+    margin-top: 0;
+}
+
+/* Two-colour panel system for blog readability (alternate A/B). */
+.blog-panel {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.blog-panel-a {
+    background-color: #f8f9fa; /* light */
+}
+.blog-panel-b {
+    background-color: #eef5ff; /* light blue */
+}
+
 /* Container padding for mobile */
 .container {
     padding-left: 1rem;
