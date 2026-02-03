@@ -494,21 +494,18 @@ class PriceCalculator:
             if current_time_utc:
                 # Build set of cheapest block slot valid_from strings for exclusion
                 cheapest_block_slots_utc = set()
-                cheapest_block_started = False
                 if cheapest_block and cheapest_block.get('slots'):
                     cheapest_block_slots_utc = {slot['valid_from'] for slot in cheapest_block['slots']}
                     logger.debug(f"Excluding cheapest block slots on {date_obj}: {sorted(cheapest_block_slots_utc)}")
-                    # Check if cheapest block has started
-                    if cheapest_block.get('start_time_uk'):
-                        cheapest_block_start = cheapest_block['start_time_uk']
-                        # Convert UTC datetime to UK timezone for comparison
-                        current_time_uk = current_time_utc.astimezone(UK_TZ)
-                        cheapest_block_started = cheapest_block_start <= current_time_uk
                 
-                # Filter remaining slots, excluding cheapest block slots
-                # Important: If cheapest block has started, include ALL remaining slots (past and future)
-                # so we preserve the cheapest remaining block even after it passes
-                # Important: prices must remain sorted by time for find_cheapest_block to work correctly
+                # Filter remaining slots:
+                # - Exclude slots in the day's absolute cheapest block (so "remaining" means "next best")
+                # - Include ONLY slots in the future, i.e. valid_from >= current_time_utc
+                #
+                # Critical behaviour:
+                # - "Cheapest remaining block" must never point to a past time.
+                # - If the selected duration is longer than the time remaining in the UK day,
+                #   shrink the block duration to whatever remains (in 30-minute increments).
                 remaining_prices = []
                 excluded_count = 0
                 future_excluded_count = 0
@@ -533,40 +530,45 @@ class PriceCalculator:
                                 future_excluded_count += 1
                             continue
                         
-                        # If cheapest block has started, include ALL remaining slots (to preserve past remaining blocks)
-                        # Otherwise, include only future slots
-                        if cheapest_block_started or price_time_utc >= current_time_utc:
+                        # Include only future slots (from "now" onwards)
+                        if price_time_utc >= current_time_utc:
                             remaining_prices.append(price)
                     except (KeyError, ValueError, TypeError) as e:
                         logger.warning(f"Error processing price for remaining block on {date_obj}: {e}")
                         continue
                 
-                logger.debug(f"Filtered remaining prices for {date_obj}: {len(remaining_prices)} remaining (excluded {excluded_count} total, {future_excluded_count} future, cheapest_block_started={cheapest_block_started})")
+                logger.debug(
+                    f"Filtered remaining prices for {date_obj}: {len(remaining_prices)} remaining "
+                    f"(excluded {excluded_count} total, {future_excluded_count} future)"
+                )
                 
                 # Ensure remaining_prices are sorted by time (should already be, but verify)
                 remaining_prices.sort(key=lambda x: x.get('valid_from', ''))
                 
                 # Calculate cheapest remaining block from filtered prices
-                expected_slots = int(duration_hours * 2)
-                if len(remaining_prices) >= expected_slots:
-                    # Check if we have enough contiguous slots available
-                    # Count maximum contiguous sequence length
-                    max_contiguous = 1
-                    current_contiguous = 1
-                    for i in range(1, len(remaining_prices)):
-                        if remaining_prices[i-1]['valid_to'] == remaining_prices[i]['valid_from']:
-                            current_contiguous += 1
-                            max_contiguous = max(max_contiguous, current_contiguous)
-                        else:
-                            current_contiguous = 1
-                    
-                    if max_contiguous < expected_slots:
-                        logger.debug(f"Not enough contiguous slots for remaining block on {date_obj}: max contiguous={max_contiguous}, needed={expected_slots}")
-                        cheapest_remaining_block = None
-                    else:
-                        cheapest_remaining_block = PriceCalculator.find_cheapest_block(remaining_prices, duration_hours)
-                        if not cheapest_remaining_block:
-                            logger.debug(f"Could not find contiguous cheapest remaining block on {date_obj} despite having {max_contiguous} contiguous slots")
+                requested_slots = int(duration_hours * 2)
+                if remaining_prices and requested_slots >= 1:
+                    # If there isn't enough time left today for the requested duration,
+                    # use whatever remains (down to 0.5h). Also handle gaps created by
+                    # excluding the absolute cheapest block by shrinking until a contiguous
+                    # block exists.
+                    max_slots = min(requested_slots, len(remaining_prices))
+                    cheapest_remaining_block = None
+                    slots_used = None
+                    for slots_try in range(max_slots, 0, -1):
+                        duration_try = slots_try / 2.0
+                        candidate = PriceCalculator.find_cheapest_block(remaining_prices, duration_try)
+                        if candidate:
+                            cheapest_remaining_block = candidate
+                            slots_used = slots_try
+                            break
+
+                    if cheapest_remaining_block and slots_used is not None:
+                        logger.debug(
+                            f"Cheapest remaining block for {date_obj}: "
+                            f"{cheapest_remaining_block.get('start_time_uk')} to {cheapest_remaining_block.get('end_time_uk')} "
+                            f"({slots_used} slots)"
+                        )
                     
                     # Verify the remaining block doesn't overlap with cheapest block and has correct duration
                     if cheapest_remaining_block and cheapest_remaining_block.get('slots'):
@@ -587,8 +589,11 @@ class PriceCalculator:
                             logger.debug(f"  Remaining block slots: {sorted(remaining_block_slots)}")
                             cheapest_remaining_block = None
                         # Third check: verify correct number of slots
-                        elif len(remaining_block_slots_list) != expected_slots:
-                            logger.error(f"Cheapest remaining block on {date_obj} has {len(remaining_block_slots_list)} slots, expected {expected_slots}. Slots: {sorted(remaining_block_slots_list)}")
+                        elif slots_used is not None and len(remaining_block_slots_list) != slots_used:
+                            logger.error(
+                                f"Cheapest remaining block on {date_obj} has {len(remaining_block_slots_list)} slots, "
+                                f"expected {slots_used}. Slots: {sorted(remaining_block_slots_list)}"
+                            )
                             cheapest_remaining_block = None
                         else:
                             # Additional validation: verify the block times make sense (critical check)
@@ -597,7 +602,7 @@ class PriceCalculator:
                             if start_uk and end_uk:
                                 # Calculate time difference - this is the KEY validation
                                 time_diff = end_uk - start_uk
-                                expected_hours = duration_hours
+                                expected_hours = (slots_used / 2.0) if slots_used is not None else duration_hours
                                 actual_hours = time_diff.total_seconds() / 3600
                                 # Allow small tolerance for half-hour boundaries (0.25 hours = 15 minutes)
                                 if abs(actual_hours - expected_hours) > 0.25:
