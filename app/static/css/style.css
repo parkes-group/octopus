@@ -270,6 +270,15 @@ p {
     background-color: #eef5ff; /* light blue */
 }
 
+/* Prices page: highlight current half-hour slot in table. */
+tr.current-slot td {
+    /* Subtle left marker that works alongside table-* row backgrounds */
+    border-left: 4px solid #ffc107 !important; /* Bootstrap warning */
+}
+tr.current-slot td:first-child {
+    padding-left: 0.5rem;
+}
+
 /* Container padding for mobile */
 .container {
     padding-left: 1rem;

@@ -744,6 +744,7 @@
                             {% set show_cheapest_remaining_for_date = show_cheapest_remaining_by_date.get(price_date_iso, False) if show_cheapest_remaining_by_date else False %}
                             {% set is_in_future_block = show_cheapest_remaining_for_date and price_date_iso in future_cheapest_block_times_by_date and price.valid_from in future_cheapest_block_times_by_date[price_date_iso] %}
                             {% set is_in_worst_block = price_date_iso in worst_block_times_by_date and price.valid_from in worst_block_times_by_date[price_date_iso] %}
+                            {% set is_current_slot = price.datetime_uk <= current_time_uk and current_time_uk < price.datetime_uk_end %}
                             {% if loop.first %}
                                 {% set show_date = True %}
                             {% else %}
@@ -751,7 +752,7 @@
                                 {% set prev_date = prev_price.date_iso %}
                                 {% set show_date = price.date_iso != prev_date %}
                             {% endif %}
-                            <tr {% if is_in_future_block %}class="table-primary"{% elif is_in_absolute_block %}class="table-success"{% elif is_in_worst_block %}class="table-danger"{% elif is_lowest %}class="table-success"{% endif %}>
+                            <tr {% if is_in_future_block %}class="table-primary{% if is_current_slot %} current-slot{% endif %}"{% elif is_in_absolute_block %}class="table-success{% if is_current_slot %} current-slot{% endif %}"{% elif is_in_worst_block %}class="table-danger{% if is_current_slot %} current-slot{% endif %}"{% elif is_lowest %}class="table-success{% if is_current_slot %} current-slot{% endif %}"{% elif is_current_slot %}class="current-slot"{% endif %}>
                                 <td>
                                     {% if show_date %}
                                         <strong>{{ price.date_uk }}</strong><br>
@@ -760,6 +761,7 @@
                                 </td>
                                 <td>
                                     <span class="visually-hidden">Price: </span>{{ "%.2f"|format(price.value_inc_vat) }}
+                                    {% if is_current_slot %}<span class="badge bg-warning text-dark ms-2" aria-label="Current half-hour block">Now</span>{% endif %}
                                     {% if is_lowest %}<span class="badge bg-success ms-2" aria-label="Lowest price">Lowest</span>{% endif %}
                                     {% if is_in_absolute_block %}<span class="badge bg-success ms-2" aria-label="Part of cheapest block">Cheapest</span>{% endif %}
                                     {% if is_in_future_block and not is_in_absolute_block %}<span class="badge bg-primary ms-2" aria-label="Part of cheapest remaining block">Cheapest Remaining</span>{% endif %}
@@ -810,6 +812,7 @@
     const lowestPriceTimesByDate = {{ lowest_price_times_by_date | tojson }};
     const worstBlockTimesByDate = {{ worst_block_times_by_date | tojson }};
     const pricesWithDates = {{ prices | tojson }};
+    const currentTimeUtcIso = {{ current_time_utc_iso | tojson }};
     
     // Build per-day indices for chart highlighting
     const absoluteCheapestBlockIndicesByDate = {};
@@ -861,6 +864,75 @@
     
     const ctx = document.getElementById('priceChart');
     if (ctx && chartData.labels && chartData.prices) {
+        // Identify current half-hour slot (UTC comparison using API times)
+        let currentSlotIndex = null;
+        try {
+            const nowUtc = new Date(currentTimeUtcIso);
+            if (pricesWithDates && pricesWithDates.length > 0 && !isNaN(nowUtc.getTime())) {
+                for (let i = 0; i < pricesWithDates.length; i++) {
+                    const p = pricesWithDates[i];
+                    if (!p || !p.valid_from || !p.valid_to) continue;
+                    const start = new Date(p.valid_from);
+                    const end = new Date(p.valid_to);
+                    if (isNaN(start.getTime()) || isNaN(end.getTime())) continue;
+                    if (start <= nowUtc && nowUtc < end) {
+                        currentSlotIndex = i;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            currentSlotIndex = null;
+        }
+
+        // Plugin: shade the full x-axis segment for the current slot
+        const currentSlotHighlightPlugin = {
+            id: 'currentSlotHighlight',
+            beforeDatasetsDraw(chart, args, pluginOptions) {
+                const idx = pluginOptions && pluginOptions.index;
+                if (idx === null || idx === undefined) return;
+                const labelsCount = (chart.data && chart.data.labels) ? chart.data.labels.length : 0;
+                if (labelsCount <= 0) return;
+                const xScale = chart.scales && chart.scales.x;
+                if (!xScale || !xScale.getPixelForValue) return;
+
+                // Important: use getPixelForValue (data index), not getPixelForTick (tick index).
+                // With auto-skip ticks enabled, tick indices do not line up with data indices.
+                const getPix = (i) => xScale.getPixelForValue(i);
+                const center = getPix(idx);
+                if (center === undefined || center === null || Number.isNaN(center)) return;
+
+                let left = center;
+                let right = center;
+                if (labelsCount === 1) {
+                    left = chart.chartArea.left;
+                    right = chart.chartArea.right;
+                } else if (idx === 0) {
+                    const next = getPix(1);
+                    const half = (next - center) / 2;
+                    left = center - half;
+                    right = center + half;
+                } else if (idx === labelsCount - 1) {
+                    const prev = getPix(labelsCount - 2);
+                    const half = (center - prev) / 2;
+                    left = center - half;
+                    right = center + half;
+                } else {
+                    const prev = getPix(idx - 1);
+                    const next = getPix(idx + 1);
+                    left = (prev + center) / 2;
+                    right = (center + next) / 2;
+                }
+
+                const ctx2 = chart.ctx;
+                const area = chart.chartArea;
+                ctx2.save();
+                ctx2.fillStyle = (pluginOptions && pluginOptions.fillColor) || 'rgba(255, 193, 7, 0.18)'; // Bootstrap warning
+                ctx2.fillRect(left, area.top, Math.max(0, right - left), area.bottom - area.top);
+                ctx2.restore();
+            }
+        };
+
         // Build combined indices from per-day data if multi-day, otherwise use single-day indices
         let combinedAbsoluteIndices = [];
         let combinedFutureIndices = [];
@@ -900,6 +972,9 @@
             ...combinedLowestIndices,
             ...combinedWorstIndices
         ]);
+        if (currentSlotIndex !== null && currentSlotIndex !== undefined) {
+            allHighlightedIndices.add(currentSlotIndex);
+        }
         
         // Create datasets - main line and highlighted points
         const datasets = [{
@@ -1003,6 +1078,7 @@
                 labels: chartData.labels,
                 datasets: datasets
             },
+            plugins: [currentSlotHighlightPlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -1022,6 +1098,10 @@
                     }
                 },
                 plugins: {
+                    currentSlotHighlight: {
+                        index: currentSlotIndex,
+                        fillColor: 'rgba(255, 193, 7, 0.18)'
+                    },
                     legend: {
                         display: true,
                         position: 'bottom',

@@ -317,10 +317,12 @@ def _prices_page_context(*, region_code, region_slug, product_code, duration, ca
     for price in prices_data:
         price_uk = price.copy()
         dt_uk = utc_to_uk(price['valid_from'])
+        dt_to_uk = utc_to_uk(price['valid_to'])
         price_uk['time_uk'] = format_uk_time(dt_uk)
         price_uk['date_uk'] = format_uk_date(dt_uk)
         price_uk['date_iso'] = dt_uk.date().strftime('%Y-%m-%d')
         price_uk['datetime_uk'] = dt_uk
+        price_uk['datetime_uk_end'] = dt_to_uk
         prices_with_uk_times.append(price_uk)
 
     session['last_prices_state'] = {
@@ -403,6 +405,7 @@ def _prices_page_context(*, region_code, region_slug, product_code, duration, ca
         'stats_2025': stats_2025,
         'stats_2026': stats_2026,
         'current_time_uk': uk_now,
+        'current_time_utc_iso': current_time_utc.isoformat().replace('+00:00', 'Z'),
         'page_name': 'prices',
     }, None
 
