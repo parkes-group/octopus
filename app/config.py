@@ -142,6 +142,21 @@ class Config:
             str: Complete URL for fetching prices
         """
         return f"{Config.OCTOPUS_API_BASE_URL}/products/{product_code}/electricity-tariffs/E-1R-{product_code}-{region_code}/standard-unit-rates/"
+
+    @staticmethod
+    def get_unit_rates_url(product_code: str, tariff_code: str) -> str:
+        """
+        Get the URL for fetching unit rates for any electricity tariff.
+        Used by both import and export tariffs; tariff_code comes from API.
+
+        Args:
+            product_code: Octopus product code
+            tariff_code: Full tariff code (e.g. 'E-1R-AGILE-OUTGOING-19-05-13-A')
+
+        Returns:
+            str: Complete URL for standard-unit-rates endpoint
+        """
+        return f"{Config.OCTOPUS_API_BASE_URL}/products/{product_code}/electricity-tariffs/{tariff_code}/standard-unit-rates/"
     
     @staticmethod
     def get_gsp_lookup_url(postcode):

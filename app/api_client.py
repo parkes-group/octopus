@@ -27,6 +27,7 @@ class OctopusAPIClient:
                     'region_names': current_app.config.get('OCTOPUS_REGION_NAMES', Config.OCTOPUS_REGION_NAMES),
                     'get_products_url': Config.get_products_url,
                     'get_prices_url': Config.get_prices_url,
+                    'get_unit_rates_url': Config.get_unit_rates_url,
                     'get_gsp_lookup_url': lambda postcode: Config.get_gsp_lookup_url(postcode),
                     'direction_filter': current_app.config.get('OCTOPUS_PRODUCT_DIRECTION_FILTER', Config.OCTOPUS_PRODUCT_DIRECTION_FILTER)
                 }
@@ -42,6 +43,7 @@ class OctopusAPIClient:
             'region_names': Config.OCTOPUS_REGION_NAMES,
             'get_products_url': Config.get_products_url,
             'get_prices_url': Config.get_prices_url,
+            'get_unit_rates_url': Config.get_unit_rates_url,
             'get_gsp_lookup_url': Config.get_gsp_lookup_url,
             'direction_filter': Config.OCTOPUS_PRODUCT_DIRECTION_FILTER
         }
