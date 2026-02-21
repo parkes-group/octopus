@@ -75,5 +75,5 @@ app/votes/*.jsonl
 # Data (raw + stats) - do not track
 data/
 
-# Tests - do not track
-tests/
+
+
