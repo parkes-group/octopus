@@ -110,9 +110,11 @@ def create_app(config_class=None):
     # Register blueprints
     from app.routes import bp as main_bp
     from app.errors import bp as errors_bp
-    
+    from app.export_routes import bp as export_api_bp
+
     app.register_blueprint(main_bp)
     app.register_blueprint(errors_bp)
+    app.register_blueprint(export_api_bp)
     
     # Post-MVP: Authentication blueprint (commented out)
     # from app.auth import bp as auth_bp
