@@ -1469,6 +1469,7 @@ class StatsCalculator:
 
         total_days = sum(s.get("days_processed", 0) for s in regional_stats)
         avg_days = total_days / num_regions if num_regions > 0 else 0
+        max_days = max(s.get("days_processed", 0) for s in regional_stats) if regional_stats else 0
 
         calc_time = datetime.now(UK_TZ).isoformat()
         national_stats = {
@@ -1504,7 +1505,9 @@ class StatsCalculator:
         }
         if regional_stats and regional_stats[0].get("coverage"):
             national_stats["coverage"] = regional_stats[0].get("coverage", "full_year")
-            national_stats["days_covered"] = int(avg_days)
+            # Use max days across regions for days_covered (best coverage); avg_days can be misleading
+            # when some regions have no YTD data yet (e.g. only region A has full export raw data)
+            national_stats["days_covered"] = max_days
             national_stats["last_updated"] = calc_time
 
         logger.info(f"National export averages calculated from {num_regions} regions")

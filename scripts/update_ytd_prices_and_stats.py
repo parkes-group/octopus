@@ -499,12 +499,13 @@ def main() -> int:
     parser.add_argument("--year", type=int, default=2026, help="Year to update (default: 2026)")
     parser.add_argument("--product", type=str, default=Config.OCTOPUS_PRODUCT_CODE, help="Octopus import product code")
     group = parser.add_mutually_exclusive_group()
+    group.add_argument("--import-only", action="store_true", help="Process import only")
     group.add_argument("--export", action="store_true", help="Process export (Agile Outgoing) only")
-    group.add_argument("--both", action="store_true", help="Process import and export")
     args = parser.parse_args()
 
     year = args.year
-    mode = "export" if args.export else ("both" if args.both else "import")
+    # Default: update both import and export when no mode flag is passed
+    mode = "import" if args.import_only else ("export" if args.export else "both")
     now_uk = get_uk_now()
 
     # Resolve product code: import uses args.product; export discovers Agile Outgoing

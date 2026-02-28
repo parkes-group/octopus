@@ -1054,6 +1054,10 @@ def export_index():
         elif request.method == 'POST':
             submitted_postcode = request.form.get('postcode', '')
 
+    from app.stats_loader import StatsLoader
+    stats_export_2025 = StatsLoader.get_stats_for_display_export(region_code='national', year=2025)
+    stats_export_2026 = StatsLoader.get_stats_for_display_export(region_code='national', year=2026)
+
     return render_template(
         'export/index.html',
         page_name='export',
@@ -1062,6 +1066,8 @@ def export_index():
         show_region_dropdown=show_region_dropdown,
         error=error_message,
         submitted_postcode=submitted_postcode,
+        stats_export_2025=stats_export_2025,
+        stats_export_2026=stats_export_2026,
     )
 
 
@@ -1103,15 +1109,22 @@ def export_agile_region(region_slug):
         daily_avg=seo_stats.get("daily_avg"),
         best_block_avg=seo_stats.get("best_block_avg"),
     )
+    from app.stats_loader import StatsLoader
+    stats_export_2025 = StatsLoader.get_stats_for_display_export(region_code=region_code, year=2025)
+    stats_export_2026 = StatsLoader.get_stats_for_display_export(region_code=region_code, year=2026)
+
     return render_template(
         'export/agile.html',
         page_name='export_agile',
         regions=_regions_list_with_slugs(),
+        region=region_code,
         region_slug=region_slug,
         region_name=region_name,
         duration=duration,
         capacity=capacity,
         block_duration=EXPORT_BLOCK_DURATION_HOURS,
+        stats_export_2025=stats_export_2025,
+        stats_export_2026=stats_export_2026,
         seo_title=seo["seo_title"],
         seo_description=seo["seo_description"],
         canonical_url=seo["canonical_url"],

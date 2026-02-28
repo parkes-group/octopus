@@ -1,0 +1,108 @@
+{% set show_note = show_note if show_note is defined else true %}
+
+{% macro render_stats_section(stats_obj, stats_year) -%}
+    {% set is_ytd = (stats_obj.coverage == 'year_to_date') if stats_obj and stats_obj.coverage is defined else false %}
+    <section class="mb-4">
+        <h2 class="h5 mb-2">
+            {% if is_ytd %}{{ stats_year }} year-to-date Agile Outgoing statistics (National averages){% else %}{{ stats_year }} historical Agile Outgoing statistics (National averages){% endif %}
+        </h2>
+        {% if is_ytd and stats_obj.days_covered %}
+            <p class="text-muted small mb-3">Days covered so far in {{ stats_year }}: <strong>{{ stats_obj.days_covered }}</strong></p>
+        {% else %}
+            <div class="mb-3"></div>
+        {% endif %}
+        <div class="row g-3">
+
+        <!-- Negative Pricing (export: hours you pay to export) -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Negative Export Hours{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                    <p class="h4 mb-1 text-info">
+                        {{ "%.1f"|format(stats_obj.negative_pricing.total_hours) }} hours
+                    </p>
+                    <p class="small text-muted mb-0">Periods where you pay to export</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Average Best Block Price -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Avg Best 3.5h Export Price{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                    <p class="h4 mb-1 text-success">
+                        {{ "%.2f"|format(stats_obj.best_block_price) }}<small class="text-muted">p/kWh</small>
+                    </p>
+                    <p class="small text-muted mb-0">
+                        vs {{ "%.2f"|format(stats_obj.daily_average_price) }}p/kWh<br>
+                        daily average
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings vs Daily Average -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">{% if is_ytd %}Estimated Earnings ({{ stats_year }} YTD){% else %}Potential Annual Earnings{% endif %}</h3>
+                    <p class="h4 mb-1 text-success">
+                        £{{ "%.2f"|format(stats_obj.earnings_vs_daily_avg) }}
+                    </p>
+                    <p class="small text-muted mb-0">
+                        vs daily average<br>
+                        <span class="text-success">{{ "%.1f"|format(stats_obj.earnings_vs_daily_avg_pct) }}%</span> higher in best block
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Worst Block (avoid exporting) -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h3 class="h6 text-muted mb-2">Avg Worst 3.5h Price{% if is_ytd %} ({{ stats_year }} YTD){% endif %}</h3>
+                    <p class="h4 mb-1 text-danger">
+                        {{ "%.2f"|format(stats_obj.worst_block_price) }}<small class="text-muted">p/kWh</small>
+                    </p>
+                    <p class="small text-muted mb-0">
+                        avoid exporting<br>
+                        in this window
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        {% if show_note %}
+        <div class="alert alert-secondary mt-3 mb-0" role="note">
+            <small>
+                <strong>Note:</strong>
+                These statistics show national averages across all UK regions based on Octopus Agile Outgoing data and assume:
+                <ul class="mb-0 mt-2">
+                    <li>Daily export of {{ "%.1f"|format(stats_obj.assumptions.daily_kwh) }} kWh</li>
+                    <li>{{ "%.0f"|format(stats_obj.assumptions.get('best_block_usage_percent', 35.0)) }}% of daily export in the best 3.5h blocks</li>
+                </ul>
+                <em>Figures are illustrative. Earnings depend on your export timing—no guarantees.</em>
+            </small>
+        </div>
+        {% endif %}
+    </section>
+{%- endmacro %}
+
+{% set blocks = [] %}
+{% if stats is defined %}
+    {% set _ = blocks.append({'stats': stats, 'year': (year if year is defined else (stats.year if stats and stats.year is defined else 2025))}) %}
+{% else %}
+    {% if stats_export_2026 is defined and stats_export_2026 %}
+        {% set _ = blocks.append({'stats': stats_export_2026, 'year': 2026}) %}
+    {% endif %}
+    {% if stats_export_2025 is defined and stats_export_2025 %}
+        {% set _ = blocks.append({'stats': stats_export_2025, 'year': 2025}) %}
+    {% endif %}
+{% endif %}
+
+{% for b in blocks %}
+    {{ render_stats_section(b.stats, b.year) }}
+{% endfor %}

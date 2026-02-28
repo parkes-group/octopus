@@ -287,10 +287,23 @@
         </div>
     </section>
 
-    <!-- Section 6: Stats (placeholder - matches prices page structure) -->
+    <!-- Section 6: Export Statistics (YTD) -->
     <section class="mb-4">
         <h2 class="h5 mb-3">Export Statistics</h2>
-        <p class="text-muted">Year-to-date export statistics will appear here when available.</p>
+        {% if stats_export_2026 or stats_export_2025 %}
+            {% if stats_export_2026 %}
+                {% with stats=stats_export_2026, year=2026, show_note=false %}
+                    {% include 'components/_stats_export_regional.html' %}
+                {% endwith %}
+            {% endif %}
+            {% if stats_export_2025 %}
+                {% with stats=stats_export_2025, year=2025, show_note=true %}
+                    {% include 'components/_stats_export_regional.html' %}
+                {% endwith %}
+            {% endif %}
+        {% else %}
+        <p class="text-muted">Year-to-date export statistics will appear here when available for this region.</p>
+        {% endif %}
     </section>
 
     {% include 'components/_feature_suggestion.html' %}

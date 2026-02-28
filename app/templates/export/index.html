@@ -100,9 +100,28 @@
 <article>
     <header>
         <h1 class="mb-4">Octopus agile export prices</h1>
-        <p class="lead text-muted">
-            [Placeholder: First paragraph describing export tariffs — e.g. If you generate electricity from solar panels and export to the grid, Octopus offers tariffs that pay you for the energy you export. Agile Outgoing follows wholesale prices half-hourly; Fixed gives a flat rate. Enter your postcode to see rates for your region.]
+        {% if stats_export_2026 %}
+            {% set avg_daily = stats_export_2026.daily_average_price %}
+            {% set avg_best = stats_export_2026.best_block_price %}
+            {% set daily_kwh = stats_export_2026.assumptions.daily_kwh %}
+            {% set pct_best_vs_daily = ((avg_best - avg_daily) / avg_daily * 100) if avg_daily else 0 %}
+            {% set earn_avg = (avg_daily * daily_kwh) / 100 %}
+            {% set earn_best = (avg_best * daily_kwh) / 100 %}
+
+        <p class="lead mb-3 text-muted">
+            <small>
+                If you generate electricity from solar panels and export to the grid, Octopus offers tariffs that pay you for the energy you export.
+                So far in <strong>2026</strong>, Agile Outgoing export rates have varied throughout the day.
+                Based on price data to date, the average export price is {{ "%.2f"|format(avg_daily) }}p/kWh, while the average best 3.5h block is {{ "%.2f"|format(avg_best) }}p/kWh
+                (<strong>{{ "%.1f"|format(pct_best_vs_daily) }}%</strong> higher).
+                Smart timing could mean earning about <strong>£{{ "%.2f"|format(earn_best) }}</strong> instead of <strong>£{{ "%.2f"|format(earn_avg) }}</strong> for the same {{ "%.1f"|format(daily_kwh) }} kWh/day export.
+            </small>
         </p>
+        {% else %}
+        <p class="lead text-muted">
+            If you generate electricity from solar panels and export to the grid, Octopus offers tariffs that pay you for the energy you export. Agile Outgoing follows wholesale prices half-hourly; Fixed gives a flat rate. Enter your postcode to see rates for your region.
+        </p>
+        {% endif %}
     </header>
 
     <section>
@@ -188,46 +207,25 @@
         </div>
     </section>
 
-    <!-- Placeholder: Export stats (YTD) - to be implemented -->
+    <!-- Export Statistics (YTD) -->
     <section class="my-5">
         <h2 class="mb-4">Export Statistics</h2>
+        {% if stats_export_2026 or stats_export_2025 %}
+            {% if stats_export_2026 %}
+                {% with stats=stats_export_2026, year=2026, show_note=false %}
+                    {% include 'components/_stats_export.html' %}
+                {% endwith %}
+            {% endif %}
+            {% if stats_export_2025 %}
+                {% with stats=stats_export_2025, year=2025, show_note=true %}
+                    {% include 'components/_stats_export.html' %}
+                {% endwith %}
+            {% endif %}
+        {% else %}
         <p class="text-muted">
-            [Placeholder: Export tariff statistics section — e.g. year-to-date averages for Agile Outgoing (best export times, daily averages, negative hours), similar to import stats. To be implemented.]
+            Year-to-date export statistics will appear here once export raw data and stats have been generated. Run <code>python scripts/download_raw_data.py --export --year 2026</code> and <code>python scripts/generate_all_stats.py --export --year 2026</code> to populate.
         </p>
-        <div class="row g-3">
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="h6 text-muted mb-2">Placeholder stat 1</h3>
-                        <p class="h4 mb-1 text-muted">—</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="h6 text-muted mb-2">Placeholder stat 2</h3>
-                        <p class="h4 mb-1 text-muted">—</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="h6 text-muted mb-2">Placeholder stat 3</h3>
-                        <p class="h4 mb-1 text-muted">—</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h3 class="h6 text-muted mb-2">Placeholder stat 4</h3>
-                        <p class="h4 mb-1 text-muted">—</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% endif %}
     </section>
 
     {% include 'components/_feature_voting.html' %}

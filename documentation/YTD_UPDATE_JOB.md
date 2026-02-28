@@ -86,14 +86,14 @@ Exit codes:
 From the project root:
 
 ```bash
-# Import only (default)
+# Both import and export (default when no flag passed)
 python scripts/update_ytd_prices_and_stats.py --year 2026
+
+# Import only
+python scripts/update_ytd_prices_and_stats.py --import-only --year 2026
 
 # Export only (Agile Outgoing)
 python scripts/update_ytd_prices_and_stats.py --export --year 2026
-
-# Both import and export
-python scripts/update_ytd_prices_and_stats.py --both --year 2026
 ```
 
 Optional:
