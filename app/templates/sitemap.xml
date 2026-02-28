@@ -25,6 +25,24 @@
         <priority>0.7</priority>
     </url>
     <url>
+        <loc>{{ site_url }}/export</loc>
+        <lastmod>{{ lastmod }}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.7</priority>
+    </url>
+    <url>
+        <loc>{{ site_url }}/export/fixed</loc>
+        <lastmod>{{ lastmod }}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
+        <loc>{{ site_url }}/export/agile</loc>
+        <lastmod>{{ lastmod }}</lastmod>
+        <changefreq>daily</changefreq>
+        <priority>0.6</priority>
+    </url>
+    <url>
         <loc>{{ site_url }}/about</loc>
         <lastmod>{{ lastmod }}</lastmod>
         <changefreq>monthly</changefreq>

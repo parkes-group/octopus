@@ -947,6 +947,43 @@ def about():
                          came_from_prices=came_from_prices,
                          prices_url=prices_url)
 
+
+# ---------------------------------------------------------------------------
+# Export tariff pages (Phase 4)
+# Data fetched client-side from /api/export/* — no export API calls on page load
+# ---------------------------------------------------------------------------
+
+
+@bp.route('/export')
+def export_index():
+    """Export tariff overview: explains export tariffs, links to Fixed and Agile Outgoing."""
+    return render_template(
+        'export/index.html',
+        page_name='export',
+        regions=_regions_list_with_slugs(),
+    )
+
+
+@bp.route('/export/fixed')
+def export_fixed():
+    """Fixed export (Outgoing Octopus) page: flat rate, region selector, VAT toggle."""
+    return render_template(
+        'export/fixed.html',
+        page_name='export_fixed',
+        regions=_regions_list_with_slugs(),
+    )
+
+
+@bp.route('/export/agile')
+def export_agile():
+    """Agile Outgoing export page: today's rates, daily stats, negative price warning."""
+    return render_template(
+        'export/agile.html',
+        page_name='export_agile',
+        regions=_regions_list_with_slugs(),
+    )
+
+
 @bp.route('/robots.txt')
 def robots_txt():
     """Serve robots.txt for search engine crawlers."""

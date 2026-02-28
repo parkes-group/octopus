@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% set page_name = 'export_agile' %}
+
+{% block content %}
+<article>
+    <header>
+        <h1 class="mb-4">Agile Outgoing Export for <span id="region-name-display">—</span></h1>
+        <p class="lead">
+            Half-hourly export rates that follow the wholesale market. Payments can be higher than fixed during sunny periods — but rates can also go <strong>negative</strong>.
+        </p>
+    </header>
+
+    <section class="mb-4">
+        <div class="alert alert-warning" role="alert">
+            <h2 class="h5 alert-heading">⚠️ Negative prices warning</h2>
+            <p class="mb-0">
+                Agile Outgoing rates can go <strong>negative</strong>. In those half-hour slots, you may be charged to export rather than paid. This typically happens when supply (e.g. lots of solar) exceeds demand. Check today's min/max before assuming you'll always be paid.
+            </p>
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Today's Export Rates</h2>
+
+        <!-- Summary paragraph (matches prices page lead style) -->
+        <div class="mb-3" id="summary-paragraph" style="display: none;">
+            <p class="lead">
+                <small>
+                    Export rates for <strong>today</strong> range from <strong><span id="summary-min">—</span>p</strong> to <strong><span id="summary-max">—</span>p</strong> per kWh, with a <strong class="text-info">daily average of <span id="summary-avg">—</span>p/kWh</strong>.
+                </small>
+            </p>
+        </div>
+
+        <!-- Cards matching prices page: border-success, border-danger, border-primary -->
+        <div class="row justify-content-center" id="export-cards-row">
+            <!-- Best Export Rate Today (highest) -->
+            <div class="col-md-4 mb-4" id="card-best" style="display: none;">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">⚡ Best Export Rate Today</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <strong>Rate:</strong>
+                            <span class="h4 text-success" id="best-rate">—</span> p/kWh
+                        </p>
+                        <p class="mb-0"><small class="text-muted">Highest half-hour rate today</small></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Worst Export Rate Today (lowest, can be negative) -->
+            <div class="col-md-4 mb-4" id="card-worst" style="display: none;">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">⚠️ Worst Export Rate Today</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <strong>Rate:</strong>
+                            <span class="h4 text-danger" id="worst-rate">—</span> p/kWh
+                        </p>
+                        <p class="mb-0"><small class="text-muted">Lowest half-hour rate (can be negative)</small></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Export Rate -->
+            <div class="col-md-4 mb-4" id="card-current" style="display: none;">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">🔮 Current Export Rate</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1">
+                            <strong>Rate:</strong>
+                            <span class="h4 text-primary" id="current-rate">—</span> p/kWh
+                        </p>
+                        <p class="mb-0"><small class="text-muted">This half-hour slot</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-muted small mb-0" id="stats-status">Select region to load rates</p>
+
+        <!-- Bookmark tip (matches prices page) -->
+        <div class="alert alert-success small mt-2 mb-4 text-center" id="bookmark-tip" style="display: none;">
+            🔖 <strong>Tip:</strong> Bookmark this page to check Agile Outgoing export rates for your region each day.
+        </div>
+    </section>
+
+    <!-- Section: Change Region or VAT Options (matches prices page form card) -->
+    <section class="mb-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Change Region or VAT Options</h2>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="region-select" class="form-label">Region</label>
+                        <select id="region-select" class="form-select" aria-label="Select your region">
+                            {% for r in regions %}
+                            <option value="{{ r.region }}" {% if r.slug %}data-slug="{{ r.slug }}"{% endif %} data-name="{{ r.name }}">{{ r.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label d-block">VAT</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="vat" id="vat-inc" value="true" checked>
+                            <label class="form-check-label" for="vat-inc">Including VAT</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="vat" id="vat-exc" value="false">
+                            <label class="form-check-label" for="vat-exc">Excluding VAT</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% include 'components/_feature_voting.html' %}
+    {% include 'components/_feature_suggestion.html' %}
+</article>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+    const regionSelect = document.getElementById('region-select');
+    const regionNameDisplay = document.getElementById('region-name-display');
+    const summaryParagraph = document.getElementById('summary-paragraph');
+    const summaryMin = document.getElementById('summary-min');
+    const summaryMax = document.getElementById('summary-max');
+    const summaryAvg = document.getElementById('summary-avg');
+    const cardBest = document.getElementById('card-best');
+    const cardWorst = document.getElementById('card-worst');
+    const cardCurrent = document.getElementById('card-current');
+    const bestRate = document.getElementById('best-rate');
+    const worstRate = document.getElementById('worst-rate');
+    const currentRate = document.getElementById('current-rate');
+    const statsStatus = document.getElementById('stats-status');
+    const bookmarkTip = document.getElementById('bookmark-tip');
+    const vatRadios = document.querySelectorAll('input[name="vat"]');
+
+    function getRegionParam() {
+        const opt = regionSelect.selectedOptions[0];
+        return (opt && opt.dataset.slug) ? opt.dataset.slug : regionSelect.value;
+    }
+
+    function getRegionName() {
+        const opt = regionSelect.selectedOptions[0];
+        return (opt && opt.dataset.name) ? opt.dataset.name : (opt ? opt.textContent : '—');
+    }
+
+    function getIncVat() {
+        return document.querySelector('input[name="vat"]:checked').value === 'true';
+    }
+
+    function todayISO() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function formatRate(val) {
+        return val != null ? val.toFixed(2) : '—';
+    }
+
+    function showCards(show) {
+        cardBest.style.display = show ? '' : 'none';
+        cardWorst.style.display = show ? '' : 'none';
+        cardCurrent.style.display = show ? '' : 'none';
+        summaryParagraph.style.display = show ? '' : 'none';
+        bookmarkTip.style.display = show ? '' : 'none';
+    }
+
+    function fetchData() {
+        const region = getRegionParam();
+        const incVat = getIncVat();
+        const today = todayISO();
+        regionNameDisplay.textContent = getRegionName();
+        statsStatus.textContent = 'Loading…';
+        showCards(false);
+        bestRate.textContent = worstRate.textContent = currentRate.textContent = '—';
+
+        Promise.all([
+            fetch(`/api/export/daily-stats?tariff_type=agile_outgoing&region=${encodeURIComponent(region)}&start_date=${today}&end_date=${today}&inc_vat=${incVat}`),
+            fetch(`/api/export/rate?tariff_type=agile_outgoing&region=${encodeURIComponent(region)}&inc_vat=${incVat}`)
+        ]).then(([statsRes, rateRes]) => {
+            return Promise.all([statsRes.json(), rateRes.json()]);
+        }).then(([statsData, rateData]) => {
+            const days = statsData.days || [];
+            const day = days.find(d => d.date_iso === today) || days[0];
+            if (day) {
+                bestRate.textContent = formatRate(day.max_p_per_kwh);
+                worstRate.textContent = formatRate(day.min_p_per_kwh);
+                summaryMin.textContent = formatRate(day.min_p_per_kwh);
+                summaryMax.textContent = formatRate(day.max_p_per_kwh);
+                summaryAvg.textContent = formatRate(day.avg_p_per_kwh);
+                summaryParagraph.style.display = '';
+            }
+            if (rateData.p_per_kwh != null) {
+                currentRate.textContent = formatRate(rateData.p_per_kwh);
+                cardCurrent.style.display = '';
+            }
+            if (day) {
+                cardBest.style.display = '';
+                cardWorst.style.display = '';
+                if (rateData.p_per_kwh != null) {
+                    cardCurrent.style.display = '';
+                }
+                bookmarkTip.style.display = '';
+                statsStatus.textContent = incVat ? 'Including VAT' : 'Excluding VAT';
+            } else {
+                statsStatus.textContent = 'No data for today in this region';
+            }
+        }).catch(() => {
+            statsStatus.textContent = 'Unable to load rates';
+        });
+    }
+
+    regionSelect.addEventListener('change', fetchData);
+    vatRadios.forEach(r => r.addEventListener('change', fetchData));
+    fetchData();
+})();
+</script>
+{% endblock %}

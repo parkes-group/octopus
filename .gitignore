@@ -54,6 +54,8 @@ logs/
 .coverage
 htmlcov/
 .tox/
+tests/**/run_*/
+tests/**/*.tmp
 
 # OS
 .DS_Store

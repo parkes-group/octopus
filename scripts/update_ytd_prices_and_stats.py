@@ -18,7 +18,7 @@ import os
 import sys
 import time
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, time, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -32,8 +32,14 @@ sys.path.insert(0, str(project_root))
 from app.config import Config
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
+from app.export_client import (
+    discover_export_products,
+    fetch_agile_outgoing_tariff,
+    fetch_fixed_export_tariff,
+)
 from app.stats_calculator import StatsCalculator
 from app.timezone_utils import get_uk_now
+from zoneinfo import ZoneInfo
 from app.ytd_update_job import (
     FetchPlan,
     determine_fetch_plan,
@@ -179,6 +185,52 @@ def is_slot_count_reasonable(actual: int, expected: int, *, boundary_slack: int 
     return actual >= max(0, expected - boundary_slack)
 
 
+UK_TZ = ZoneInfo("Europe/London")
+
+
+def refresh_export_cache(regions: list[str]) -> None:
+    """
+    Refresh export tariff cache for all regions.
+    Agile Outgoing: fetch unit rates for today+tomorrow, cache with edge-price expiry.
+    Fixed: fetch product tariffs once, cache rate per region with 24h expiry.
+    """
+    try:
+        products = discover_export_products()
+    except Exception as e:
+        logger.warning(f"[EXPORT_CACHE] skip discovery failed: {e}")
+        return
+
+    agile_product = next((p for p in products if getattr(p, "tariff_type", None) == "agile_outgoing"), None)
+    fixed_product = next((p for p in products if getattr(p, "tariff_type", None) == "fixed"), None)
+
+    now_uk = get_uk_now()
+    today_uk = now_uk.date()
+    tomorrow_uk = today_uk + timedelta(days=1)
+    period_from = datetime.combine(today_uk, time(0, 0)).replace(tzinfo=UK_TZ).astimezone(timezone.utc)
+    period_to = datetime.combine(tomorrow_uk + timedelta(days=1), time(0, 0)).replace(tzinfo=UK_TZ).astimezone(timezone.utc)
+
+    for region in regions:
+        try:
+            if agile_product:
+                product_code = getattr(agile_product, "code", None) or agile_product.get("code", "")
+                if product_code:
+                    tariff = fetch_agile_outgoing_tariff(product_code, region, period_from)
+                    if tariff:
+                        logger.info(f"[EXPORT_CACHE] agile region={region} ok")
+                    else:
+                        logger.warning(f"[EXPORT_CACHE] agile region={region} no data")
+            if fixed_product:
+                product_code = getattr(fixed_product, "code", None) or fixed_product.get("code", "")
+                if product_code:
+                    tariff = fetch_fixed_export_tariff(product_code, region)
+                    if tariff:
+                        logger.info(f"[EXPORT_CACHE] fixed region={region} ok")
+                    else:
+                        logger.warning(f"[EXPORT_CACHE] fixed region={region} no data")
+        except Exception as e:
+            logger.warning(f"[EXPORT_CACHE] region={region} error={e}")
+
+
 def refresh_cache_for_region(product_code: str, region: str) -> bool:
     """
     Force-refresh the persistent cache file for a region using existing expiry rules.
@@ -303,7 +355,7 @@ def main() -> int:
         logger.info(f"[JOB_END] status=error regions_ok={len(succeeded)} regions_failed=0")
         return 1
 
-    # Refresh cache using existing expiry rules
+    # Refresh import cache using existing expiry rules
     logger.info("[CACHE] start refresh_all_regions")
     try:
         for region in regions:
@@ -313,6 +365,14 @@ def main() -> int:
         logger.error(f"[CACHE] failed error={e}", exc_info=True)
         logger.info(f"[JOB_END] status=error regions_ok={len(succeeded)} regions_failed=0")
         return 1
+
+    # Refresh export cache (Agile Outgoing + Fixed) for all regions
+    logger.info("[EXPORT_CACHE] start refresh_all_regions")
+    try:
+        refresh_export_cache(regions)
+        logger.info("[EXPORT_CACHE] ok")
+    except Exception as e:
+        logger.warning(f"[EXPORT_CACHE] failed (non-fatal): {e}", exc_info=True)
 
     logger.info(f"[JOB_END] status=ok regions_ok={len(succeeded)} regions_failed=0")
     return 0

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% set page_name = 'export' %}
+
+{% block content %}
+<article>
+    <header>
+        <h1 class="mb-4">Export Tariffs</h1>
+        <p class="lead">
+            If you generate electricity (e.g. from solar panels) and export it to the grid, Octopus offers tariffs that <strong>pay you</strong> for the energy you export.
+        </p>
+    </header>
+
+    <section class="mb-4">
+        <div class="alert alert-info mb-3">
+            <strong>Export tariffs</strong> pay you for surplus electricity sent to the grid. The tools on this site help you compare rates for both import (buying) and export (selling).
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Choose a Tariff Type</h2>
+        <div class="row justify-content-center">
+            <div class="col-md-4 mb-4">
+                <div class="card border-success h-100">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Fixed Export</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text mb-3">
+                            A flat rate for every unit you export. Predictable — same p/kWh at any time of day.
+                        </p>
+                        <a href="{{ url_for('main.export_fixed') }}" class="btn btn-success">View Fixed Rates</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card border-primary h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Agile Outgoing</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text mb-3">
+                            Half-hourly rates that follow the wholesale market. Can be higher than fixed during peak sun — or <strong>negative</strong>.
+                        </p>
+                        <a href="{{ url_for('main.export_agile') }}" class="btn btn-primary">View Agile Rates</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-success small mt-2 mb-4 text-center">
+            🔖 <strong>Tip:</strong> Select your region on each tariff page to see rates for your area.
+        </div>
+    </section>
+
+    <section class="mb-4">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Understanding Export Prices</h2>
+                <ul class="mb-0">
+                    <li><strong>VAT:</strong> Export rates can be shown including or excluding VAT (5%). Toggle on the tariff pages.</li>
+                    <li><strong>Negative prices:</strong> Agile Outgoing can go negative when supply exceeds demand — you may be charged to export in those half-hours.</li>
+                    <li><strong>Region:</strong> Rates vary by UK region. Select your region on each tariff page.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    {% include 'components/_feature_voting.html' %}
+    {% include 'components/_feature_suggestion.html' %}
+</article>
+{% endblock %}

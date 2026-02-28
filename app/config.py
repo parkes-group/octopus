@@ -14,6 +14,8 @@ class Config:
     
     # Cache settings (MVP Required)
     CACHE_EXPIRY_MINUTES = int(os.environ.get('CACHE_EXPIRY_MINUTES', 5))
+    # Export fixed tariff cache: rates change rarely; 24h default
+    EXPORT_FIXED_CACHE_EXPIRY_MINUTES = int(os.environ.get('EXPORT_FIXED_CACHE_EXPIRY_MINUTES', 1440))
     
     # Logging (MVP Required)
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -67,6 +69,18 @@ class Config:
         'regions': {
             'title': 'Octopus Agile Pricing by Region | UK Comparison Tool',
             'description': 'Compare Agile Octopus electricity prices across all UK regions. See daily averages and cheapest usage windows'
+        },
+        'export': {
+            'title': 'Export Tariffs | Octopus Outgoing Octopus & Agile Outgoing',
+            'description': 'Explore Octopus export tariffs: Fixed (Outgoing Octopus) and Agile Outgoing. Compare rates and understand how you get paid for exporting solar energy.'
+        },
+        'export_fixed': {
+            'title': 'Fixed Export | Outgoing Octopus Rates by Region',
+            'description': 'View the flat export rate for Outgoing Octopus. See p/kWh by region with VAT toggle. Suitable for predictable solar export payments.'
+        },
+        'export_agile': {
+            'title': 'Agile Outgoing Export | Half-Hourly Export Rates',
+            'description': 'Today\'s Agile Outgoing export rates. Daily min, max and average. Note: export prices can go negative in high supply periods.'
         }
     }
     

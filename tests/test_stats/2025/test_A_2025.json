@@ -1,0 +1,16 @@
+{
+  "year": 2025,
+  "region_code": "A",
+  "product_code": "AGILE-24-10-01",
+  "cheapest_block": {
+    "avg_price_p_per_kwh": 14.0
+  },
+  "daily_average": {
+    "avg_price_p_per_kwh": 18.0
+  },
+  "negative_pricing": {
+    "total_negative_slots": 10,
+    "total_negative_hours": 5.0,
+    "total_paid_gbp": 0.5
+  }
+}

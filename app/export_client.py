@@ -3,11 +3,17 @@ Export tariff API client.
 
 Discovers and fetches export product pricing (Fixed and Agile Outgoing).
 Uses OctopusAPIClient for HTTP; builds domain objects from responses.
+
+Cache: Mirrors import architecture. Uses CacheManager with same structure:
+{ prices, fetched_at, expires_at }. File naming: {product_code}_{region_code}.json
+e.g. AGILE-OUTGOING-19-05-13_A.json, OUTGOING-19-05-13_A.json
 """
+import logging
 import requests
 from datetime import datetime, timezone
 
 from app.api_client import OctopusAPIClient
+from app.cache_manager import CacheManager
 from app.export_tariff import (
     AgileOutgoingTariff,
     ExportProduct,
@@ -19,6 +25,8 @@ from app.export_tariff import (
 # Display names for export product discovery (from Octopus API).
 AGILE_OUTGOING_DISPLAY_NAME = "Agile Outgoing Octopus"
 FIXED_EXPORT_DISPLAY_NAME = "Outgoing Octopus"
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_iso_datetime(value: str | None) -> datetime | None:
@@ -145,6 +153,33 @@ def get_unit_rates(
     return all_results
 
 
+def _fixed_cache_to_tariff(product_code: str, region_code: str, cached: list) -> FixedExportTariff | None:
+    """Build FixedExportTariff from cached fixed-format prices (single element with tariff_code)."""
+    if not cached or len(cached) != 1:
+        return None
+    p = cached[0]
+    if "tariff_code" not in p or "value_exc_vat" not in p or "value_inc_vat" not in p:
+        return None
+    return FixedExportTariff(
+        product_code=p.get("product_code", product_code),
+        region_code=p.get("region_code", region_code),
+        tariff_code=str(p["tariff_code"]),
+        rate_p_per_kwh_exc_vat=float(p["value_exc_vat"]),
+        rate_p_per_kwh_inc_vat=float(p["value_inc_vat"]),
+    )
+
+
+def _tariff_to_fixed_cache(tariff: FixedExportTariff) -> list:
+    """Serialize FixedExportTariff to cache prices format."""
+    return [{
+        "value_exc_vat": tariff.rate_p_per_kwh_exc_vat,
+        "value_inc_vat": tariff.rate_p_per_kwh_inc_vat,
+        "tariff_code": tariff.tariff_code,
+        "product_code": tariff.product_code,
+        "region_code": tariff.region_code,
+    }]
+
+
 def fetch_fixed_export_tariff(
     product_code: str,
     region_code: str,
@@ -153,7 +188,16 @@ def fetch_fixed_export_tariff(
     Build FixedExportTariff for a region from product tariffs.
 
     Uses standard_unit_rate from product tariff detail.
+    Cache-first: if valid cache exists, return from cache. Otherwise fetch and cache.
     """
+    cached = CacheManager.get_cached_prices(product_code, region_code)
+    if cached is not None:
+        tariff = _fixed_cache_to_tariff(product_code, region_code, cached)
+        if tariff is not None:
+            logger.debug(f"Export fixed cache hit for {product_code} {region_code}")
+            return tariff
+        # Cached data not in fixed format (e.g. wrong product) - fall through to fetch
+
     detail = get_product_tariffs(product_code)
     if not detail:
         return None
@@ -178,13 +222,17 @@ def fetch_fixed_export_tariff(
     if rate_exc is None or rate_inc is None or not tariff_code:
         return None
 
-    return FixedExportTariff(
+    tariff = FixedExportTariff(
         product_code=product_code,
         region_code=region_code,
         tariff_code=str(tariff_code),
         rate_p_per_kwh_exc_vat=float(rate_exc),
         rate_p_per_kwh_inc_vat=float(rate_inc),
     )
+    from app.config import Config
+    expiry_mins = Config.EXPORT_FIXED_CACHE_EXPIRY_MINUTES
+    CacheManager.cache_prices(product_code, region_code, _tariff_to_fixed_cache(tariff), expiry_minutes=expiry_mins)
+    return tariff
 
 
 def fetch_agile_outgoing_tariff(
@@ -194,7 +242,34 @@ def fetch_agile_outgoing_tariff(
 ) -> AgileOutgoingTariff | None:
     """
     Build AgileOutgoingTariff for a region by fetching half-hourly unit rates.
+
+    Cache-first: if valid cache exists with time-series data, return from cache.
+    Otherwise fetch and cache. Expiry uses same edge-price logic as import.
     """
+    cached = CacheManager.get_cached_prices(product_code, region_code)
+    if cached is not None and len(cached) > 0:
+        # Verify cached data has time-series format (valid_from, valid_to)
+        first = cached[0]
+        if "valid_from" in first and "valid_to" in first:
+            logger.debug(f"Export agile cache hit for {product_code} {region_code}")
+            # Tariff code stored in first slot when cached (avoids API call on hit)
+            tariff_code = first.get("_tariff_code", "")
+            slots = [
+                HalfHourlySlot(
+                    valid_from=r["valid_from"],
+                    valid_to=r["valid_to"],
+                    value_exc_vat=float(r.get("value_exc_vat", 0)),
+                    value_inc_vat=float(r.get("value_inc_vat", 0)),
+                )
+                for r in cached
+            ]
+            return AgileOutgoingTariff(
+                product_code=product_code,
+                region_code=region_code,
+                tariff_code=str(tariff_code),
+                slots=slots,
+            )
+
     detail = get_product_tariffs(product_code)
     if not detail:
         return None
@@ -226,9 +301,19 @@ def fetch_agile_outgoing_tariff(
         for r in raw
     ]
 
-    return AgileOutgoingTariff(
+    tariff = AgileOutgoingTariff(
         product_code=product_code,
         region_code=region_code,
         tariff_code=str(tariff_code),
         slots=slots,
     )
+    if raw:
+        to_cache = [dict(r) for r in raw]
+        if to_cache:
+            to_cache[0]["_tariff_code"] = tariff_code  # store for cache-hit rebuild
+        expires_at = CacheManager.determine_cache_expiry_from_edge_prices(raw[0], raw[-1])
+        if expires_at is not None:
+            CacheManager.cache_prices(product_code, region_code, to_cache, expires_at=expires_at)
+        else:
+            CacheManager.cache_prices(product_code, region_code, to_cache)
+    return tariff
