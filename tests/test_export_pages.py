@@ -46,13 +46,11 @@ class TestExportPagesAPIDataRequests:
         assert "tariff_type=fixed" in html
         assert "/api/export/daily-stats" not in html
 
-    def test_agile_page_requests_daily_stats_and_rate(self, client):
-        """Agile page uses daily-stats and rate with tariff_type=agile_outgoing."""
+    def test_agile_page_requests_blocks(self, client):
+        """Agile page uses blocks API (includes prices, chart data, today_stats)."""
         r = client.get("/export/agile")
         html = r.data.decode("utf-8")
-        assert "/api/export/daily-stats" in html
-        assert "/api/export/rate" in html
-        assert "agile_outgoing" in html
+        assert "/api/export/blocks" in html
 
     def test_agile_page_does_not_request_fixed_rates(self, client):
         """Agile page never requests tariff_type=fixed."""
@@ -67,6 +65,7 @@ class TestExportPagesAPIDataRequests:
         html = r.data.decode("utf-8")
         assert "/api/export/rate" not in html
         assert "/api/export/daily-stats" not in html
+        assert "/api/export/blocks" not in html
         assert "/api/export/tariffs" not in html
 
 
@@ -85,9 +84,10 @@ class TestExportPageStructure:
         assert b"Fixed" in r.data or b"Outgoing" in r.data
         assert b"<h1" in r.data
 
-    def test_agile_page_has_negative_warning(self, client):
+    def test_agile_page_loads_with_heading(self, client):
         r = client.get("/export/agile")
-        assert b"alert-warning" in r.data or b"negative" in r.data.lower()
+        assert r.status_code == 200
+        assert b"Agile Outgoing" in r.data or b"Export" in r.data
 
 
 class TestImportPagesUnchanged:

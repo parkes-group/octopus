@@ -6,106 +6,177 @@
 <article>
     <header>
         <h1 class="mb-4">Agile Outgoing Export for <span id="region-name-display">—</span></h1>
-        <p class="lead">
-            Half-hourly export rates that follow the wholesale market. Payments can be higher than fixed during sunny periods — but rates can also go <strong>negative</strong>.
-        </p>
     </header>
 
+    <!-- Section 1: Product Info Banner (matches prices page) -->
     <section class="mb-4">
-        <div class="alert alert-warning" role="alert">
-            <h2 class="h5 alert-heading">⚠️ Negative prices warning</h2>
-            <p class="mb-0">
-                Agile Outgoing rates can go <strong>negative</strong>. In those half-hour slots, you may be charged to export rather than paid. This typically happens when supply (e.g. lots of solar) exceeds demand. Check today's min/max before assuming you'll always be paid.
-            </p>
+        <div class="alert alert-info mb-3" id="product-info-banner" style="display: none;">
+            <strong>Using tariff:</strong> <span id="product-display">—</span>
+            <p class="text-muted small mb-3">Block duration: <span id="duration-display">3.5</span> hours - Usage: <span id="capacity-display">10</span> kWh</p>
         </div>
     </section>
 
+    <!-- Section 2: Best Export Options (matches prices page "Cheapest Charging Options") -->
     <section class="mb-4">
-        <h2 class="h5 mb-3">Today's Export Rates</h2>
+        <h2 class="h5 mb-3">Today's Best Export Options for <span id="region-name-heading">—</span></h2>
 
-        <!-- Summary paragraph (matches prices page lead style) -->
-        <div class="mb-3" id="summary-paragraph" style="display: none;">
+        <!-- Summary ABOVE cards (matches _daily_price_summary above) -->
+        <div class="mb-3" id="summary-above" style="display: none;">
             <p class="lead">
                 <small>
-                    Export rates for <strong>today</strong> range from <strong><span id="summary-min">—</span>p</strong> to <strong><span id="summary-max">—</span>p</strong> per kWh, with a <strong class="text-info">daily average of <span id="summary-avg">—</span>p/kWh</strong>.
+                    Export rates for <strong>Today</strong> range from <strong><span id="summary-min">—</span>p</strong> to <strong><span id="summary-max">—</span>p</strong> per kWh, with a <strong class="text-info">daily average of <span id="summary-avg">—</span>p/kWh</strong>.
+                    Smart timing could mean earning <strong>£<span id="summary-best-cost">—</span></strong> instead of <strong>£<span id="summary-worst-cost">—</span></strong> for the same energy export.
                 </small>
             </p>
         </div>
 
-        <!-- Cards matching prices page: border-success, border-danger, border-primary -->
-        <div class="row justify-content-center" id="export-cards-row">
-            <!-- Best Export Rate Today (highest) -->
-            <div class="col-md-4 mb-4" id="card-best" style="display: none;">
+        <!-- Block cards -->
+        <div class="row justify-content-center" id="export-blocks-row">
+            <div class="col-md-4 mb-4" id="card-best-block" style="display: none;">
                 <div class="card border-success">
                     <div class="card-header bg-success text-white">
-                        <h5 class="mb-0">⚡ Best Export Rate Today</h5>
+                        <h5 class="mb-0">⚡ Best <span id="best-duration">3.5</span>h Export Block</h5>
                     </div>
                     <div class="card-body">
-                        <p class="mb-1">
-                            <strong>Rate:</strong>
-                            <span class="h4 text-success" id="best-rate">—</span> p/kWh
-                        </p>
-                        <p class="mb-0"><small class="text-muted">Highest half-hour rate today</small></p>
+                        <p class="mb-1"><strong>Average price:</strong> <span class="h4 text-success" id="best-block-price">—</span> p/kWh</p>
+                        <p class="mb-1" id="best-block-diff" style="display: none;"><small class="text-success"><strong id="best-block-diff-val">—</strong> <span id="best-block-diff-lbl">—</span> than the daily average</small></p>
+                        <p class="mb-1"><strong>Time:</strong> <span id="best-block-time">—</span></p>
+                        <p class="mb-1"><strong>Estimated Export Value:</strong> <span class="h5 text-success" id="best-block-cost">—</span></p>
+                        <p class="mb-0"><small class="text-muted" id="best-block-status">—</small></p>
                     </div>
                 </div>
             </div>
-
-            <!-- Worst Export Rate Today (lowest, can be negative) -->
-            <div class="col-md-4 mb-4" id="card-worst" style="display: none;">
-                <div class="card border-danger">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0">⚠️ Worst Export Rate Today</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-1">
-                            <strong>Rate:</strong>
-                            <span class="h4 text-danger" id="worst-rate">—</span> p/kWh
-                        </p>
-                        <p class="mb-0"><small class="text-muted">Lowest half-hour rate (can be negative)</small></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Current Export Rate -->
-            <div class="col-md-4 mb-4" id="card-current" style="display: none;">
+            <div class="col-md-4 mb-4" id="card-best-remaining" style="display: none;">
                 <div class="card border-primary">
                     <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">🔮 Current Export Rate</h5>
+                        <h5 class="mb-0">🔮 Best Remaining <span id="remaining-duration">3.5</span>h Block</h5>
                     </div>
                     <div class="card-body">
-                        <p class="mb-1">
-                            <strong>Rate:</strong>
-                            <span class="h4 text-primary" id="current-rate">—</span> p/kWh
-                        </p>
-                        <p class="mb-0"><small class="text-muted">This half-hour slot</small></p>
+                        <p class="mb-1"><strong>Average price:</strong> <span class="h4 text-primary" id="best-remaining-price">—</span> p/kWh</p>
+                        <p class="mb-1" id="best-remaining-diff" style="display: none;"><small class="text-primary"><strong id="best-remaining-diff-val">—</strong> <span id="best-remaining-diff-lbl">—</span> than the daily average</small></p>
+                        <p class="mb-1"><strong>Time:</strong> <span id="best-remaining-time">—</span></p>
+                        <p class="mb-1"><strong>Estimated Export Value:</strong> <span class="h5 text-primary" id="best-remaining-cost">—</span></p>
+                        <p class="mb-0"><small class="text-muted" id="best-remaining-status">—</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4" id="card-worst-block" style="display: none;">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">⚠️ Worst <span id="worst-duration">3.5</span>h Export Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Average price:</strong> <span class="h4 text-danger" id="worst-block-price">—</span> p/kWh</p>
+                        <p class="mb-1" id="worst-block-diff" style="display: none;"><small class="text-danger"><strong id="worst-block-diff-val">—</strong> <span id="worst-block-diff-lbl">—</span> than the daily average</small></p>
+                        <p class="mb-1"><strong>Time:</strong> <span id="worst-block-time">—</span></p>
+                        <p class="mb-1"><strong>Estimated Export Value:</strong> <span class="h5 text-danger" id="worst-block-cost">—</span></p>
+                        <p class="mb-0"><small class="text-muted" id="worst-block-status">—</small></p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <p class="text-muted small mb-0" id="stats-status">Select region to load rates</p>
+        <!-- No remaining best blocks (matches prices "No remaining cheap blocks") -->
+        <div class="row" id="no-remaining-row" style="display: none;">
+            <div class="col-md-4 mb-4">
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">🔮 Best Remaining Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-0 text-muted">No remaining best export blocks today</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <!-- Bookmark tip (matches prices page) -->
+        <!-- Summary BELOW cards (matches _daily_price_summary below) -->
+        <div class="mt-4 mb-3" id="summary-below" style="display: none;">
+            <p class="lead"><small id="summary-below-text">—</small></p>
+        </div>
+
         <div class="alert alert-success small mt-2 mb-4 text-center" id="bookmark-tip" style="display: none;">
             🔖 <strong>Tip:</strong> Bookmark this page to check Agile Outgoing export rates for your region each day.
         </div>
     </section>
 
-    <!-- Section: Change Region or VAT Options (matches prices page form card) -->
+    <!-- Tomorrow's Export Prices (matches prices page Tomorrow section) -->
+    <section class="mb-4 day-section tomorrow" id="tomorrow-section" style="display: none;">
+        <h2 class="day-heading tomorrow-heading h4 mb-3">Tomorrow's Agile Outgoing Export Prices</h2>
+
+        <!-- Summary ABOVE cards for Tomorrow -->
+        <div class="mb-3" id="tomorrow-summary-above" style="display: none;">
+            <p class="lead">
+                <small>
+                    Export rates for <strong><span id="tomorrow-date-display">—</span></strong> range from <strong><span id="tomorrow-summary-min">—</span>p</strong> to <strong><span id="tomorrow-summary-max">—</span>p</strong> per kWh, with a <strong class="text-info">daily average of <span id="tomorrow-summary-avg">—</span>p/kWh</strong>.
+                    Smart timing could mean earning <strong>£<span id="tomorrow-summary-best-cost">—</span></strong> instead of <strong>£<span id="tomorrow-summary-worst-cost">—</span></strong> for the same energy export.
+                </small>
+            </p>
+        </div>
+
+        <!-- Tomorrow block cards -->
+        <div class="row justify-content-center" id="tomorrow-blocks-row">
+            <div class="col-md-4 mb-4" id="card-tomorrow-best" style="display: none;">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">⚡ Best <span id="tomorrow-best-duration">3.5</span>h Export Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Average price:</strong> <span class="h4 text-success" id="tomorrow-best-price">—</span> p/kWh</p>
+                        <p class="mb-1" id="tomorrow-best-diff" style="display: none;"><small class="text-success"><strong id="tomorrow-best-diff-val">—</strong> <span id="tomorrow-best-diff-lbl">—</span> than the daily average</small></p>
+                        <p class="mb-1"><strong>Time:</strong> <span id="tomorrow-best-time">—</span></p>
+                        <p class="mb-1"><strong>Estimated Export Value:</strong> <span class="h5 text-success" id="tomorrow-best-cost">—</span></p>
+                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4" id="card-tomorrow-worst" style="display: none;">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">⚠️ Worst <span id="tomorrow-worst-duration">3.5</span>h Export Block</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Average price:</strong> <span class="h4 text-danger" id="tomorrow-worst-price">—</span> p/kWh</p>
+                        <p class="mb-1" id="tomorrow-worst-diff" style="display: none;"><small class="text-danger"><strong id="tomorrow-worst-diff-val">—</strong> <span id="tomorrow-worst-diff-lbl">—</span> than the daily average</small></p>
+                        <p class="mb-1"><strong>Time:</strong> <span id="tomorrow-worst-time">—</span></p>
+                        <p class="mb-1"><strong>Estimated Export Value:</strong> <span class="h5 text-danger" id="tomorrow-worst-cost">—</span></p>
+                        <p class="mb-0"><small class="text-muted">⏱️ Upcoming</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary BELOW cards for Tomorrow -->
+        <div class="mt-4 mb-3" id="tomorrow-summary-below" style="display: none;">
+            <p class="lead"><small id="tomorrow-summary-below-text">—</small></p>
+        </div>
+    </section>
+
+    <!-- Section 3: Change Block Duration, Usage or Region Options (matches prices page) -->
     <section class="mb-4">
         <div class="card mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-3">Change Region or VAT Options</h2>
+                <h2 class="h5 mb-3">Change Block Duration, Usage or Region Options</h2>
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="region-select" class="form-label">Region</label>
+                    <div class="col-md-3">
+                        <label for="duration" class="form-label">Block Duration (hours)</label>
+                        <input type="number" class="form-control" id="duration" value="3.5" step="0.5" min="0.5" max="6.0" inputmode="decimal" aria-describedby="duration-help">
+                        <small id="duration-help" class="text-muted form-text">Supports decimals (e.g., 3.5)</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="capacity" class="form-label">Usage / Export Capacity (kWh)</label>
+                        <input type="number" class="form-control" id="capacity" value="10" step="0.1" min="0.1" placeholder="e.g., 10.0" inputmode="decimal" aria-describedby="capacity-help">
+                        <small id="capacity-help" class="text-muted form-text">Enter your typical export in kilowatt-hours</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="region-select" class="form-label">Change Region</label>
                         <select id="region-select" class="form-select" aria-label="Select your region">
                             {% for r in regions %}
-                            <option value="{{ r.region }}" {% if r.slug %}data-slug="{{ r.slug }}"{% endif %} data-name="{{ r.name }}">{{ r.name }}</option>
+                            <option value="{{ r.region }}" {% if r.slug %}data-slug="{{ r.slug }}"{% endif %} data-name="{{ r.name }}" {% if initial_region_slug and r.slug == initial_region_slug %}selected{% endif %}>{{ r.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label d-block">VAT</label>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="vat" id="vat-inc" value="true" checked>
@@ -116,12 +187,60 @@
                             <label class="form-check-label" for="vat-exc">Excluding VAT</label>
                         </div>
                     </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="button" id="update-btn" class="btn btn-primary w-100">Update</button>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     {% include 'components/_feature_voting.html' %}
+
+    <!-- Section 4: Price Chart (matches prices page) -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Price Chart</h2>
+        <div class="card mb-4" id="chart-card" style="display: none;">
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 300px;">
+                    <canvas id="priceChart" aria-label="Export price chart showing half-hourly rates throughout the day" role="img"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-info" id="chart-placeholder">
+            <p class="mb-0">Price chart will appear here once you select a region and update.</p>
+        </div>
+    </section>
+
+    <!-- Section 5: All Prices (Half-Hourly) (matches prices page) -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">All Prices (Half-Hourly)</h2>
+        <div class="card mb-4" id="table-card" style="display: none;">
+            <div class="card-header">
+                <p class="text-muted small mb-0">Complete list of export rates with highlighted best and worst options.</p>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover" role="table" aria-label="Half-hourly export prices">
+                        <thead>
+                            <tr><th scope="col">Date & Time</th><th scope="col">Price (p/kWh)</th></tr>
+                        </thead>
+                        <tbody id="prices-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-info" id="table-placeholder">
+            <p class="mb-0">Price table will appear here once you select a region and update.</p>
+        </div>
+    </section>
+
+    <!-- Section 6: Stats (placeholder - matches prices page structure) -->
+    <section class="mb-4">
+        <h2 class="h5 mb-3">Export Statistics</h2>
+        <p class="text-muted">Year-to-date export statistics will appear here when available.</p>
+    </section>
+
     {% include 'components/_feature_suggestion.html' %}
 </article>
 {% endblock %}
@@ -132,98 +251,261 @@
 (function() {
     const regionSelect = document.getElementById('region-select');
     const regionNameDisplay = document.getElementById('region-name-display');
-    const summaryParagraph = document.getElementById('summary-paragraph');
-    const summaryMin = document.getElementById('summary-min');
-    const summaryMax = document.getElementById('summary-max');
-    const summaryAvg = document.getElementById('summary-avg');
-    const cardBest = document.getElementById('card-best');
-    const cardWorst = document.getElementById('card-worst');
-    const cardCurrent = document.getElementById('card-current');
-    const bestRate = document.getElementById('best-rate');
-    const worstRate = document.getElementById('worst-rate');
-    const currentRate = document.getElementById('current-rate');
-    const statsStatus = document.getElementById('stats-status');
-    const bookmarkTip = document.getElementById('bookmark-tip');
+    const regionNameHeading = document.getElementById('region-name-heading');
+    const durationInput = document.getElementById('duration');
+    const capacityInput = document.getElementById('capacity');
+    const updateBtn = document.getElementById('update-btn');
     const vatRadios = document.querySelectorAll('input[name="vat"]');
+    let exportChart = null;
 
     function getRegionParam() {
         const opt = regionSelect.selectedOptions[0];
         return (opt && opt.dataset.slug) ? opt.dataset.slug : regionSelect.value;
     }
-
     function getRegionName() {
         const opt = regionSelect.selectedOptions[0];
         return (opt && opt.dataset.name) ? opt.dataset.name : (opt ? opt.textContent : '—');
     }
-
-    function getIncVat() {
-        return document.querySelector('input[name="vat"]:checked').value === 'true';
-    }
-
+    function getIncVat() { return document.querySelector('input[name="vat"]:checked').value === 'true'; }
     function todayISO() {
         const d = new Date();
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
-
-    function formatRate(val) {
-        return val != null ? val.toFixed(2) : '—';
+    function formatRate(val) { return val != null ? val.toFixed(2) : '—'; }
+    function formatStatus(block) {
+        if (!block || !block.status) return '—';
+        if (block.status === 'passed') return '⏱️ Already passed';
+        if (block.status === 'upcoming') return '⏱️ Upcoming';
+        if (block.status === 'in_block') {
+            const h = block.hours_remaining || 0, m = block.minutes_remaining || 0;
+            return '⏱️ in block - ' + (h > 0 ? h + ' hour' + (h !== 1 ? 's' : '') + ' ' : '') + m + ' minute' + (m !== 1 ? 's' : '') + ' remaining';
+        }
+        return '—';
     }
 
-    function showCards(show) {
-        cardBest.style.display = show ? '' : 'none';
-        cardWorst.style.display = show ? '' : 'none';
-        cardCurrent.style.display = show ? '' : 'none';
-        summaryParagraph.style.display = show ? '' : 'none';
-        bookmarkTip.style.display = show ? '' : 'none';
+    function renderBlockCard(cardId, block, priceId, diffId, diffValId, diffLblId, timeId, costId, statusId) {
+        const card = document.getElementById(cardId);
+        if (!card) return;
+        if (!block) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        document.getElementById(priceId).textContent = formatRate(block.average_price);
+        const diffEl = document.getElementById(diffId);
+        if (block.diff_pct != null && block.diff_label) {
+            diffEl.style.display = '';
+            document.getElementById(diffValId).textContent = Math.abs(block.diff_pct).toFixed(1) + '%';
+            document.getElementById(diffLblId).textContent = block.diff_label;
+        } else { diffEl.style.display = 'none'; }
+        document.getElementById(timeId).textContent = block.start_display + ' - ' + block.end_display;
+        document.getElementById(costId).textContent = '£' + (block.estimated_cost != null ? block.estimated_cost.toFixed(2) : '—');
+        document.getElementById(statusId).textContent = formatStatus(block);
+    }
+
+    function renderTable(prices, highlightData, currentTimeUtcIso) {
+        const tbody = document.getElementById('prices-tbody');
+        if (!tbody || !prices || prices.length === 0) return;
+        tbody.innerHTML = '';
+        const now = currentTimeUtcIso ? new Date(currentTimeUtcIso) : new Date();
+        let lastDate = '';
+        prices.forEach((p, i) => {
+            const isBest = highlightData.best_block_times_by_date[p.date_iso] && highlightData.best_block_times_by_date[p.date_iso].includes(p.valid_from);
+            const isWorst = highlightData.worst_block_times_by_date[p.date_iso] && highlightData.worst_block_times_by_date[p.date_iso].includes(p.valid_from);
+            const isBestRem = highlightData.best_remaining_times_by_date[p.date_iso] && highlightData.best_remaining_times_by_date[p.date_iso].includes(p.valid_from);
+            const isHighest = highlightData.highest_price_times_by_date[p.date_iso] === p.valid_from;
+            const start = new Date(p.valid_from), end = new Date(p.valid_to);
+            const isCurrent = start <= now && now < end;
+            const showDate = p.date_iso !== lastDate;
+            if (showDate) lastDate = p.date_iso;
+            let rowClass = '';
+            if (isBestRem) rowClass = 'table-primary';
+            else if (isBest) rowClass = 'table-success';
+            else if (isWorst) rowClass = 'table-danger';
+            if (isCurrent) rowClass += ' current-slot';
+            const tr = document.createElement('tr');
+            if (rowClass) tr.className = rowClass.trim();
+            let badges = '';
+            if (isCurrent) badges += '<span class="badge bg-warning text-dark ms-2">Now</span>';
+            if (isHighest && !isBest) badges += '<span class="badge bg-success ms-2">Highest</span>';
+            if (isBest) badges += '<span class="badge bg-success ms-2">Best</span>';
+            if (isBestRem && !isBest) badges += '<span class="badge bg-primary ms-2">Best Remaining</span>';
+            if (isWorst && !isBest && !isBestRem) badges += '<span class="badge bg-danger ms-2">Worst Time</span>';
+            tr.innerHTML = '<td>' + (showDate ? '<strong>' + p.date_uk + '</strong><br>' : '') + p.time_uk + '</td><td><span class="visually-hidden">Price: </span>' + formatRate(p.value_inc_vat) + badges + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderChart(chartData, currentTimeUtcIso) {
+        const ctx = document.getElementById('priceChart');
+        if (!ctx || !chartData || !chartData.labels || !chartData.prices) return;
+        if (exportChart) exportChart.destroy();
+        const now = currentTimeUtcIso ? new Date(currentTimeUtcIso) : new Date();
+        let currentSlotIndex = null;
+        chartData.prices.forEach((_, i) => {
+            const p = window._exportPricesData && window._exportPricesData[i];
+            if (p && p.valid_from && p.valid_to) {
+                const start = new Date(p.valid_from), end = new Date(p.valid_to);
+                if (start <= now && now < end) currentSlotIndex = i;
+            }
+        });
+        const bestIdx = chartData.best_block_indices || [];
+        const worstIdx = chartData.worst_block_indices || [];
+        const remIdx = chartData.best_remaining_indices || [];
+        exportChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Export rate (p/kWh)',
+                    data: chartData.prices,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    fill: true,
+                    tension: 0.1,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { maxRotation: 45, maxTicksLimit: 24 } },
+                    y: { title: { display: true, text: 'p/kWh' } }
+                }
+            }
+        });
     }
 
     function fetchData() {
         const region = getRegionParam();
         const incVat = getIncVat();
+        const duration = parseFloat(durationInput.value) || 3.5;
+        const capacity = parseFloat(capacityInput.value) || 10;
         const today = todayISO();
         regionNameDisplay.textContent = getRegionName();
-        statsStatus.textContent = 'Loading…';
-        showCards(false);
-        bestRate.textContent = worstRate.textContent = currentRate.textContent = '—';
-
-        Promise.all([
-            fetch(`/api/export/daily-stats?tariff_type=agile_outgoing&region=${encodeURIComponent(region)}&start_date=${today}&end_date=${today}&inc_vat=${incVat}`),
-            fetch(`/api/export/rate?tariff_type=agile_outgoing&region=${encodeURIComponent(region)}&inc_vat=${incVat}`)
-        ]).then(([statsRes, rateRes]) => {
-            return Promise.all([statsRes.json(), rateRes.json()]);
-        }).then(([statsData, rateData]) => {
-            const days = statsData.days || [];
-            const day = days.find(d => d.date_iso === today) || days[0];
-            if (day) {
-                bestRate.textContent = formatRate(day.max_p_per_kwh);
-                worstRate.textContent = formatRate(day.min_p_per_kwh);
-                summaryMin.textContent = formatRate(day.min_p_per_kwh);
-                summaryMax.textContent = formatRate(day.max_p_per_kwh);
-                summaryAvg.textContent = formatRate(day.avg_p_per_kwh);
-                summaryParagraph.style.display = '';
-            }
-            if (rateData.p_per_kwh != null) {
-                currentRate.textContent = formatRate(rateData.p_per_kwh);
-                cardCurrent.style.display = '';
-            }
-            if (day) {
-                cardBest.style.display = '';
-                cardWorst.style.display = '';
-                if (rateData.p_per_kwh != null) {
-                    cardCurrent.style.display = '';
-                }
-                bookmarkTip.style.display = '';
-                statsStatus.textContent = incVat ? 'Including VAT' : 'Excluding VAT';
-            } else {
-                statsStatus.textContent = 'No data for today in this region';
-            }
-        }).catch(() => {
-            statsStatus.textContent = 'Unable to load rates';
+        regionNameHeading.textContent = getRegionName();
+        document.getElementById('product-info-banner').style.display = 'none';
+        document.getElementById('summary-above').style.display = 'none';
+        document.getElementById('summary-below').style.display = 'none';
+        document.getElementById('bookmark-tip').style.display = 'none';
+        document.getElementById('chart-card').style.display = 'none';
+        document.getElementById('chart-placeholder').style.display = '';
+        document.getElementById('table-card').style.display = 'none';
+        document.getElementById('table-placeholder').style.display = '';
+        document.getElementById('tomorrow-section').style.display = 'none';
+        document.getElementById('tomorrow-summary-below').style.display = 'none';
+        ['card-best-block','card-best-remaining','card-worst-block','no-remaining-row','card-tomorrow-best','card-tomorrow-worst'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
         });
+
+        fetch(`/api/export/blocks?region=${encodeURIComponent(region)}&inc_vat=${incVat}&duration=${duration}&capacity=${capacity}`)
+            .then(r => r.json())
+            .then(data => {
+                const best = data.best_block;
+                const worst = data.worst_block;
+                const bestRemaining = data.best_remaining_block;
+                const day = data.today_stats || (data.prices && data.prices.length ? { min_p_per_kwh: Math.min(...data.prices.map(p=>p.value_inc_vat)), max_p_per_kwh: Math.max(...data.prices.map(p=>p.value_inc_vat)), avg_p_per_kwh: data.daily_avg } : null);
+
+                if (data.product_code) {
+                    document.getElementById('product-info-banner').style.display = '';
+                    document.getElementById('product-display').textContent = (data.product_code || '') + ' — ' + (data.product_name || 'Agile Outgoing');
+                }
+                document.getElementById('duration-display').textContent = data.duration || duration;
+                document.getElementById('capacity-display').textContent = data.capacity || capacity;
+                ['best-duration','remaining-duration','worst-duration'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = data.duration || duration;
+                });
+
+                if (day) {
+                    document.getElementById('summary-min').textContent = formatRate(day.min_p_per_kwh);
+                    document.getElementById('summary-max').textContent = formatRate(day.max_p_per_kwh);
+                    document.getElementById('summary-avg').textContent = formatRate(day.avg_p_per_kwh);
+                    document.getElementById('summary-best-cost').textContent = best ? formatRate(best.estimated_cost) : '—';
+                    document.getElementById('summary-worst-cost').textContent = worst ? formatRate(worst.estimated_cost) : '—';
+                    document.getElementById('summary-above').style.display = '';
+                }
+
+                renderBlockCard('card-best-block', best, 'best-block-price', 'best-block-diff', 'best-block-diff-val', 'best-block-diff-lbl', 'best-block-time', 'best-block-cost', 'best-block-status');
+                renderBlockCard('card-worst-block', worst, 'worst-block-price', 'worst-block-diff', 'worst-block-diff-val', 'worst-block-diff-lbl', 'worst-block-time', 'worst-block-cost', 'worst-block-status');
+                renderBlockCard('card-best-remaining', bestRemaining, 'best-remaining-price', 'best-remaining-diff', 'best-remaining-diff-val', 'best-remaining-diff-lbl', 'best-remaining-time', 'best-remaining-cost', 'best-remaining-status');
+
+                if (best && !bestRemaining) {
+                    document.getElementById('no-remaining-row').style.display = '';
+                }
+
+                const sb = data.summary_below || {};
+                if (sb.best_pct_higher != null && sb.worst_pct_lower != null) {
+                    document.getElementById('summary-below-text').textContent = 'By exporting during the best ' + (data.duration || 3.5) + '-hour window, you could earn ' + sb.best_pct_higher + '% more than the daily average, while avoiding periods that are ' + sb.worst_pct_lower + '% lower.';
+                    document.getElementById('summary-below').style.display = '';
+                }
+                document.getElementById('bookmark-tip').style.display = '';
+
+                // Tomorrow section
+                const tStats = data.tomorrow_stats || {};
+                const tBest = data.tomorrow_best_block;
+                const tWorst = data.tomorrow_worst_block;
+                if (tStats.min_p_per_kwh != null && tStats.max_p_per_kwh != null && tStats.avg_p_per_kwh != null) {
+                    document.getElementById('tomorrow-section').style.display = '';
+                    document.getElementById('tomorrow-date-display').textContent = tStats.date_display || 'Tomorrow';
+                    document.getElementById('tomorrow-summary-min').textContent = formatRate(tStats.min_p_per_kwh);
+                    document.getElementById('tomorrow-summary-max').textContent = formatRate(tStats.max_p_per_kwh);
+                    document.getElementById('tomorrow-summary-avg').textContent = formatRate(tStats.avg_p_per_kwh);
+                    document.getElementById('tomorrow-summary-best-cost').textContent = tBest ? formatRate(tBest.estimated_cost) : '—';
+                    document.getElementById('tomorrow-summary-worst-cost').textContent = tWorst ? formatRate(tWorst.estimated_cost) : '—';
+                    document.getElementById('tomorrow-summary-above').style.display = '';
+                    ['tomorrow-best-duration','tomorrow-worst-duration'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.textContent = data.duration || duration;
+                    });
+                    if (tBest) {
+                        document.getElementById('card-tomorrow-best').style.display = '';
+                        document.getElementById('tomorrow-best-price').textContent = formatRate(tBest.average_price);
+                        const diffEl = document.getElementById('tomorrow-best-diff');
+                        if (tBest.diff_pct != null && tBest.diff_label) {
+                            diffEl.style.display = '';
+                            document.getElementById('tomorrow-best-diff-val').textContent = Math.abs(tBest.diff_pct).toFixed(1) + '%';
+                            document.getElementById('tomorrow-best-diff-lbl').textContent = tBest.diff_label;
+                        } else { diffEl.style.display = 'none'; }
+                        document.getElementById('tomorrow-best-time').textContent = tBest.start_display + ' - ' + tBest.end_display;
+                        document.getElementById('tomorrow-best-cost').textContent = '£' + (tBest.estimated_cost != null ? tBest.estimated_cost.toFixed(2) : '—');
+                    }
+                    if (tWorst) {
+                        document.getElementById('card-tomorrow-worst').style.display = '';
+                        document.getElementById('tomorrow-worst-price').textContent = formatRate(tWorst.average_price);
+                        const diffEl = document.getElementById('tomorrow-worst-diff');
+                        if (tWorst.diff_pct != null && tWorst.diff_label) {
+                            diffEl.style.display = '';
+                            document.getElementById('tomorrow-worst-diff-val').textContent = Math.abs(tWorst.diff_pct).toFixed(1) + '%';
+                            document.getElementById('tomorrow-worst-diff-lbl').textContent = tWorst.diff_label;
+                        } else { diffEl.style.display = 'none'; }
+                        document.getElementById('tomorrow-worst-time').textContent = tWorst.start_display + ' - ' + tWorst.end_display;
+                        document.getElementById('tomorrow-worst-cost').textContent = '£' + (tWorst.estimated_cost != null ? tWorst.estimated_cost.toFixed(2) : '—');
+                    }
+                    const tSb = data.tomorrow_summary_below || {};
+                    if (tSb.best_pct_higher != null && tSb.worst_pct_lower != null) {
+                        document.getElementById('tomorrow-summary-below-text').textContent = 'By exporting during the best ' + (data.duration || 3.5) + '-hour window, you could earn ' + tSb.best_pct_higher + '% more than the daily average, while avoiding periods that are ' + tSb.worst_pct_lower + '% lower.';
+                        document.getElementById('tomorrow-summary-below').style.display = '';
+                    }
+                }
+
+                if (data.prices && data.prices.length > 0) {
+                    window._exportPricesData = data.prices;
+                    renderTable(data.prices, data, data.current_time_uk);
+                    document.getElementById('table-card').style.display = '';
+                    document.getElementById('table-placeholder').style.display = 'none';
+                }
+                if (data.chart && data.chart.labels && data.chart.labels.length > 0) {
+                    renderChart(data.chart, data.current_time_uk);
+                    document.getElementById('chart-card').style.display = '';
+                    document.getElementById('chart-placeholder').style.display = 'none';
+                }
+            })
+            .catch(() => {});
     }
 
     regionSelect.addEventListener('change', fetchData);
     vatRadios.forEach(r => r.addEventListener('change', fetchData));
+    updateBtn.addEventListener('click', fetchData);
     fetchData();
 })();
 </script>

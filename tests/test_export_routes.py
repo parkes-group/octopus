@@ -272,6 +272,67 @@ class TestExportDailyStatsEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/export/blocks
+# ---------------------------------------------------------------------------
+
+
+def _agile_tariff_7_slots():
+    """7 contiguous half-hour slots (3.5h) for block tests. Uses today's date so blocks pass the per-day filter."""
+    today = datetime.now(timezone.utc).date()
+    base = f"{today.isoformat()}T"
+    slots = []
+    for i in range(7):
+        total_mins = 10 * 60 + i * 30
+        h1, m1 = divmod(total_mins, 60)
+        h2, m2 = divmod(total_mins + 30, 60)
+        slots.append({
+            "valid_from": f"{base}{h1:02d}:{m1:02d}:00Z",
+            "valid_to": f"{base}{h2:02d}:{m2:02d}:00Z",
+            "value_exc_vat": 5.0 + i,
+            "value_inc_vat": 5.25 + i * 1.05,
+        })
+    return _agile_tariff(slots)
+
+
+class TestExportBlocksEndpoint:
+    """GET /api/export/blocks"""
+
+    @patch("app.export_routes.fetch_agile_outgoing_tariff")
+    @patch("app.export_routes.discover_export_products")
+    def test_returns_blocks_structure(self, mock_discover, mock_fetch, client):
+        mock_discover.return_value = EXPORT_PRODUCTS
+        mock_fetch.return_value = _agile_tariff_7_slots()
+        r = client.get("/api/export/blocks?region=A")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "best_block" in data
+        assert "worst_block" in data
+        assert "best_remaining_block" in data
+        assert "daily_avg" in data
+        assert "duration" in data
+        assert "capacity" in data
+
+    @patch("app.export_routes.fetch_agile_outgoing_tariff")
+    @patch("app.export_routes.discover_export_products")
+    def test_block_has_required_fields(self, mock_discover, mock_fetch, client):
+        mock_discover.return_value = EXPORT_PRODUCTS
+        mock_fetch.return_value = _agile_tariff_7_slots()
+        r = client.get("/api/export/blocks?region=A")
+        data = r.get_json()
+        best = data.get("best_block")
+        assert best is not None
+        assert "average_price" in best
+        assert "start_display" in best
+        assert "end_display" in best
+        assert "estimated_cost" in best
+        assert "status" in best
+
+    def test_missing_region_returns_400(self, client):
+        r = client.get("/api/export/blocks")
+        assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # Import regression
 # ---------------------------------------------------------------------------
 

@@ -22,6 +22,23 @@ class PostcodeForm(FlaskForm):
     )
     submit = SubmitField('View Prices')
 
+
+class ExportPostcodeForm(FlaskForm):
+    """Form for entering UK postcode to view export tariff rates (Agile Outgoing)."""
+    postcode = StringField(
+        'UK Postcode',
+        validators=[
+            DataRequired(message="Please enter a postcode"),
+            Length(min=2, max=20, message="Postcode must be between 2 and 20 characters")
+        ],
+        render_kw={
+            'placeholder': 'e.g., SW1A 1AA or SW1',
+            'autocomplete': 'postal-code',
+            'class': 'form-control'
+        }
+    )
+    submit = SubmitField('View Agile Export Rates')
+
 class RegionSelectionForm(FlaskForm):
     """Form for manually selecting Octopus region (fallback)."""
     region = SelectField(

@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.api_client import OctopusAPIClient
 from app.cache_manager import CacheManager
 from app.price_calculator import PriceCalculator
-from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm
+from app.forms import RegionSelectionForm, PriceCalculationForm, PostcodeForm, ExportPostcodeForm
 from app.timezone_utils import get_uk_now
 from app.config import Config
 from app.vote_manager import VoteManager
@@ -954,13 +954,68 @@ def about():
 # ---------------------------------------------------------------------------
 
 
-@bp.route('/export')
+@bp.route('/export', methods=['GET', 'POST'])
 def export_index():
-    """Export tariff overview: explains export tariffs, links to Fixed and Agile Outgoing."""
+    """Export tariff overview: postcode form (like index), pre-selects Agile Outgoing, redirects to export/agile."""
+    postcode_form = ExportPostcodeForm()
+    show_region_dropdown = False
+    error_message = None
+    submitted_postcode = None
+    regions_list = _regions_list_with_slugs()
+
+    if request.method == 'POST':
+        form_postcode = request.form.get('postcode', '')
+        submitted_region = request.form.get('region')
+
+        # If region provided (manual selection after postcode lookup), redirect to export_agile
+        if submitted_region and submitted_region.strip():
+            if any(r.get('region') == submitted_region for r in regions_list):
+                _track_region_request_on_post(submitted_region)
+                slug = region_slug_from_code(submitted_region)
+                if slug:
+                    return redirect(url_for('main.export_agile', region=slug))
+            error_message = "Invalid region selected. Please try again."
+            show_region_dropdown = True
+            submitted_postcode = form_postcode
+
+        # Postcode lookup
+        elif postcode_form.validate_on_submit():
+            submitted_postcode = postcode_form.postcode.data
+            normalized_postcode = normalize_postcode(submitted_postcode)
+            try:
+                region_result = OctopusAPIClient.lookup_region_from_postcode(normalized_postcode)
+                if region_result is None:
+                    error_message = f"No region found for postcode '{submitted_postcode}'. Please select your region below."
+                    show_region_dropdown = True
+                elif isinstance(region_result, str):
+                    _track_region_request_on_post(region_result)
+                    slug = region_slug_from_code(region_result)
+                    if slug:
+                        return redirect(url_for('main.export_agile', region=slug))
+                    error_message = "Unable to determine region. Please select below."
+                    show_region_dropdown = True
+                elif isinstance(region_result, list):
+                    error_message = f"Postcode '{submitted_postcode}' matches multiple regions. Please select your region below:"
+                    show_region_dropdown = True
+                    regions_list = [r for r in regions_list if r.get('region') in region_result]
+                else:
+                    error_message = f"Unable to process postcode '{submitted_postcode}'. Please select your region below."
+                    show_region_dropdown = True
+            except Exception as e:
+                logger.error(f"Error looking up postcode {normalized_postcode}: {e}", exc_info=True)
+                error_message = f"Unable to look up postcode '{submitted_postcode}'. Please select your region below."
+                show_region_dropdown = True
+        elif request.method == 'POST':
+            submitted_postcode = request.form.get('postcode', '')
+
     return render_template(
         'export/index.html',
         page_name='export',
-        regions=_regions_list_with_slugs(),
+        regions=regions_list,
+        postcode_form=postcode_form,
+        show_region_dropdown=show_region_dropdown,
+        error=error_message,
+        submitted_postcode=submitted_postcode,
     )
 
 
@@ -977,10 +1032,14 @@ def export_fixed():
 @bp.route('/export/agile')
 def export_agile():
     """Agile Outgoing export page: today's rates, daily stats, negative price warning."""
+    initial_region_slug = request.args.get('region')
+    from app.export_stats import EXPORT_BLOCK_DURATION_HOURS
     return render_template(
         'export/agile.html',
         page_name='export_agile',
         regions=_regions_list_with_slugs(),
+        initial_region_slug=initial_region_slug,
+        block_duration=EXPORT_BLOCK_DURATION_HOURS,
     )
 
 

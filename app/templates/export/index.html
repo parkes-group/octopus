@@ -6,49 +6,78 @@
 <article>
     <header>
         <h1 class="mb-4">Export Tariffs</h1>
-        <p class="lead">
-            If you generate electricity (e.g. from solar panels) and export it to the grid, Octopus offers tariffs that <strong>pay you</strong> for the energy you export.
+        <p class="lead text-muted">
+            [Placeholder: First paragraph describing export tariffs — e.g. If you generate electricity from solar panels and export to the grid, Octopus offers tariffs that pay you for the energy you export. Agile Outgoing follows wholesale prices half-hourly; Fixed gives a flat rate. Enter your postcode to see rates for your region.]
         </p>
     </header>
 
-    <section class="mb-4">
-        <div class="alert alert-info mb-3">
-            <strong>Export tariffs</strong> pay you for surplus electricity sent to the grid. The tools on this site help you compare rates for both import (buying) and export (selling).
+    <section>
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="card-title mb-0">Find your export rates</h2>
+                    </div>
+                    <div class="card-body">
+                        {% if error %}
+                            <div class="alert alert-danger">
+                                {{ error }}
+                            </div>
+                        {% endif %}
+
+                        <p class="text-muted">
+                            Enter your UK postcode and we'll show you <strong>Agile Outgoing export rates</strong> for your region.
+                        </p>
+
+                        <form method="POST" action="{{ url_for('main.export_index') }}" id="export-postcode-form">
+                            {{ postcode_form.hidden_tag() }}
+                            <input type="hidden" name="tariff" value="agile_outgoing">
+
+                            <div class="mb-3">
+                                {{ postcode_form.postcode.label(class="form-label") }}
+                                {% set postcode_class = "form-control" + (" is-invalid" if postcode_form.postcode.errors else "") %}
+                                {% set aria_describedby = "postcode-help postcode-errors" if postcode_form.postcode.errors else "postcode-help" %}
+                                {{ postcode_form.postcode(
+                                    class=postcode_class,
+                                    value=submitted_postcode if submitted_postcode else "",
+                                    **{"inputmode": "text", "autocomplete": "postal-code", "aria-describedby": aria_describedby}
+                                ) }}
+                                {% if postcode_form.postcode.errors %}
+                                    <div id="postcode-errors" class="invalid-feedback" role="alert">
+                                        {% for error in postcode_form.postcode.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                                <small id="postcode-help" class="form-text text-muted">Enter your postcode — full or partial (e.g., SW1A 1AA or SW1)</small>
+                            </div>
+
+                            {% if show_region_dropdown %}
+                            <div class="mb-3">
+                                <label for="region" class="form-label">Region <span class="text-muted">(select your region)</span></label>
+                                <select class="form-select" id="region" name="region" aria-describedby="region-help">
+                                    <option value="">Select a region...</option>
+                                    {% for r in regions %}
+                                    <option value="{{ r.region }}" {% if request.form.get('region') == r.region %}selected{% endif %}>
+                                        {{ r.region }} - {{ r.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small id="region-help" class="form-text text-muted">Select your region manually, or enter a different postcode above</small>
+                            </div>
+                            {% endif %}
+
+                            {{ postcode_form.submit(class="btn btn-primary w-100") }}
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
-    <section class="mb-4">
-        <h2 class="h5 mb-3">Choose a Tariff Type</h2>
-        <div class="row justify-content-center">
-            <div class="col-md-4 mb-4">
-                <div class="card border-success h-100">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0">Fixed Export</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text mb-3">
-                            A flat rate for every unit you export. Predictable — same p/kWh at any time of day.
-                        </p>
-                        <a href="{{ url_for('main.export_fixed') }}" class="btn btn-success">View Fixed Rates</a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-4">
-                <div class="card border-primary h-100">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Agile Outgoing</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text mb-3">
-                            Half-hourly rates that follow the wholesale market. Can be higher than fixed during peak sun — or <strong>negative</strong>.
-                        </p>
-                        <a href="{{ url_for('main.export_agile') }}" class="btn btn-primary">View Agile Rates</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="alert alert-success small mt-2 mb-4 text-center">
-            🔖 <strong>Tip:</strong> Select your region on each tariff page to see rates for your area.
+    <section class="mb-4 mt-4">
+        <div class="alert alert-info mb-3">
+            <strong>Agile Outgoing</strong> is pre-selected — half-hourly rates that follow the wholesale market. You can also view <a href="{{ url_for('main.export_fixed') }}">Fixed Export</a> rates.
         </div>
     </section>
 
@@ -59,8 +88,50 @@
                 <ul class="mb-0">
                     <li><strong>VAT:</strong> Export rates can be shown including or excluding VAT (5%). Toggle on the tariff pages.</li>
                     <li><strong>Negative prices:</strong> Agile Outgoing can go negative when supply exceeds demand — you may be charged to export in those half-hours.</li>
-                    <li><strong>Region:</strong> Rates vary by UK region. Select your region on each tariff page.</li>
+                    <li><strong>Region:</strong> Rates vary by UK region. Enter your postcode above to see rates for your area.</li>
                 </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Placeholder: Export stats (YTD) - to be implemented -->
+    <section class="my-5">
+        <h2 class="mb-4">Export Statistics</h2>
+        <p class="text-muted">
+            [Placeholder: Export tariff statistics section — e.g. year-to-date averages for Agile Outgoing (best export times, daily averages, negative hours), similar to import stats. To be implemented.]
+        </p>
+        <div class="row g-3">
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="h6 text-muted mb-2">Placeholder stat 1</h3>
+                        <p class="h4 mb-1 text-muted">—</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="h6 text-muted mb-2">Placeholder stat 2</h3>
+                        <p class="h4 mb-1 text-muted">—</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="h6 text-muted mb-2">Placeholder stat 3</h3>
+                        <p class="h4 mb-1 text-muted">—</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h3 class="h6 text-muted mb-2">Placeholder stat 4</h3>
+                        <p class="h4 mb-1 text-muted">—</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

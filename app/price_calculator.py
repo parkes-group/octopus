@@ -303,6 +303,82 @@ class PriceCalculator:
         return cheapest_block
     
     @staticmethod
+    def find_future_worst_block(prices, duration_hours, current_time_utc):
+        """
+        Find worst (highest average) contiguous block of N hours considering only future time slots.
+        Used for export: "best remaining block" = next highest-rate block from now onwards.
+
+        Args:
+            prices: List of price dicts with 'value_inc_vat', 'valid_from', 'valid_to'
+            duration_hours: Duration in hours (e.g., 3.5)
+            current_time_utc: Current time (timezone-aware UTC) for comparison
+
+        Returns:
+            dict: Worst (highest) future block info, or None
+        """
+        if not prices or duration_hours < 0.5:
+            return None
+
+        future_prices = []
+        for price in prices:
+            try:
+                valid_from_str = price.get('valid_from', '')
+                if not valid_from_str:
+                    continue
+                dt_str = valid_from_str.replace('Z', '+00:00') if valid_from_str.endswith('Z') else valid_from_str
+                price_time_utc = datetime.fromisoformat(dt_str)
+                if price_time_utc.tzinfo is None:
+                    price_time_utc = price_time_utc.replace(tzinfo=timezone.utc)
+                if price_time_utc >= current_time_utc:
+                    future_prices.append(price)
+            except (KeyError, ValueError, TypeError):
+                continue
+
+        if not future_prices:
+            return None
+
+        slots_needed = int(duration_hours * 2)
+        if len(future_prices) < slots_needed:
+            return None
+
+        worst_block = None
+        worst_avg = float('-inf')
+        sorted_prices = sorted(future_prices, key=lambda x: x.get('valid_from', ''))
+
+        for i in range(len(sorted_prices) - slots_needed + 1):
+            block = sorted_prices[i:i + slots_needed]
+            if len(block) != slots_needed:
+                continue
+            try:
+                is_contiguous = True
+                for j in range(len(block) - 1):
+                    if block[j].get('valid_to') != block[j + 1].get('valid_from'):
+                        is_contiguous = False
+                        break
+                if not is_contiguous:
+                    continue
+
+                total_price = sum(slot['value_inc_vat'] for slot in block)
+                avg_price = total_price / slots_needed
+                if avg_price > worst_avg:
+                    worst_avg = avg_price
+                    start_time_uk = utc_to_uk(block[0]['valid_from'])
+                    end_time_uk = utc_to_uk(block[-1]['valid_to'])
+                    worst_block = {
+                        'start_time': block[0]['valid_from'],
+                        'end_time': block[-1]['valid_to'],
+                        'start_time_uk': start_time_uk,
+                        'end_time_uk': end_time_uk,
+                        'average_price': round(avg_price, 2),
+                        'total_cost': round(total_price, 2),
+                        'slots': block,
+                    }
+            except (KeyError, TypeError):
+                continue
+
+        return worst_block
+
+    @staticmethod
     def calculate_daily_average_price(prices):
         """
         Calculate the average price for all prices (deprecated for multi-day data).
