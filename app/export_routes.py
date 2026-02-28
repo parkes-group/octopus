@@ -435,7 +435,7 @@ def get_blocks():
 
     # Build prices list for table and chart (same shape as import prices page)
     # Sort slots by valid_from ascending for chronological display
-    from app.timezone_utils import utc_to_uk
+    from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time
     slots_sorted = sorted(tariff.slots, key=lambda s: s.valid_from or "")
     prices_out = []
     best_block_times_by_date = {}
@@ -447,6 +447,7 @@ def get_blocks():
     best_block_indices = []
     worst_block_indices = []
     best_remaining_indices = []
+    chart_previous_date = None
 
     for i, slot in enumerate(slots_sorted):
         val = slot.value_inc_vat if inc_vat else slot.value_exc_vat
@@ -465,7 +466,12 @@ def get_blocks():
             "datetime_uk": dt_uk.isoformat(),
             "datetime_uk_end": dt_end.isoformat(),
         })
-        chart_labels.append(time_uk if len(chart_labels) < 48 else date_uk + " " + time_uk)
+        # Chart labels: date at 00:00 of each day, times otherwise (matches import prices page)
+        if chart_previous_date is None or dt_uk.date() != chart_previous_date:
+            chart_labels.append(format_uk_datetime_short(dt_uk))
+        else:
+            chart_labels.append(format_uk_time(dt_uk))
+        chart_previous_date = dt_uk.date()
         chart_prices.append(val)
         if best and best.get("slots"):
             slot_times = {s["valid_from"] for s in best["slots"]}
