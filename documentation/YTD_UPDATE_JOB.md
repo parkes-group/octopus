@@ -19,9 +19,13 @@ This project includes a daily scheduled job that **incrementally updates**:
 
 ### Raw data (incremental, not full re-fetch)
 
-Writes per-region raw files to:
+**Import** (default or `--both`): writes per-region raw files to:
 
-- `data/raw/2026/{REGION}_2026.json`
+- `data/raw/{year}/{REGION}_{year}.json`
+
+**Export** (`--export` or `--both`): writes per-region export raw files to:
+
+- `data/raw/export/{year}/{REGION}_{year}.json`
 
 The job:
 
@@ -38,10 +42,15 @@ The job:
 
 ### Stats (only if all regions succeed)
 
-Outputs to:
+**Import** outputs to:
 
-- `data/stats/2026/{REGION}_2026.json`
-- `data/stats/2026/national_2026.json`
+- `data/stats/{year}/{REGION}_{year}.json`
+- `data/stats/{year}/national_{year}.json`
+
+**Export** outputs to:
+
+- `data/stats/export/{year}/{REGION}_{year}.json`
+- `data/stats/export/{year}/national_{year}.json`
 
 If **any region fails**, stats generation is skipped and the job exits with an error.
 
@@ -77,7 +86,14 @@ Exit codes:
 From the project root:
 
 ```bash
+# Import only (default)
 python scripts/update_ytd_prices_and_stats.py --year 2026
+
+# Export only (Agile Outgoing)
+python scripts/update_ytd_prices_and_stats.py --export --year 2026
+
+# Both import and export
+python scripts/update_ytd_prices_and_stats.py --both --year 2026
 ```
 
 Optional:

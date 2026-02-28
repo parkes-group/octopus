@@ -251,19 +251,88 @@ def refresh_cache_for_region(product_code: str, region: str) -> bool:
         return CacheManager.cache_prices(product_code, region, prices)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Update YTD raw prices + stats + cache")
-    parser.add_argument("--year", type=int, default=2026, help="Year to update (default: 2026)")
-    parser.add_argument("--product", type=str, default=Config.OCTOPUS_PRODUCT_CODE, help="Octopus product code")
-    args = parser.parse_args()
+RAW_EXPORT_BASE_DIR = project_root / "data" / "raw" / "export"
 
-    year = args.year
-    product_code = args.product
-    now_uk = get_uk_now()
 
-    logger.info(f"[JOB_START] year={year} now_uk={now_uk.isoformat()} product={product_code}")
+def _raw_file_path_export(year: int, region: str) -> Path:
+    year_dir = RAW_EXPORT_BASE_DIR / str(year)
+    return year_dir / f"{region}_{year}.json"
 
-    regions = list(Config.OCTOPUS_REGION_NAMES.keys())
+
+def _load_raw_prices_export(year: int, region: str) -> tuple[dict, list[dict]]:
+    path = _raw_file_path_export(year, region)
+    if not path.exists():
+        return {}, []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return data, data.get("prices", []) or []
+
+
+def _get_export_tariff_code(product_code: str, region_code: str) -> Optional[str]:
+    """Resolve tariff code for Agile Outgoing in a region from product tariffs."""
+    from app.export_client import get_product_tariffs
+    detail = get_product_tariffs(product_code)
+    if not detail:
+        return None
+    tariffs = detail.get("single_register_electricity_tariffs") or {}
+    region_key = f"_{region_code}" if not region_code.startswith("_") else region_code
+    region_tariffs = tariffs.get(region_key)
+    if not region_tariffs:
+        return None
+    dd = region_tariffs.get("direct_debit_monthly")
+    if not dd:
+        keys = [k for k in region_tariffs if isinstance(region_tariffs[k], dict)]
+        dd = region_tariffs.get(keys[0]) if keys else None
+    if not dd:
+        return None
+    return dd.get("code")
+
+
+def fetch_export_prices_paginated_range(
+    product_code: str,
+    tariff_code: str,
+    region: str,
+    period_from: str,
+    period_to: str,
+    page_size: int = 1000,
+) -> tuple[list[dict], dict]:
+    """Fetch export (Agile Outgoing) prices for an explicit period range."""
+    url = Config.get_unit_rates_url(product_code, tariff_code)
+    params = {"period_from": period_from, "period_to": period_to, "page_size": page_size}
+
+    pages = 0
+    results: list[dict] = []
+    next_url: Optional[str] = url
+    next_params = params
+
+    while next_url:
+        pages += 1
+        resp = requests.get(next_url, params=next_params, timeout=Config.OCTOPUS_API_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        results.extend(data.get("results", []))
+        next_url = data.get("next")
+        next_params = None
+
+    meta = {
+        "product_code": product_code,
+        "tariff_code": tariff_code,
+        "region_code": region,
+        "period_from": period_from,
+        "period_to": period_to,
+        "page_size": page_size,
+        "pages_fetched": pages,
+        "total_price_slots": len(results),
+    }
+    return results, meta
+
+
+def _run_import_ytd(
+    year: int,
+    product_code: str,
+    regions: list[str],
+    now_uk: datetime,
+) -> tuple[list[str], dict[str, str]]:
+    """Update import raw data for all regions. Returns (succeeded, failed)."""
     succeeded: list[str] = []
     failed: dict[str, str] = {}
 
@@ -274,8 +343,7 @@ def main() -> int:
 
             plan = determine_fetch_plan(region=region, existing_prices=existing_prices, now_uk=now_uk)
             if plan is None:
-                logger.info(f"[REGION] region={region} action=skip reason=already_includes_tomorrow last_valid_to={last_before}")
-                # Still validate existing dataset quickly for safety.
+                logger.info(f"[IMPORT] region={region} action=skip reason=already_includes_tomorrow last_valid_to={last_before}")
                 errs = validate_price_series(existing_prices)
                 if errs:
                     raise RuntimeError(f"validation_failed_without_fetch: {errs[:5]}")
@@ -283,7 +351,7 @@ def main() -> int:
                 continue
 
             logger.info(
-                f"[REGION] region={region} action=fetch reason={plan.reason} "
+                f"[IMPORT] region={region} action=fetch reason={plan.reason} "
                 f"period_from={plan.period_from_utc_z} period_to={plan.period_to_utc_z} last_valid_to_before={last_before}"
             )
 
@@ -294,7 +362,7 @@ def main() -> int:
                 raise RuntimeError(f"fetched_slot_count_too_low expected~{expected} got={len(fetched)}")
             if expected and len(fetched) < expected:
                 logger.warning(
-                    f"[REGION_WARN] region={region} fetched_less_than_expected expected~{expected} got={len(fetched)} "
+                    f"[IMPORT_WARN] region={region} fetched_less_than_expected expected~{expected} got={len(fetched)} "
                     f"(allowed boundary slack)"
                 )
 
@@ -303,7 +371,6 @@ def main() -> int:
             if errs:
                 raise RuntimeError(f"validation_failed: {errs[:8]}")
 
-            # Update raw payload (preserve existing structure where possible)
             updated = raw_data or {"product_code": product_code, "region_code": region, "year": year}
             updated["product_code"] = product_code
             updated["region_code"] = region
@@ -324,57 +391,224 @@ def main() -> int:
             _atomic_write_json(out_path, updated)
             succeeded.append(region)
             logger.info(
-                f"[REGION_OK] region={region} slots_fetched={len(fetched)} total_slots={len(merged_prices)} "
+                f"[IMPORT_OK] region={region} slots_fetched={len(fetched)} total_slots={len(merged_prices)} "
                 f"last_valid_to_after={updated['ytd_update']['last_valid_to_after']}"
             )
 
         except Exception as e:
             msg = str(e)
             failed[region] = msg
-            logger.error(f"[REGION_FAIL] region={region} error={msg}", exc_info=True)
+            logger.error(f"[IMPORT_FAIL] region={region} error={msg}", exc_info=True)
 
-    if failed:
-        logger.error("[ERROR_SUMMARY] One or more regions failed; skipping stats + cache refresh")
-        for region, msg in failed.items():
-            logger.error(f" - region={region}: {msg}")
-        logger.info(f"[JOB_END] status=error regions_ok={len(succeeded)} regions_failed={len(failed)}")
-        return 1
+    return succeeded, failed
 
-    # Regenerate stats for year (YTD) using existing pipeline
-    logger.info(f"[STATS] start year={year}")
-    try:
-        for region in regions:
-            stats = StatsCalculator.calculate_year_stats(product_code, region_code=region, year=year, coverage="year_to_date")
-            StatsCalculator.save_stats(stats)
 
-        national = StatsCalculator.calculate_national_averages(product_code, year=year)
-        StatsCalculator.save_national_stats(national, year=year)
-        logger.info(f"[STATS] ok year={year} output_dir={STATS_BASE_DIR/str(year)}")
-    except Exception as e:
-        logger.error(f"[STATS] failed year={year} error={e}", exc_info=True)
-        logger.info(f"[JOB_END] status=error regions_ok={len(succeeded)} regions_failed=0")
-        return 1
+def _run_export_ytd(
+    year: int,
+    product_code: str,
+    regions: list[str],
+    now_uk: datetime,
+) -> tuple[list[str], dict[str, str]]:
+    """Update export raw data for all regions. Returns (succeeded, failed)."""
+    succeeded: list[str] = []
+    failed: dict[str, str] = {}
 
-    # Refresh import cache using existing expiry rules
-    logger.info("[CACHE] start refresh_all_regions")
-    try:
-        for region in regions:
-            refresh_cache_for_region(product_code, region)
-        logger.info("[CACHE] ok")
-    except Exception as e:
-        logger.error(f"[CACHE] failed error={e}", exc_info=True)
-        logger.info(f"[JOB_END] status=error regions_ok={len(succeeded)} regions_failed=0")
-        return 1
+    for region in regions:
+        try:
+            tariff_code = _get_export_tariff_code(product_code, region)
+            if not tariff_code:
+                raise RuntimeError(f"Could not resolve tariff_code for export product {product_code} region {region}")
 
-    # Refresh export cache (Agile Outgoing + Fixed) for all regions
-    logger.info("[EXPORT_CACHE] start refresh_all_regions")
-    try:
-        refresh_export_cache(regions)
-        logger.info("[EXPORT_CACHE] ok")
-    except Exception as e:
-        logger.warning(f"[EXPORT_CACHE] failed (non-fatal): {e}", exc_info=True)
+            raw_data, existing_prices = _load_raw_prices_export(year, region)
+            last_before = existing_prices[-1].get("valid_to") if existing_prices else None
 
-    logger.info(f"[JOB_END] status=ok regions_ok={len(succeeded)} regions_failed=0")
+            plan = determine_fetch_plan(region=region, existing_prices=existing_prices, now_uk=now_uk)
+            if plan is None:
+                logger.info(f"[EXPORT] region={region} action=skip reason=already_includes_tomorrow last_valid_to={last_before}")
+                errs = validate_price_series(existing_prices)
+                if errs:
+                    raise RuntimeError(f"validation_failed_without_fetch: {errs[:5]}")
+                succeeded.append(region)
+                continue
+
+            logger.info(
+                f"[EXPORT] region={region} action=fetch reason={plan.reason} "
+                f"period_from={plan.period_from_utc_z} period_to={plan.period_to_utc_z} last_valid_to_before={last_before}"
+            )
+
+            fetched, meta = fetch_export_prices_paginated_range(
+                product_code, tariff_code, region, plan.period_from_utc_z, plan.period_to_utc_z
+            )
+            fetched = dedupe_sort_prices(fetched)
+            expected = expected_slot_count(plan.period_from_utc_z, plan.period_to_utc_z)
+            if expected and not is_slot_count_reasonable(len(fetched), expected, boundary_slack=2):
+                raise RuntimeError(f"fetched_slot_count_too_low expected~{expected} got={len(fetched)}")
+            if expected and len(fetched) < expected:
+                logger.warning(
+                    f"[EXPORT_WARN] region={region} fetched_less_than_expected expected~{expected} got={len(fetched)} "
+                    f"(allowed boundary slack)"
+                )
+
+            merged_prices = dedupe_sort_prices([*existing_prices, *fetched])
+            errs = validate_price_series(merged_prices)
+            if errs:
+                raise RuntimeError(f"validation_failed: {errs[:8]}")
+
+            updated = raw_data or {
+                "product_code": product_code,
+                "tariff_code": tariff_code,
+                "region_code": region,
+                "year": year,
+                "tariff_type": "export",
+            }
+            updated["product_code"] = product_code
+            updated["tariff_code"] = tariff_code
+            updated["region_code"] = region
+            updated["year"] = year
+            updated["tariff_type"] = "export"
+            updated["prices"] = merged_prices
+            updated["total_price_slots"] = len(merged_prices)
+            updated["fetched_at"] = datetime.now(timezone.utc).isoformat()
+            updated["ytd_update"] = {
+                "ran_at_utc": datetime.now(timezone.utc).isoformat(),
+                "plan": asdict(plan),
+                "ingestion": meta,
+                "last_valid_to_before": last_before,
+                "last_valid_to_after": merged_prices[-1].get("valid_to") if merged_prices else None,
+                "slots_fetched": len(fetched),
+            }
+
+            out_path = _raw_file_path_export(year, region)
+            _atomic_write_json(out_path, updated)
+            succeeded.append(region)
+            logger.info(
+                f"[EXPORT_OK] region={region} slots_fetched={len(fetched)} total_slots={len(merged_prices)} "
+                f"last_valid_to_after={updated['ytd_update']['last_valid_to_after']}"
+            )
+
+        except Exception as e:
+            msg = str(e)
+            failed[region] = msg
+            logger.error(f"[EXPORT_FAIL] region={region} error={msg}", exc_info=True)
+
+    return succeeded, failed
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Update YTD raw prices + stats + cache")
+    parser.add_argument("--year", type=int, default=2026, help="Year to update (default: 2026)")
+    parser.add_argument("--product", type=str, default=Config.OCTOPUS_PRODUCT_CODE, help="Octopus import product code")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--export", action="store_true", help="Process export (Agile Outgoing) only")
+    group.add_argument("--both", action="store_true", help="Process import and export")
+    args = parser.parse_args()
+
+    year = args.year
+    mode = "export" if args.export else ("both" if args.both else "import")
+    now_uk = get_uk_now()
+
+    # Resolve product code: import uses args.product; export discovers Agile Outgoing
+    product_code = args.product
+    export_product_code: Optional[str] = None
+    if mode in ("export", "both"):
+        try:
+            products = discover_export_products()
+            agile_export = next((p for p in products if getattr(p, "tariff_type", None) == "agile_outgoing"), None)
+            if not agile_export:
+                logger.error("[JOB_START] No Agile Outgoing product found for export mode")
+                return 1
+            export_product_code = agile_export.code
+        except Exception as e:
+            logger.error(f"[JOB_START] Export product discovery failed: {e}", exc_info=True)
+            return 1
+
+    logger.info(f"[JOB_START] year={year} mode={mode} now_uk={now_uk.isoformat()} product={product_code}")
+
+    regions = list(Config.OCTOPUS_REGION_NAMES.keys())
+
+    # --- Import raw update ---
+    if mode in ("import", "both"):
+        succeeded, failed = _run_import_ytd(year, product_code, regions, now_uk)
+        if failed:
+            logger.error("[ERROR_SUMMARY] Import: one or more regions failed; skipping stats + cache")
+            for region, msg in failed.items():
+                logger.error(f" - region={region}: {msg}")
+            logger.info(f"[JOB_END] status=error mode=import regions_ok={len(succeeded)} regions_failed={len(failed)}")
+            return 1
+
+    # --- Export raw update ---
+    if mode in ("export", "both"):
+        export_succeeded, export_failed = _run_export_ytd(
+            year, export_product_code or "", regions, now_uk
+        )
+        if export_failed:
+            logger.error("[ERROR_SUMMARY] Export: one or more regions failed; skipping stats")
+            for region, msg in export_failed.items():
+                logger.error(f" - region={region}: {msg}")
+            logger.info(f"[JOB_END] status=error mode=export regions_ok={len(export_succeeded)} regions_failed={len(export_failed)}")
+            return 1
+
+    # --- Import stats ---
+    if mode in ("import", "both"):
+        logger.info(f"[STATS] start import year={year}")
+        try:
+            for region in regions:
+                stats = StatsCalculator.calculate_year_stats(
+                    product_code, region_code=region, year=year, coverage="year_to_date"
+                )
+                StatsCalculator.save_stats(stats)
+            national = StatsCalculator.calculate_national_averages(product_code, year=year)
+            StatsCalculator.save_national_stats(national, year=year)
+            logger.info(f"[STATS] import ok year={year} output_dir={STATS_BASE_DIR/str(year)}")
+        except Exception as e:
+            logger.error(f"[STATS] import failed year={year} error={e}", exc_info=True)
+            logger.info("[JOB_END] status=error")
+            return 1
+
+    # --- Export stats ---
+    if mode in ("export", "both"):
+        logger.info(f"[STATS] start export year={year}")
+        try:
+            for region in regions:
+                stats = StatsCalculator.calculate_export_year_stats(
+                    export_product_code,
+                    region_code=region,
+                    year=year,
+                    coverage="year_to_date",
+                )
+                if stats is None:
+                    raise RuntimeError(f"Export stats failed for region {region} (raw data missing?)")
+                StatsCalculator.save_stats(stats, export=True)
+            national = StatsCalculator.calculate_national_averages_export(export_product_code, year=year)
+            StatsCalculator.save_national_stats(national, year=year, export=True)
+            logger.info(f"[STATS] export ok year={year} output_dir={STATS_BASE_DIR/'export'/str(year)}")
+        except Exception as e:
+            logger.error(f"[STATS] export failed year={year} error={e}", exc_info=True)
+            logger.info("[JOB_END] status=error")
+            return 1
+
+    # --- Import cache ---
+    if mode in ("import", "both"):
+        logger.info("[CACHE] start refresh_all_regions (import)")
+        try:
+            for region in regions:
+                refresh_cache_for_region(product_code, region)
+            logger.info("[CACHE] ok")
+        except Exception as e:
+            logger.error(f"[CACHE] failed error={e}", exc_info=True)
+            logger.info("[JOB_END] status=error")
+            return 1
+
+    # --- Export cache (Agile Outgoing + Fixed for live pages) ---
+    if mode in ("export", "both"):
+        logger.info("[EXPORT_CACHE] start refresh_all_regions")
+        try:
+            refresh_export_cache(regions)
+            logger.info("[EXPORT_CACHE] ok")
+        except Exception as e:
+            logger.warning(f"[EXPORT_CACHE] failed (non-fatal): {e}", exc_info=True)
+
+    logger.info(f"[JOB_END] status=ok mode={mode}")
     return 0
 
 
