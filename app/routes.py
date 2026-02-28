@@ -973,7 +973,7 @@ def export_index():
                 _track_region_request_on_post(submitted_region)
                 slug = region_slug_from_code(submitted_region)
                 if slug:
-                    return redirect(url_for('main.export_agile', region=slug))
+                    return redirect(url_for('main.export_agile_region', region_slug=slug))
             error_message = "Invalid region selected. Please try again."
             show_region_dropdown = True
             submitted_postcode = form_postcode
@@ -991,7 +991,7 @@ def export_index():
                     _track_region_request_on_post(region_result)
                     slug = region_slug_from_code(region_result)
                     if slug:
-                        return redirect(url_for('main.export_agile', region=slug))
+                        return redirect(url_for('main.export_agile_region', region_slug=slug))
                     error_message = "Unable to determine region. Please select below."
                     show_region_dropdown = True
                 elif isinstance(region_result, list):
@@ -1030,17 +1030,62 @@ def export_fixed():
 
 
 @bp.route('/export/agile')
-def export_agile():
-    """Agile Outgoing export page: today's rates, daily stats, negative price warning."""
-    initial_region_slug = request.args.get('region')
-    from app.export_stats import EXPORT_BLOCK_DURATION_HOURS
+def export_agile_redirect():
+    """Redirect /export/agile (no region) to export index."""
+    return redirect(url_for('main.export_index'))
+
+
+@bp.route('/export/agile/<region_slug>')
+def export_agile_region(region_slug):
+    """Agile Outgoing export page for a region (canonical, SEO-friendly)."""
+    region_code = region_code_from_slug(region_slug)
+    if not region_code:
+        logger.info(f"Export agile: region resolution failed for slug: {region_slug}")
+        from flask import abort
+        abort(404)
+    from app.export_stats import EXPORT_BLOCK_DURATION_HOURS, EXPORT_DEFAULT_CAPACITY_KWH
+    duration = request.args.get('duration', type=float) or EXPORT_BLOCK_DURATION_HOURS
+    capacity = request.args.get('capacity', type=float) or EXPORT_DEFAULT_CAPACITY_KWH
+    inc_vat = request.args.get('inc_vat', 'true').lower() not in ('false', '0', 'no')
     return render_template(
         'export/agile.html',
         page_name='export_agile',
         regions=_regions_list_with_slugs(),
-        initial_region_slug=initial_region_slug,
+        region_slug=region_slug,
+        region_name=region_name_from_code(region_code) or region_slug,
+        duration=duration,
+        capacity=capacity,
+        inc_vat=inc_vat,
         block_duration=EXPORT_BLOCK_DURATION_HOURS,
     )
+
+
+@bp.route('/export/agile/go', methods=['GET', 'POST'])
+def export_agile_go():
+    """Region/options form handler: redirects to /export/agile/<region_slug>."""
+    target_slug = request.values.get('region_slug')
+    target_region_code = region_code_from_slug(target_slug) if target_slug else None
+    if not target_slug or not target_region_code:
+        logger.info(f"Export agile go: region resolution failed for slug: {target_slug}")
+        flash('Invalid region selected.', 'error')
+        return redirect(url_for('main.export_index'))
+
+    _track_region_request_on_post(target_region_code)
+
+    duration = request.values.get('duration', type=float)
+    capacity = request.values.get('capacity', type=float)
+    inc_vat = request.values.get('inc_vat', 'true').lower() not in ('false', '0', 'no')
+
+    from app.export_stats import EXPORT_BLOCK_DURATION_HOURS, EXPORT_DEFAULT_CAPACITY_KWH
+    params = {}
+    if duration is not None and abs(duration - EXPORT_BLOCK_DURATION_HOURS) > 1e-9:
+        params['duration'] = duration
+    if capacity is not None and abs(capacity - EXPORT_DEFAULT_CAPACITY_KWH) > 1e-9:
+        params['capacity'] = capacity
+    if not inc_vat:
+        params['inc_vat'] = 'false'
+
+    return redirect(url_for('main.export_agile_region', region_slug=target_slug, **params))
 
 
 @bp.route('/robots.txt')

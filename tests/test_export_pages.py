@@ -28,11 +28,22 @@ class TestExportPagesLoad:
         assert b"VAT" in r.data
 
     def test_export_agile_loads(self, client):
-        r = client.get("/export/agile")
+        r = client.get("/export/agile/eastern-england")
         assert r.status_code == 200
         assert b"Agile Outgoing" in r.data
         assert b"negative" in r.data.lower()
         assert b"region-select" in r.data
+
+    def test_export_agile_redirects_without_region(self, client):
+        """ /export/agile without region redirects to export index."""
+        r = client.get("/export/agile", follow_redirects=False)
+        assert r.status_code == 302
+        assert "/export" in r.headers.get("Location", "")
+
+    def test_export_agile_404_invalid_region(self, client):
+        """ /export/agile/<invalid> returns 404."""
+        r = client.get("/export/agile/invalid-region-slug-xyz")
+        assert r.status_code == 404
 
 
 class TestExportPagesAPIDataRequests:
@@ -48,13 +59,13 @@ class TestExportPagesAPIDataRequests:
 
     def test_agile_page_requests_blocks(self, client):
         """Agile page uses blocks API (includes prices, chart data, today_stats)."""
-        r = client.get("/export/agile")
+        r = client.get("/export/agile/eastern-england")
         html = r.data.decode("utf-8")
         assert "/api/export/blocks" in html
 
     def test_agile_page_does_not_request_fixed_rates(self, client):
         """Agile page never requests tariff_type=fixed."""
-        r = client.get("/export/agile")
+        r = client.get("/export/agile/eastern-england")
         html = r.data.decode("utf-8")
         # agile_outgoing appears; fixed should not appear in API URLs
         assert "tariff_type=fixed" not in html
@@ -85,7 +96,7 @@ class TestExportPageStructure:
         assert b"<h1" in r.data
 
     def test_agile_page_loads_with_heading(self, client):
-        r = client.get("/export/agile")
+        r = client.get("/export/agile/eastern-england")
         assert r.status_code == 200
         assert b"Agile Outgoing" in r.data or b"Export" in r.data
 

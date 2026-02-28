@@ -36,12 +36,18 @@
         <changefreq>daily</changefreq>
         <priority>0.6</priority>
     </url>
+    {% if regions %}
+    {% for r in regions %}
+    {% if r.slug %}
     <url>
-        <loc>{{ site_url }}/export/agile</loc>
+        <loc>{{ site_url }}/export/agile/{{ r.slug }}</loc>
         <lastmod>{{ lastmod }}</lastmod>
         <changefreq>daily</changefreq>
         <priority>0.6</priority>
     </url>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
     <url>
         <loc>{{ site_url }}/about</loc>
         <lastmod>{{ lastmod }}</lastmod>

@@ -5,7 +5,7 @@
 {% block content %}
 <article>
     <header>
-        <h1 class="mb-4">Agile Outgoing Export for <span id="region-name-display">—</span></h1>
+        <h1 class="mb-4">Agile Outgoing Export for <span id="region-name-display">{{ region_name }}</span></h1>
     </header>
 
     <!-- Section 1: Product Info Banner (matches prices page) -->
@@ -18,7 +18,7 @@
 
     <!-- Section 2: Best Export Options (matches prices page "Cheapest Charging Options") -->
     <section class="mb-4">
-        <h2 class="h5 mb-3">Today's Best Export Options for <span id="region-name-heading">—</span></h2>
+        <h2 class="h5 mb-3">Today's Best Export Options for <span id="region-name-heading">{{ region_name }}</span></h2>
 
         <!-- Summary ABOVE cards (matches _daily_price_summary above) -->
         <div class="mb-3" id="summary-above" style="display: none;">
@@ -157,40 +157,42 @@
         <div class="card mb-4">
             <div class="card-body">
                 <h2 class="h5 mb-3">Change Block Duration, Usage or Region Options</h2>
-                <div class="row g-3">
+                <form method="POST" action="{{ url_for('main.export_agile_go') }}" class="row g-3">
                     <div class="col-md-3">
                         <label for="duration" class="form-label">Block Duration (hours)</label>
-                        <input type="number" class="form-control" id="duration" value="3.5" step="0.5" min="0.5" max="6.0" inputmode="decimal" aria-describedby="duration-help">
+                        <input type="number" class="form-control" id="duration" name="duration" value="{{ duration }}" step="0.5" min="0.5" max="6.0" inputmode="decimal" aria-describedby="duration-help">
                         <small id="duration-help" class="text-muted form-text">Supports decimals (e.g., 3.5)</small>
                     </div>
                     <div class="col-md-3">
                         <label for="capacity" class="form-label">Usage / Export Capacity (kWh)</label>
-                        <input type="number" class="form-control" id="capacity" value="10" step="0.1" min="0.1" placeholder="e.g., 10.0" inputmode="decimal" aria-describedby="capacity-help">
+                        <input type="number" class="form-control" id="capacity" name="capacity" value="{{ capacity }}" step="0.1" min="0.1" placeholder="e.g., 10.0" inputmode="decimal" aria-describedby="capacity-help">
                         <small id="capacity-help" class="text-muted form-text">Enter your typical export in kilowatt-hours</small>
                     </div>
                     <div class="col-md-3">
                         <label for="region-select" class="form-label">Change Region</label>
-                        <select id="region-select" class="form-select" aria-label="Select your region">
+                        <select id="region-select" class="form-select" name="region_slug" required aria-label="Select your region">
                             {% for r in regions %}
-                            <option value="{{ r.region }}" {% if r.slug %}data-slug="{{ r.slug }}"{% endif %} data-name="{{ r.name }}" {% if initial_region_slug and r.slug == initial_region_slug %}selected{% endif %}>{{ r.name }}</option>
+                            {% if r.slug %}
+                            <option value="{{ r.slug }}" data-slug="{{ r.slug }}" data-name="{{ r.name }}" {% if r.slug == region_slug %}selected{% endif %}>{{ r.name }}</option>
+                            {% endif %}
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label d-block">VAT</label>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="vat" id="vat-inc" value="true" checked>
+                            <input class="form-check-input" type="radio" name="inc_vat" id="vat-inc" value="true" {% if inc_vat %}checked{% endif %}>
                             <label class="form-check-label" for="vat-inc">Including VAT</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="vat" id="vat-exc" value="false">
+                            <input class="form-check-input" type="radio" name="inc_vat" id="vat-exc" value="false" {% if not inc_vat %}checked{% endif %}>
                             <label class="form-check-label" for="vat-exc">Excluding VAT</label>
                         </div>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
-                        <button type="button" id="update-btn" class="btn btn-primary w-100">Update</button>
+                        <button type="submit" id="update-btn" class="btn btn-primary w-100">Update</button>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </section>
@@ -254,8 +256,6 @@
     const regionNameHeading = document.getElementById('region-name-heading');
     const durationInput = document.getElementById('duration');
     const capacityInput = document.getElementById('capacity');
-    const updateBtn = document.getElementById('update-btn');
-    const vatRadios = document.querySelectorAll('input[name="vat"]');
     let exportChart = null;
 
     function getRegionParam() {
@@ -266,7 +266,7 @@
         const opt = regionSelect.selectedOptions[0];
         return (opt && opt.dataset.name) ? opt.dataset.name : (opt ? opt.textContent : '—');
     }
-    function getIncVat() { return document.querySelector('input[name="vat"]:checked').value === 'true'; }
+    function getIncVat() { return document.querySelector('input[name="inc_vat"]:checked').value === 'true'; }
     function todayISO() {
         const d = new Date();
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -650,9 +650,7 @@
             .catch(() => {});
     }
 
-    regionSelect.addEventListener('change', fetchData);
-    vatRadios.forEach(r => r.addEventListener('change', fetchData));
-    updateBtn.addEventListener('click', fetchData);
+    // Form submits to export_agile_go and redirects (like import prices) — no client-side fetch on change
     fetchData();
 })();
 </script>
