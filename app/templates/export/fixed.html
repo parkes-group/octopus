@@ -31,7 +31,7 @@
                             <strong>Rate:</strong>
                             <span class="h4 text-info" id="rate-display">—</span> p/kWh
                         </p>
-                        <p class="mb-0 text-muted small"><span id="rate-vat-label">—</span></p>
+                        <p class="mb-0 text-muted small">Fixed all day</p>
                     </div>
                 </div>
             </div>
@@ -45,7 +45,7 @@
     <section class="mb-4">
         <div class="card mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-3">Change Region or VAT Options</h2>
+                <h2 class="h5 mb-3">Change Region</h2>
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label for="region-select" class="form-label">Region</label>
@@ -54,17 +54,6 @@
                             <option value="{{ r.region }}" {% if r.slug %}data-slug="{{ r.slug }}"{% endif %} data-name="{{ r.name }}">{{ r.name }}</option>
                             {% endfor %}
                         </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label d-block">VAT</label>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="vat" id="vat-inc" value="true" checked>
-                            <label class="form-check-label" for="vat-inc">Including VAT</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="vat" id="vat-exc" value="false">
-                            <label class="form-check-label" for="vat-exc">Excluding VAT</label>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -84,10 +73,8 @@
     const regionNameDisplay = document.getElementById('region-name-display');
     const rateCard = document.getElementById('rate-card');
     const rateDisplay = document.getElementById('rate-display');
-    const rateVatLabel = document.getElementById('rate-vat-label');
     const rateStatus = document.getElementById('rate-status');
     const bookmarkTip = document.getElementById('bookmark-tip');
-    const vatRadios = document.querySelectorAll('input[name="vat"]');
 
     function getRegionParam() {
         const opt = regionSelect.selectedOptions[0];
@@ -99,25 +86,19 @@
         return (opt && opt.dataset.name) ? opt.dataset.name : (opt ? opt.textContent : '—');
     }
 
-    function getIncVat() {
-        return document.querySelector('input[name="vat"]:checked').value === 'true';
-    }
-
     function fetchRate() {
         const region = getRegionParam();
-        const incVat = getIncVat();
         regionNameDisplay.textContent = getRegionName();
         rateStatus.textContent = 'Loading…';
         rateCard.style.display = 'none';
         bookmarkTip.style.display = 'none';
         rateDisplay.textContent = '—';
 
-        fetch(`/api/export/rate?tariff_type=fixed&region=${encodeURIComponent(region)}&inc_vat=${incVat}`)
+        fetch(`/api/export/rate?tariff_type=fixed&region=${encodeURIComponent(region)}&inc_vat=true`)
             .then(r => r.json())
             .then(data => {
                 if (data.p_per_kwh != null) {
                     rateDisplay.textContent = data.p_per_kwh.toFixed(2);
-                    rateVatLabel.textContent = incVat ? 'Including VAT' : 'Excluding VAT';
                     rateCard.style.display = '';
                     bookmarkTip.style.display = '';
                     rateStatus.textContent = '';
@@ -131,7 +112,6 @@
     }
 
     regionSelect.addEventListener('change', fetchRate);
-    vatRadios.forEach(r => r.addEventListener('change', fetchRate));
     fetchRate();
 })();
 </script>
