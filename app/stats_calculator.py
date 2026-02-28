@@ -42,9 +42,24 @@ class StatsCalculator:
         return StatsCalculator.RAW_DATA_DIR / str(year)
 
     @staticmethod
+    def _raw_dir_for_year_export(year: int) -> Path:
+        """Return the export raw data directory for a given year (e.g. data/raw/export/2025)."""
+        return StatsCalculator.RAW_DATA_DIR / "export" / str(year)
+
+    @staticmethod
+    def _stats_dir_for_year_export(year: int) -> Path:
+        """Return the export stats directory for a given year (e.g. data/stats/export/2025)."""
+        return StatsCalculator.STATS_DIR / "export" / str(year)
+
+    @staticmethod
     def _ensure_stats_dir(year: int):
         """Ensure stats year directory exists."""
         StatsCalculator._stats_dir_for_year(year).mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _ensure_stats_dir_export(year: int):
+        """Ensure export stats year directory exists."""
+        StatsCalculator._stats_dir_for_year_export(year).mkdir(parents=True, exist_ok=True)
     
     @staticmethod
     def load_raw_data(region_code, year=2025):
@@ -74,7 +89,36 @@ class StatsCalculator:
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error reading raw data file {filepath}: {e}")
             return None
-    
+
+    @staticmethod
+    def load_raw_data_export(region_code, year=2025):
+        """
+        Load export raw price data from file.
+
+        Args:
+            region_code: Region code (A, B, C, etc.)
+            year: Year (default 2025)
+
+        Returns:
+            list: List of price dictionaries, or None if file not found
+        """
+        filepath = StatsCalculator._raw_dir_for_year_export(year) / f"{region_code}_{year}.json"
+
+        if not filepath.exists():
+            logger.warning(f"Export raw data file not found: {filepath}")
+            return None
+
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                raw_data = json.load(f)
+
+            prices = raw_data.get('prices', [])
+            logger.debug(f"Loaded {len(prices)} export price slots from {filepath}")
+            return prices
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Error reading export raw data file {filepath}: {e}")
+            return None
+
     @staticmethod
     def calculate_2025_stats(product_code, region_code='A', 
                             daily_kwh=None, 
@@ -737,16 +781,291 @@ class StatsCalculator:
 
         logger.info(f"Statistics calculated successfully: {total_days} days, {total_negative_slots} negative slots")
         return results
-    
+
     @staticmethod
-    def save_stats(stats_data, filename=None):
+    def calculate_export_year_stats(
+        product_code,
+        region_code="A",
+        *,
+        year: int,
+        coverage: str = "full_year",
+        daily_kwh=None,
+        battery_charge_power_kw=None,
+    ):
+        """
+        Calculate statistics for export (Agile Outgoing) for a given year.
+
+        Export semantics: best block = highest rate (best time to export),
+        worst block = lowest rate (avoid exporting). Earnings vs daily average =
+        extra income from timing exports to the best block.
+
+        Uses raw data from data/raw/export/{year}/ if available.
+        """
+        daily_kwh = daily_kwh or Config.STATS_DAILY_KWH
+        battery_charge_power_kw = battery_charge_power_kw or Config.STATS_BATTERY_CHARGE_POWER_KW
+
+        start_date, end_date = StatsCalculator._date_range_for_coverage(year, coverage)
+
+        logger.info(f"Starting export {year} statistics for {product_code} region {region_code} (coverage={coverage})")
+        logger.info(f"Processing range (UTC dates): {start_date.isoformat()} .. {end_date.isoformat()}")
+
+        all_prices = StatsCalculator.load_raw_data_export(region_code, year=year)
+        use_raw_data = all_prices is not None
+
+        if use_raw_data:
+            logger.info(f"Using export raw data for region {region_code} ({len(all_prices)} price slots)")
+        else:
+            logger.warning("Export raw data file not found; run download_raw_data.py --export first")
+            return None
+
+        best_block_prices = []
+        worst_block_prices = []
+        daily_average_prices = []
+        negative_slots = []
+        total_days = 0
+        failed_days = 0
+
+        peak_sum = 0.0
+        peak_count = 0
+        offpeak_sum = 0.0
+        offpeak_count = 0
+        winter_sum = 0.0
+        winter_count = 0
+        summer_sum = 0.0
+        summer_count = 0
+        shifted_effective_sum = 0.0
+        shifted_effective_days = 0
+
+        current_date = start_date
+        while current_date <= end_date:
+            date_str = current_date.strftime("%Y-%m-%d")
+            try:
+                prices_data = [p for p in all_prices if p.get("valid_from", "").startswith(date_str)]
+
+                if not prices_data:
+                    logger.warning(f"No export prices found for {date_str}")
+                    failed_days += 1
+                    current_date += timedelta(days=1)
+                    continue
+
+                prices_data = sorted(prices_data, key=lambda x: x.get("valid_from", ""))
+
+                # Export: best = highest rate, worst = lowest rate
+                best_block = PriceCalculator.find_worst_block(prices_data, StatsCalculator.BLOCK_DURATION_HOURS)
+                worst_block = PriceCalculator.find_cheapest_block(prices_data, StatsCalculator.BLOCK_DURATION_HOURS)
+                if best_block:
+                    best_block_prices.append(best_block["average_price"])
+                if worst_block:
+                    worst_block_prices.append(worst_block["average_price"])
+
+                daily_avg = PriceCalculator.calculate_daily_average_price(prices_data)
+                if daily_avg:
+                    daily_average_prices.append(daily_avg)
+
+                for slot in prices_data:
+                    try:
+                        price = float(slot.get("value_inc_vat", 0))
+                        dt_uk = utc_to_uk(slot["valid_from"])
+                        t = dt_uk.timetz().replace(tzinfo=None)
+                        m = dt_uk.month
+                    except Exception:
+                        continue
+                    if StatsCalculator.PEAK_START_LOCAL <= t < StatsCalculator.PEAK_END_LOCAL:
+                        peak_sum += price
+                        peak_count += 1
+                    else:
+                        offpeak_sum += price
+                        offpeak_count += 1
+                    if m in (11, 12, 1, 2):
+                        winter_sum += price
+                        winter_count += 1
+                    if m in (5, 6, 7, 8):
+                        summer_sum += price
+                        summer_count += 1
+
+                if best_block and best_block.get("slots") and daily_avg is not None:
+                    try:
+                        best_slots = best_block["slots"]
+                        best_slot_keys = {s.get("valid_from") for s in best_slots if s.get("valid_from")}
+                        block_prices = [float(s["value_inc_vat"]) for s in best_slots if "value_inc_vat" in s]
+                        if not block_prices:
+                            raise ValueError("missing_block_prices")
+                        block_avg = sum(block_prices) / len(block_prices)
+                        outside_prices = [
+                            float(s["value_inc_vat"])
+                            for s in prices_data
+                            if s.get("valid_from") not in best_slot_keys and "value_inc_vat" in s
+                        ]
+                        outside_avg = (sum(outside_prices) / len(outside_prices)) if outside_prices else float(daily_avg)
+                        shift_fraction = Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0
+                        shifted_effective = (shift_fraction * block_avg) + ((1.0 - shift_fraction) * outside_avg)
+                        shifted_effective_sum += shifted_effective
+                        shifted_effective_days += 1
+                    except Exception:
+                        pass
+
+                for price in prices_data:
+                    if price.get("value_inc_vat", 0) <= 0:
+                        negative_slots.append({
+                            "date": date_str,
+                            "price_p_per_kwh": price["value_inc_vat"],
+                            "valid_from": price["valid_from"],
+                            "valid_to": price["valid_to"],
+                        })
+
+                total_days += 1
+                if total_days % 30 == 0:
+                    logger.info(f"Processed {total_days} days...")
+
+            except Exception as e:
+                logger.error(f"Error processing {date_str}: {e}", exc_info=True)
+                failed_days += 1
+
+            current_date += timedelta(days=1)
+
+        logger.info(f"Completed export processing: {total_days} successful days, {failed_days} failed days")
+
+        avg_best_block = sum(best_block_prices) / len(best_block_prices) if best_block_prices else 0
+        avg_worst_block = sum(worst_block_prices) / len(worst_block_prices) if worst_block_prices else 0
+        avg_daily_average = sum(daily_average_prices) / len(daily_average_prices) if daily_average_prices else 0
+
+        # Earnings vs daily average: extra income from exporting in best block
+        earnings_p_per_kwh = avg_best_block - avg_daily_average
+        earnings_percentage = (earnings_p_per_kwh / avg_daily_average * 100) if avg_daily_average > 0 else 0
+
+        best_block_usage_kwh = daily_kwh * (Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0)
+        savings_days = total_days if coverage == "year_to_date" else 365
+        annual_earnings_vs_daily_avg = (earnings_p_per_kwh * best_block_usage_kwh * savings_days) / 100
+
+        total_negative_slots = len(negative_slots)
+        total_negative_hours = total_negative_slots * 0.5
+        avg_negative_price_p_per_kwh = 0.0
+        if total_negative_slots > 0:
+            total_negative_price_pence = sum(abs(slot["price_p_per_kwh"]) for slot in negative_slots)
+            avg_negative_price_p_per_kwh = total_negative_price_pence / total_negative_slots
+
+        total_paid_pence = 0
+        for slot in negative_slots:
+            kwh_per_slot = battery_charge_power_kw * 0.5
+            payment_pence = abs(slot["price_p_per_kwh"]) * kwh_per_slot
+            total_paid_pence += payment_pence
+        total_paid_gbp = total_paid_pence / 100
+        avg_payment_per_day = total_paid_gbp / total_days if total_days > 0 else 0
+
+        annualisation_days = total_days if coverage == "year_to_date" else 365
+        shifted_effective = (shifted_effective_sum / shifted_effective_days) if shifted_effective_days > 0 else 0.0
+        earnings_vs_daily_rate_p = shifted_effective - avg_daily_average
+        earnings_vs_worst_rate_p = shifted_effective - avg_worst_block
+        annual_earnings_vs_daily_gbp = (earnings_vs_daily_rate_p * daily_kwh * annualisation_days) / 100.0
+        annual_earnings_vs_worst_gbp = (earnings_vs_worst_rate_p * daily_kwh * annualisation_days) / 100.0
+
+        avg_peak = (peak_sum / peak_count) if peak_count > 0 else 0.0
+        avg_offpeak = (offpeak_sum / offpeak_count) if offpeak_count > 0 else 0.0
+        peak_premium_p = avg_peak - avg_offpeak
+        peak_premium_pct = (peak_premium_p / avg_offpeak * 100.0) if avg_offpeak > 0 else 0.0
+        avg_winter = (winter_sum / winter_count) if winter_count > 0 else 0.0
+        avg_summer = (summer_sum / summer_count) if summer_count > 0 else 0.0
+        seasonal_diff_p = avg_winter - avg_summer
+        seasonal_diff_pct = (seasonal_diff_p / avg_summer * 100.0) if avg_summer > 0 else 0.0
+
+        calc_time = datetime.now(UK_TZ).isoformat()
+        results = {
+            "tariff_type": "export",
+            "year": year,
+            "coverage": coverage,
+            "days_covered": total_days,
+            "last_updated": calc_time,
+            "region_code": region_code,
+            "product_code": product_code,
+            "calculation_date": calc_time,
+            "days_processed": total_days,
+            "days_failed": failed_days,
+            "best_block": {
+                "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                "avg_price_p_per_kwh": round(avg_best_block, 2),
+            },
+            "worst_block": {
+                "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                "avg_price_p_per_kwh": round(avg_worst_block, 2),
+            },
+            "daily_average": {"avg_price_p_per_kwh": round(avg_daily_average, 2)},
+            "earnings_vs_daily_average": {
+                "earnings_p_per_kwh": round(earnings_p_per_kwh, 2),
+                "earnings_percentage": round(earnings_percentage, 2),
+                "annual_earning_gbp": round(annual_earnings_vs_daily_avg, 2),
+            },
+            "negative_pricing": {
+                "total_negative_slots": total_negative_slots,
+                "total_negative_hours": round(total_negative_hours, 1),
+                "avg_negative_price_p_per_kwh": round(avg_negative_price_p_per_kwh, 2),
+                "total_paid_gbp": round(total_paid_gbp, 2),
+                "avg_payment_per_day_gbp": round(avg_payment_per_day, 3),
+            },
+            "assumptions": {
+                "daily_kwh": daily_kwh,
+                "battery_charge_power_kw": battery_charge_power_kw,
+                "best_block_usage_percent": Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT,
+            },
+            "usage_insights": {
+                "peak_window_analysis": {
+                    "window_local": {
+                        "start": StatsCalculator.PEAK_START_LOCAL.strftime("%H:%M"),
+                        "end": StatsCalculator.PEAK_END_LOCAL.strftime("%H:%M"),
+                    },
+                    "avg_peak_price_p_per_kwh": round(avg_peak, 2),
+                    "avg_offpeak_price_p_per_kwh": round(avg_offpeak, 2),
+                    "peak_premium_p_per_kwh": round(peak_premium_p, 2),
+                    "peak_premium_percentage": round(peak_premium_pct, 2),
+                    "slots_count_peak": peak_count,
+                    "slots_count_offpeak": offpeak_count,
+                },
+                "seasonal_comparison": {
+                    "winter_months": [11, 12, 1, 2],
+                    "summer_months": [5, 6, 7, 8],
+                    "avg_winter_price_p_per_kwh": round(avg_winter, 2),
+                    "avg_summer_price_p_per_kwh": round(avg_summer, 2),
+                    "difference_p_per_kwh": round(seasonal_diff_p, 2),
+                    "difference_percentage": round(seasonal_diff_pct, 2),
+                    "slots_count_winter": winter_count,
+                    "slots_count_summer": summer_count,
+                },
+                "shiftable_export_scenarios": {
+                    "shift_fraction": round(Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT / 100.0, 4),
+                    "block_hours": StatsCalculator.BLOCK_DURATION_HOURS,
+                    "effective_unit_rate_p_per_kwh": round(shifted_effective, 2),
+                    "baseline_daily_average_p_per_kwh": round(avg_daily_average, 2),
+                    "baseline_worst_block_p_per_kwh": round(avg_worst_block, 2),
+                    "earnings_vs_daily_average": {
+                        "earnings_p_per_kwh": round(earnings_vs_daily_rate_p, 2),
+                        "earnings_percentage": round((earnings_vs_daily_rate_p / avg_daily_average * 100.0) if avg_daily_average > 0 else 0.0, 2),
+                        "annual_earning_gbp": round(annual_earnings_vs_daily_gbp, 2),
+                    },
+                    "earnings_vs_worst_block": {
+                        "earnings_p_per_kwh": round(earnings_vs_worst_rate_p, 2),
+                        "earnings_percentage": round((earnings_vs_worst_rate_p / avg_worst_block * 100.0) if avg_worst_block > 0 else 0.0, 2),
+                        "annual_earning_gbp": round(annual_earnings_vs_worst_gbp, 2),
+                    },
+                    "assumptions": {
+                        "daily_kwh": daily_kwh,
+                        "annualisation_days": int(annualisation_days),
+                    },
+                },
+            },
+        }
+
+        logger.info(f"Export statistics calculated: {total_days} days, {total_negative_slots} negative slots")
+        return results
+
+    @staticmethod
+    def save_stats(stats_data, filename=None, *, export: bool = False):
         """
         Save statistics to JSON file.
-        
+
         Args:
             stats_data: Statistics dictionary
             filename: Optional filename. If None, generates from year and region.
-        
+            export: If True, save to data/stats/export/{year}/ instead of data/stats/{year}/
+
         Returns:
             Path: Path to saved file
         """
@@ -757,9 +1076,12 @@ class StatsCalculator:
         else:
             year = stats_data.get('year', 2025)
 
-        StatsCalculator._ensure_stats_dir(year)
-        
-        filepath = StatsCalculator._stats_dir_for_year(year) / filename
+        if export:
+            StatsCalculator._ensure_stats_dir_export(year)
+            filepath = StatsCalculator._stats_dir_for_year_export(year) / filename
+        else:
+            StatsCalculator._ensure_stats_dir(year)
+            filepath = StatsCalculator._stats_dir_for_year(year) / filename
         
         try:
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -772,24 +1094,28 @@ class StatsCalculator:
             raise
     
     @staticmethod
-    def load_stats(filename=None, year=2025, region_code='national'):
+    def load_stats(filename=None, year=2025, region_code='national', *, export: bool = False):
         """
         Load statistics from JSON file.
-        
+
         Args:
             filename: Optional filename. If None, generates from year and region.
             year: Year for filename generation (if filename not provided)
             region_code: Region code for filename generation (if filename not provided)
                         Use 'national' for national averages file, or region codes (A, B, C, etc.)
-        
+            export: If True, load from data/stats/export/{year}/ instead of data/stats/{year}/
+
         Returns:
             dict: Statistics dictionary, or None if file not found
         """
         if filename is None:
             filename = f"{region_code}_{year}.json"
-        
-        filepath = StatsCalculator._stats_dir_for_year(year) / filename
-        
+
+        if export:
+            filepath = StatsCalculator._stats_dir_for_year_export(year) / filename
+        else:
+            filepath = StatsCalculator._stats_dir_for_year(year) / filename
+
         if not filepath.exists():
             logger.warning(f"Statistics file not found: {filepath}")
             return None
@@ -1057,19 +1383,130 @@ class StatsCalculator:
         return national_stats
     
     @staticmethod
-    def save_national_stats(national_stats, year=2025):
+    def save_national_stats(national_stats, year=2025, *, export: bool = False):
         """
         Save national statistics to file (uses 'national' as region code).
-        
+
         Args:
             national_stats: National statistics dictionary
             year: Year (default 2025)
-        
+            export: If True, save to data/stats/export/{year}/
+
         Returns:
             Path: Path to saved file
         """
-        # Override region_code to 'national' for filename
         stats_with_national = national_stats.copy()
         stats_with_national['region_code'] = 'national'
-        return StatsCalculator.save_stats(stats_with_national, filename=f"national_{year}.json")
+        return StatsCalculator.save_stats(stats_with_national, filename=f"national_{year}.json", export=export)
+
+    @staticmethod
+    def calculate_national_averages_export(product_code, year=2025):
+        """
+        Calculate national averages from all regional export statistics.
+
+        Args:
+            product_code: Export product code (e.g. 'AGILE-OUTGOING-19-05-13')
+            year: Year (default 2025)
+
+        Returns:
+            dict: National export statistics dictionary, or None
+        """
+        StatsCalculator._ensure_stats_dir_export(year)
+
+        region_codes = list(Config.OCTOPUS_REGION_NAMES.keys())
+        regional_stats = []
+        loaded_region_codes = []
+        for region_code in region_codes:
+            stats = StatsCalculator.load_stats(year=year, region_code=region_code, export=True)
+            if stats and stats.get("product_code") == product_code and stats.get("tariff_type") == "export":
+                regional_stats.append(stats)
+                loaded_region_codes.append(region_code)
+
+        if not regional_stats:
+            logger.warning("No regional export statistics found to calculate national averages")
+            return None
+
+        logger.info(f"Calculating national export averages from {len(regional_stats)} regional statistics")
+
+        assumptions = regional_stats[0].get("assumptions", {})
+        num_regions = len(regional_stats)
+
+        avg_best_block_prices = [s.get("best_block", {}).get("avg_price_p_per_kwh", 0) for s in regional_stats]
+        avg_best_block = sum(avg_best_block_prices) / num_regions if avg_best_block_prices else 0
+
+        avg_worst_block_prices = [s.get("worst_block", {}).get("avg_price_p_per_kwh", 0) for s in regional_stats]
+        avg_worst_block = sum(avg_worst_block_prices) / num_regions if avg_worst_block_prices else 0
+
+        avg_daily_average_prices = [s.get("daily_average", {}).get("avg_price_p_per_kwh", 0) for s in regional_stats]
+        avg_daily_average = sum(avg_daily_average_prices) / num_regions if avg_daily_average_prices else 0
+
+        earnings_p_per_kwh = avg_best_block - avg_daily_average
+        earnings_percentage = (earnings_p_per_kwh / avg_daily_average * 100) if avg_daily_average > 0 else 0
+        daily_kwh = assumptions.get("daily_kwh", Config.STATS_DAILY_KWH)
+        best_block_usage_percent = assumptions.get("best_block_usage_percent", Config.STATS_CHEAPEST_BLOCK_USAGE_PERCENT)
+        best_block_usage_kwh = daily_kwh * (best_block_usage_percent / 100.0)
+        savings_days = 365
+        if regional_stats and regional_stats[0].get("coverage") == "year_to_date":
+            total_days = sum(s.get("days_processed", 0) for s in regional_stats)
+            avg_days = total_days / num_regions if num_regions > 0 else 0
+            savings_days = max(0, int(avg_days))
+        annual_earnings_vs_daily_avg = (earnings_p_per_kwh * best_block_usage_kwh * savings_days) / 100
+
+        total_negative_slots_list = [s.get("negative_pricing", {}).get("total_negative_slots", 0) for s in regional_stats]
+        total_negative_hours_list = [s.get("negative_pricing", {}).get("total_negative_hours", 0) for s in regional_stats]
+        total_paid_list = [s.get("negative_pricing", {}).get("total_paid_gbp", 0) for s in regional_stats]
+        total_negative_slots = sum(total_negative_slots_list) / len(total_negative_slots_list) if total_negative_slots_list else 0
+        total_negative_hours = sum(total_negative_hours_list) / len(total_negative_hours_list) if total_negative_hours_list else 0
+        total_paid_gbp = sum(total_paid_list) / len(total_paid_list) if total_paid_list else 0
+        avg_payment_per_day = total_paid_gbp / savings_days if total_paid_gbp > 0 and savings_days > 0 else 0
+
+        avg_negative_prices = [
+            s.get("negative_pricing", {}).get("avg_negative_price_p_per_kwh", 0)
+            for s in regional_stats
+            if s.get("negative_pricing", {}).get("avg_negative_price_p_per_kwh", 0) > 0
+        ]
+        avg_negative_price_p_per_kwh = sum(avg_negative_prices) / len(avg_negative_prices) if avg_negative_prices else 0.0
+
+        total_days = sum(s.get("days_processed", 0) for s in regional_stats)
+        avg_days = total_days / num_regions if num_regions > 0 else 0
+
+        calc_time = datetime.now(UK_TZ).isoformat()
+        national_stats = {
+            "tariff_type": "export",
+            "year": year,
+            "region_code": "national",
+            "product_code": product_code,
+            "calculation_date": calc_time,
+            "days_processed": int(avg_days),
+            "days_failed": 0,
+            "is_national_average": True,
+            "source_regions": loaded_region_codes,
+            "best_block": {"block_hours": StatsCalculator.BLOCK_DURATION_HOURS, "avg_price_p_per_kwh": round(avg_best_block, 2)},
+            "worst_block": {"block_hours": StatsCalculator.BLOCK_DURATION_HOURS, "avg_price_p_per_kwh": round(avg_worst_block, 2)},
+            "daily_average": {"avg_price_p_per_kwh": round(avg_daily_average, 2)},
+            "earnings_vs_daily_average": {
+                "earnings_p_per_kwh": round(earnings_p_per_kwh, 2),
+                "earnings_percentage": round(earnings_percentage, 2),
+                "annual_earning_gbp": round(annual_earnings_vs_daily_avg, 2),
+            },
+            "negative_pricing": {
+                "total_negative_slots": int(round(total_negative_slots)),
+                "total_negative_hours": round(total_negative_hours, 1),
+                "avg_negative_price_p_per_kwh": round(avg_negative_price_p_per_kwh, 2),
+                "total_paid_gbp": round(total_paid_gbp, 2),
+                "avg_payment_per_day_gbp": round(avg_payment_per_day, 3),
+            },
+            "assumptions": {
+                "daily_kwh": assumptions.get("daily_kwh", Config.STATS_DAILY_KWH),
+                "battery_charge_power_kw": assumptions.get("battery_charge_power_kw", Config.STATS_BATTERY_CHARGE_POWER_KW),
+                "best_block_usage_percent": best_block_usage_percent,
+            },
+        }
+        if regional_stats and regional_stats[0].get("coverage"):
+            national_stats["coverage"] = regional_stats[0].get("coverage", "full_year")
+            national_stats["days_covered"] = int(avg_days)
+            national_stats["last_updated"] = calc_time
+
+        logger.info(f"National export averages calculated from {num_regions} regions")
+        return national_stats
 

@@ -3,10 +3,14 @@ Script to download raw half-hourly Agile prices for a given year and store them 
 
 This script is the **raw data ingestion entry point** for historic stats.
 
+Supports:
+- Import: Agile Octopus (default)
+- Export: Agile Outgoing (--export flag)
+
 Key responsibilities:
 - Build a full-year Octopus API query (explicit UTC range)
 - Traverse Octopus pagination until exhausted
-- Persist one JSON file per region: data/raw/{REGION}_{YEAR}.json (overwritten atomically)
+- Persist one JSON file per region (overwritten atomically)
 
 Note:
 - This script intentionally does not depend on the app's "today prices" API client method, because
@@ -35,6 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 RAW_DATA_BASE_DIR = project_root / "data" / "raw"
+RAW_EXPORT_SUBDIR = "export"
 
 def _dt_to_utc_z(dt: datetime) -> str:
     dt_utc = dt.astimezone(timezone.utc).replace(microsecond=0)
@@ -59,6 +64,40 @@ def _year_utc_range(year: int, *, year_to_date: bool) -> tuple[str, str]:
         period_to = f"{year}-12-31T23:59:59Z"
     return (period_from, period_to)
 
+def _fetch_paginated(
+    url: str,
+    params: dict,
+    region_code: str,
+    *,
+    page_size: int = 1000,
+    sleep_seconds: float = 0.0,
+    log_prefix: str = "INGEST",
+) -> tuple[list[dict], dict]:
+    """
+    Generic paginated fetch for Octopus standard-unit-rates endpoint.
+    Follows 'next' links until exhausted.
+    """
+    pages = 0
+    results: list[dict] = []
+    next_url = url
+    next_params = params
+
+    while next_url:
+        pages += 1
+        logger.info(f"[{log_prefix}] {region_code}: fetching page {pages} ({'with params' if next_params else 'next URL'})")
+        response = requests.get(next_url, params=next_params, timeout=Config.OCTOPUS_API_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        page_results = data.get("results", [])
+        results.extend(page_results)
+        next_url = data.get("next")
+        next_params = None
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+
+    return results, {"pages_fetched": pages, "total_price_slots": len(results)}
+
+
 def fetch_prices_paginated(
     product_code: str,
     region_code: str,
@@ -69,42 +108,12 @@ def fetch_prices_paginated(
     sleep_seconds: float = 0.0,
 ) -> tuple[list[dict], dict]:
     """
-    Fetch all unit rates for the given region + product across the full year (UTC) using pagination.
-
-    Returns:
-        (results, meta) where meta includes page_count and total_results.
+    Fetch all unit rates for import (Agile Octopus) for the given region + product.
     """
     period_from, period_to = _year_utc_range(year, year_to_date=year_to_date)
     url = Config.get_prices_url(product_code, region_code)
-
-    params = {
-        "period_from": period_from,
-        "period_to": period_to,
-        "page_size": page_size,
-    }
-
-    pages = 0
-    results: list[dict] = []
-    next_url = url
-    next_params = params
-
-    while next_url:
-        pages += 1
-        logger.info(f"[INGEST] {region_code}: fetching page {pages} ({'with params' if next_params else 'next URL already has params'})")
-        response = requests.get(next_url, params=next_params, timeout=Config.OCTOPUS_API_TIMEOUT)
-        response.raise_for_status()
-        data = response.json()
-
-        page_results = data.get("results", [])
-        results.extend(page_results)
-
-        next_url = data.get("next")
-        # When following a "next" URL, it already includes query params; don't re-send the original params.
-        next_params = None
-
-        if sleep_seconds:
-            time.sleep(sleep_seconds)
-
+    params = {"period_from": period_from, "period_to": period_to, "page_size": page_size}
+    results, fetch_meta = _fetch_paginated(url, params, region_code, page_size=page_size, sleep_seconds=sleep_seconds)
     meta = {
         "product_code": product_code,
         "region_code": region_code,
@@ -112,31 +121,90 @@ def fetch_prices_paginated(
         "period_from": period_from,
         "period_to": period_to,
         "page_size": page_size,
-        "pages_fetched": pages,
-        "total_price_slots": len(results),
+        **fetch_meta,
     }
     return results, meta
 
+
+def _get_export_tariff_code(product_code: str, region_code: str) -> str | None:
+    """Get tariff code for Agile Outgoing in a region from product tariffs."""
+    from app.export_client import get_product_tariffs
+    detail = get_product_tariffs(product_code)
+    if not detail:
+        return None
+    tariffs = detail.get("single_register_electricity_tariffs") or {}
+    region_key = f"_{region_code}" if not region_code.startswith("_") else region_code
+    region_tariffs = tariffs.get(region_key)
+    if not region_tariffs:
+        return None
+    dd = region_tariffs.get("direct_debit_monthly")
+    if not dd:
+        keys = [k for k in region_tariffs if isinstance(region_tariffs[k], dict)]
+        dd = region_tariffs.get(keys[0]) if keys else None
+    if not dd:
+        return None
+    return dd.get("code")
+
+
+def fetch_export_prices_paginated(
+    product_code: str,
+    tariff_code: str,
+    region_code: str,
+    year: int,
+    *,
+    year_to_date: bool,
+    page_size: int = 1000,
+    sleep_seconds: float = 0.0,
+) -> tuple[list[dict], dict]:
+    """
+    Fetch all unit rates for export (Agile Outgoing) for the given region.
+    Uses get_unit_rates_url (same endpoint pattern as import, different path).
+    """
+    period_from, period_to = _year_utc_range(year, year_to_date=year_to_date)
+    url = Config.get_unit_rates_url(product_code, tariff_code)
+    params = {"period_from": period_from, "period_to": period_to, "page_size": page_size}
+    results, fetch_meta = _fetch_paginated(
+        url, params, region_code, page_size=page_size, sleep_seconds=sleep_seconds, log_prefix="EXPORT"
+    )
+    meta = {
+        "product_code": product_code,
+        "tariff_code": tariff_code,
+        "region_code": region_code,
+        "year": year,
+        "period_from": period_from,
+        "period_to": period_to,
+        "page_size": page_size,
+        **fetch_meta,
+    }
+    return results, meta
+
+def _sort_and_build_raw_data(all_prices: list, product_code: str, region_code: str, year: int, meta: dict, *, tariff_type: str = "import") -> dict:
+    """Sort prices chronologically and build raw data dict. Shared by import and export."""
+    try:
+        all_prices = sorted(all_prices, key=lambda x: x.get("valid_from", ""))
+    except Exception as e:
+        logger.warning(f"Error sorting prices for {region_code}: {e}")
+    raw_data = {
+        "product_code": product_code,
+        "region_code": region_code,
+        "year": year,
+        "tariff_type": tariff_type,
+        "prices": all_prices,
+        "fetched_at": datetime.now().isoformat(),
+        "total_price_slots": len(all_prices),
+        "ingestion": meta,
+    }
+    return raw_data
+
+
 def download_region_data(product_code, region_code, year=2025, *, year_to_date: bool):
     """
-    Download all price data for a region for the entire year.
-    
-    Args:
-        product_code: Octopus product code (e.g., 'AGILE-24-10-01')
-        region_code: Region code (A, B, C, etc.)
-        year: Year to download (default 2025)
-    
-    Returns:
-        dict: Raw data dictionary with all prices, or None if failed
+    Download all price data for import (Agile Octopus) for a region for the entire year.
     """
-    # Ensure year directory exists
     raw_year_dir = RAW_DATA_BASE_DIR / str(year)
     raw_year_dir.mkdir(parents=True, exist_ok=True)
-    
     logger.info(f"Starting full-year download for region {region_code} ({Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')})")
 
-    # Fetch the full year in one explicit ranged query, traversing pagination.
-    # This avoids relying on any implicit defaults and makes completeness measurable.
     all_prices, meta = fetch_prices_paginated(
         product_code=product_code,
         region_code=region_code,
@@ -145,44 +213,62 @@ def download_region_data(product_code, region_code, year=2025, *, year_to_date: 
         page_size=1000,
         sleep_seconds=0.0,
     )
-    
-    # Sort all prices chronologically by valid_from (Octopus often returns reverse chronological)
-    try:
-        all_prices = sorted(all_prices, key=lambda x: x.get('valid_from', ''))
-    except Exception as e:
-        logger.warning(f"Error sorting prices for {region_code}: {e}")
-    
-    # Create raw data structure
-    raw_data = {
-        "product_code": product_code,
-        "region_code": region_code,
-        "year": year,
-        "prices": all_prices,
-        "fetched_at": datetime.now().isoformat(),
-        "total_price_slots": len(all_prices),
-        "ingestion": meta
-    }
-    
+    raw_data = _sort_and_build_raw_data(all_prices, product_code, region_code, year, meta, tariff_type="import")
     logger.info(
         f"Region {region_code}: Downloaded {len(all_prices)} price slots "
         f"(pages={meta.get('pages_fetched')}, range={meta.get('period_from')}..{meta.get('period_to')})"
     )
-    
     return raw_data
 
-def save_raw_data(raw_data, region_code, year=2025):
+
+def download_region_data_export(product_code: str, region_code: str, year: int = 2025, *, year_to_date: bool) -> dict | None:
+    """
+    Download all price data for export (Agile Outgoing) for a region for the entire year.
+    """
+    tariff_code = _get_export_tariff_code(product_code, region_code)
+    if not tariff_code:
+        logger.error(f"Could not resolve tariff code for export product {product_code} region {region_code}")
+        return None
+
+    raw_year_dir = RAW_DATA_BASE_DIR / RAW_EXPORT_SUBDIR / str(year)
+    raw_year_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Starting export download for region {region_code} ({Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')})")
+
+    all_prices, meta = fetch_export_prices_paginated(
+        product_code=product_code,
+        tariff_code=tariff_code,
+        region_code=region_code,
+        year=year,
+        year_to_date=year_to_date,
+        page_size=1000,
+        sleep_seconds=0.0,
+    )
+    raw_data = _sort_and_build_raw_data(all_prices, product_code, region_code, year, meta, tariff_type="export")
+    raw_data["tariff_code"] = tariff_code
+    logger.info(
+        f"Region {region_code}: Downloaded {len(all_prices)} export price slots "
+        f"(pages={meta.get('pages_fetched')}, range={meta.get('period_from')}..{meta.get('period_to')})"
+    )
+    return raw_data
+
+
+def save_raw_data(raw_data, region_code, year=2025, *, export: bool = False):
     """
     Save raw data to file.
-    
+
     Args:
         raw_data: Raw data dictionary
         region_code: Region code
         year: Year
-    
+        export: If True, save to data/raw/export/{year}/
+
     Returns:
         Path: Path to saved file
     """
-    raw_year_dir = RAW_DATA_BASE_DIR / str(year)
+    if export:
+        raw_year_dir = RAW_DATA_BASE_DIR / RAW_EXPORT_SUBDIR / str(year)
+    else:
+        raw_year_dir = RAW_DATA_BASE_DIR / str(year)
     raw_year_dir.mkdir(parents=True, exist_ok=True)
     filepath = raw_year_dir / f"{region_code}_{year}.json"
     
@@ -204,19 +290,30 @@ def main():
     
     parser = argparse.ArgumentParser(description='Download raw price data for statistics')
     parser.add_argument('--region', '-r', type=str, help='Region code (A, B, C, etc.). If not provided, downloads all regions.')
-    parser.add_argument('--product', '-p', type=str, default=Config.OCTOPUS_PRODUCT_CODE,
-                       help='Product code (default: from config)')
+    parser.add_argument('--product', '-p', type=str, default=None,
+                       help='Product code (default: from config for import; discovered for export)')
     parser.add_argument('--year', '-y', type=int, default=2025, help='Year (default: 2025)')
     parser.add_argument('--full-year', action='store_true', help='Force full-year range instead of year-to-date for the current year')
-    
+    parser.add_argument('--export', action='store_true', help='Download export (Agile Outgoing) instead of import (Agile Octopus)')
+
     args = parser.parse_args()
-    
-    product_code = args.product
+
+    export_mode = args.export
     region_code = args.region
     year = args.year
-    force_full_year = args.full_year
-    year_to_date = (year == datetime.now(timezone.utc).year) and (not force_full_year)
-    
+    year_to_date = (year == datetime.now(timezone.utc).year) and (not args.full_year)
+
+    if export_mode:
+        from app.export_client import discover_export_products
+        products = discover_export_products()
+        agile_export = next((p for p in products if getattr(p, "tariff_type", None) == "agile_outgoing"), None)
+        if not agile_export:
+            print("Error: No Agile Outgoing product found")
+            sys.exit(1)
+        product_code = getattr(agile_export, "code", None) or agile_export.get("code", "")
+    else:
+        product_code = args.product or Config.OCTOPUS_PRODUCT_CODE
+
     # Get list of regions to process
     if region_code:
         regions_to_process = [region_code]
@@ -233,6 +330,7 @@ def main():
     
     print(f"Product: {product_code}")
     print(f"Year: {year}")
+    print(f"Tariff: {'export (Agile Outgoing)' if export_mode else 'import (Agile Octopus)'}")
     print(f"Coverage: {'year_to_date' if year_to_date else 'full_year'}")
     print(f"Regions: {', '.join(regions_to_process)}")
     print()
@@ -246,10 +344,13 @@ def main():
             print(f"Processing region {region}: {Config.OCTOPUS_REGION_NAMES.get(region, 'Unknown')}")
             print(f"{'='*60}\n")
             
-            raw_data = download_region_data(product_code, region, year, year_to_date=year_to_date)
-            
-            if raw_data and raw_data.get('prices'):
-                filepath = save_raw_data(raw_data, region, year)
+            if export_mode:
+                raw_data = download_region_data_export(product_code, region, year, year_to_date=year_to_date)
+            else:
+                raw_data = download_region_data(product_code, region, year, year_to_date=year_to_date)
+
+            if raw_data and raw_data.get("prices"):
+                filepath = save_raw_data(raw_data, region, year, export=export_mode)
                 downloaded_files.append({
                     'region': region,
                     'filepath': str(filepath),

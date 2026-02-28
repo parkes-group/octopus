@@ -23,26 +23,49 @@ def main():
     parser.add_argument('--product', '-p', type=str, default=Config.OCTOPUS_PRODUCT_CODE,
                        help='Product code (default: from config)')
     parser.add_argument('--year', '-y', type=int, default=2025, help='Year (default: 2025)')
+    parser.add_argument('--export', action='store_true', help='Generate export (Agile Outgoing) stats instead of import')
     
     args = parser.parse_args()
-    
-    product_code = args.product
+
     region_code = args.region
     year = args.year
-    
+    export_mode = args.export
+
     if not region_code:
         print("Error: Region code is required. Use --region or -r to specify a region (A, B, C, etc.)")
         print("Example: python generate_stats.py --region N")
         sys.exit(1)
-    
+
+    if export_mode:
+        from app.export_client import discover_export_products
+        products = discover_export_products()
+        agile_export = next((p for p in products if getattr(p, "tariff_type", None) == "agile_outgoing"), None)
+        if not agile_export:
+            print("Error: No Agile Outgoing product found")
+            sys.exit(1)
+        product_code = agile_export.code
+    else:
+        product_code = args.product or Config.OCTOPUS_PRODUCT_CODE
+
     print(f"Starting statistics generation for {product_code} region {region_code} (year {year})")
+    print(f"Tariff: {'export (Agile Outgoing)' if export_mode else 'import (Agile Octopus)'}")
     print(f"Region name: {Config.OCTOPUS_REGION_NAMES.get(region_code, 'Unknown')}")
     print("This may take several minutes...")
     print()
-    
+
     try:
-        # Calculate statistics
-        if year == 2025:
+        if export_mode:
+            current_year_utc = datetime.now(timezone.utc).year
+            stats_data = StatsCalculator.calculate_export_year_stats(
+                product_code=product_code,
+                region_code=region_code,
+                year=year,
+                coverage="year_to_date" if year == current_year_utc else "full_year",
+            )
+            if stats_data is None:
+                print(f"Error: Export raw data not found. Run: python scripts/download_raw_data.py --export --region {region_code} --year {year}")
+                sys.exit(1)
+        elif year == 2025:
             stats_data = StatsCalculator.calculate_2025_stats(
                 product_code=product_code,
                 region_code=region_code
@@ -55,10 +78,9 @@ def main():
                 year=year,
                 coverage="year_to_date" if year == current_year_utc else "full_year",
             )
-        
-        # Save to file
-        filepath = StatsCalculator.save_stats(stats_data)
-        
+
+        filepath = StatsCalculator.save_stats(stats_data, export=export_mode)
+
         print()
         print("=" * 60)
         print("Statistics generated successfully!")
@@ -68,9 +90,15 @@ def main():
         print("Summary:")
         print(f"  Days processed: {stats_data.get('days_processed', 0)}")
         print(f"  Days failed: {stats_data.get('days_failed', 0)}")
-        print(f"  Average cheapest block price: {stats_data.get('cheapest_block', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
-        print(f"  Average daily price: {stats_data.get('daily_average', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
-        print(f"  Annual savings vs daily avg: £{stats_data.get('savings_vs_daily_average', {}).get('annual_saving_gbp', 0):.2f}")
+        if export_mode:
+            print(f"  Average best block price: {stats_data.get('best_block', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
+            print(f"  Average worst block price: {stats_data.get('worst_block', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
+            print(f"  Average daily price: {stats_data.get('daily_average', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
+            print(f"  Annual earnings vs daily avg: £{stats_data.get('earnings_vs_daily_average', {}).get('annual_earning_gbp', 0):.2f}")
+        else:
+            print(f"  Average cheapest block price: {stats_data.get('cheapest_block', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
+            print(f"  Average daily price: {stats_data.get('daily_average', {}).get('avg_price_p_per_kwh', 0)} p/kWh")
+            print(f"  Annual savings vs daily avg: £{stats_data.get('savings_vs_daily_average', {}).get('annual_saving_gbp', 0):.2f}")
         print(f"  Negative pricing slots: {stats_data.get('negative_pricing', {}).get('total_negative_slots', 0)}")
         print(f"  Total paid by Octopus: £{stats_data.get('negative_pricing', {}).get('total_paid_gbp', 0):.2f}")
         
