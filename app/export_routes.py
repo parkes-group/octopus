@@ -84,6 +84,41 @@ def _product_by_tariff_type(products: list, tariff_type: str):
     return None
 
 
+def get_export_agile_seo_stats(region_code: str, duration_hours: float = 3.5) -> dict:
+    """
+    Fetch today's daily_avg and best_block average for SEO metadata.
+    Returns {"daily_avg": float|None, "best_block_avg": float|None}.
+    """
+    try:
+        products = discover_export_products()
+        product = _product_by_tariff_type(products, "agile_outgoing")
+        if not product:
+            return {"daily_avg": None, "best_block_avg": None}
+        product_code = getattr(product, "code", None) or product.get("code", "")
+        period_from = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        tariff = fetch_agile_outgoing_tariff(product_code, region_code, period_from)
+        if tariff is None:
+            return {"daily_avg": None, "best_block_avg": None}
+        from app.timezone_utils import utc_to_uk, get_uk_now
+        prices_for_calc = _slots_to_price_dicts(tariff.slots, inc_vat=True)
+        if not prices_for_calc:
+            return {"daily_avg": None, "best_block_avg": None}
+        uk_now = get_uk_now()
+        current_time_utc = uk_now.astimezone(timezone.utc)
+        today_uk = datetime.now(timezone.utc).date()
+        today_iso = today_uk.isoformat()
+        blocks_per_day = calculate_export_blocks_per_day(prices_for_calc, duration_hours, current_time_utc)
+        today_data = next((d for d in blocks_per_day if d["date_iso"] == today_iso), None)
+        today_prices = [p["value_inc_vat"] for p in prices_for_calc if utc_to_uk(p["valid_from"]).date() == today_uk]
+        daily_avg = round(sum(today_prices) / len(today_prices), 2) if today_prices else None
+        best = today_data["best_block"] if today_data else None
+        best_block_avg = round(best["average_price"], 2) if best and best.get("average_price") is not None else None
+        return {"daily_avg": daily_avg, "best_block_avg": best_block_avg}
+    except Exception as e:
+        logger.warning(f"Export SEO stats fetch failed for {region_code}: {e}")
+        return {"daily_avg": None, "best_block_avg": None}
+
+
 @bp.route("/tariffs", methods=["GET"])
 def list_tariffs():
     """

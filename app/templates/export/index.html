@@ -2,6 +2,100 @@
 
 {% set page_name = 'export' %}
 
+{% block head %}
+<!-- Page-specific Structured Data (JSON-LD) -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "WebPage",
+            "@id": "{{ site_url }}/export#webpage",
+            "url": "{{ site_url }}/export",
+            "name": "Octopus Export Tariffs | Agile Outgoing & Fixed Export Rates UK",
+            "description": "Find Agile Outgoing and Fixed export rates for your UK region. See how much you can earn for exporting solar energy to the grid with Octopus Energy.",
+            "inLanguage": "en-GB",
+            "isPartOf": {
+                "@type": "WebSite",
+                "name": "{{ site_name }}",
+                "url": "{{ site_url }}"
+            },
+            "about": {
+                "@type": "Thing",
+                "name": "Octopus Export Tariffs - Agile Outgoing and Fixed"
+            }
+        },
+        {
+            "@type": "SoftwareApplication",
+            "name": "{{ site_name }} - Export",
+            "applicationCategory": "UtilityApplication",
+            "operatingSystem": "Web",
+            "description": "Export tariff rates and best export times for UK households with solar panels on Octopus Energy.",
+            "url": "{{ site_url }}/export",
+            "areaServed": {
+                "@type": "Country",
+                "name": "United Kingdom"
+            },
+            "purpose": "Solar export price optimisation for UK households on Octopus Agile Outgoing",
+            "provider": {
+                "@type": "Organization",
+                "name": "Parkes Group Enterprise Ltd"
+            },
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "GBP"
+            },
+            "featureList": [
+                "Find best times to export solar energy",
+                "View half-hourly Agile Outgoing rates",
+                "Compare export rates across UK regions",
+                "Estimate export earnings",
+                "View Fixed (Outgoing Octopus) flat rates"
+            ]
+        },
+        {
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "How much can I earn exporting solar to the grid?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Export earnings depend on your tariff and region. Agile Outgoing follows wholesale prices half-hourly and can vary significantly. Fixed (Outgoing Octopus) offers a flat rate. Enter your postcode to see rates for your region."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What is Agile Outgoing export?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Agile Outgoing is Octopus Energy's half-hourly export tariff. Rates change every 30 minutes based on wholesale prices. Exporting during the best time blocks each day can maximise your earnings from solar."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Can export prices go negative?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Yes. Agile Outgoing can go negative when supply exceeds demand. In those periods you may be charged to export. Our tool helps you identify the best and worst export windows to avoid negative rates."
+                    }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What is the difference between Agile Outgoing and Fixed export?",
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": "Agile Outgoing has half-hourly rates that vary with the market. Fixed (Outgoing Octopus) offers a single flat rate at all times. Agile can earn more during peak prices but Fixed is predictable."
+                    }
+                }
+            ]
+        }
+    ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <article>
     <header>

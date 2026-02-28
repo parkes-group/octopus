@@ -66,6 +66,52 @@ def _og_image_url_for_region(region_slug: str) -> str:
     return _production_url("/static/images/og-default.png")
 
 
+def _build_export_agile_seo(*, region_name: str, region_slug: str, uk_date_iso: str, daily_avg: float | None, best_block_avg: float | None) -> dict:
+    """
+    SEO + structured-data builder for `/export/agile/<region_slug>` pages.
+    Mirrors _build_region_prices_seo for export.
+    """
+    canonical_url = _production_url(url_for("main.export_agile_region", region_slug=region_slug))
+
+    def _clamp(text: str, max_len: int) -> str:
+        text = " ".join((text or "").split())
+        if len(text) <= max_len:
+            return text
+        return (text[: max(0, max_len - 1)].rstrip() + "…") if max_len > 1 else text[:max_len]
+
+    seo_title = _clamp(f"Agile Octopus export prices – {region_name}", 60)
+
+    if best_block_avg is not None and daily_avg is not None:
+        seo_description = (
+            f"Today in {region_name}: best 3.5h Octopus export avg {best_block_avg:.2f}p/kWh vs daily avg {daily_avg:.2f}p/kWh. "
+            f"Updated {uk_date_iso}."
+        )
+    elif daily_avg is not None:
+        seo_description = f"Today in {region_name}: live Octopus Agile Outgoing export rates. Daily average {daily_avg:.2f}p/kWh. Updated {uk_date_iso}."
+    else:
+        seo_description = f"Today in {region_name}: live Octopus Agile Outgoing export rates with best and worst windows. Updated {uk_date_iso}."
+
+    seo_description = _clamp(seo_description, 158)
+
+    dataset_name = f"Octopus Agile Outgoing Half-Hourly Export Prices – {region_name}"
+    dataset_description = (
+        f"Half-hourly Agile Outgoing export rates for {region_name} on {uk_date_iso}. "
+        "Find the best times to export solar energy."
+    )
+
+    return {
+        "seo_title": seo_title,
+        "seo_description": seo_description,
+        "canonical_url": canonical_url,
+        "seo_site_url": PRODUCTION_SITE_URL,
+        "seo_dataset_name": dataset_name,
+        "seo_dataset_description": dataset_description,
+        "og_image_url": _og_image_url_for_region(region_slug),
+        "twitter_image_url": _og_image_url_for_region(region_slug),
+        "date_modified": uk_date_iso,
+    }
+
+
 def _build_region_prices_seo(*, region_name: str, region_slug: str, uk_date_iso: str, daily_avg: float | None, cheapest_block_avg: float | None) -> dict:
     """
     Centralized SEO + structured-data builder for `/prices/<region_slug>` pages.
@@ -1044,19 +1090,38 @@ def export_agile_region(region_slug):
         from flask import abort
         abort(404)
     from app.export_stats import EXPORT_BLOCK_DURATION_HOURS, EXPORT_DEFAULT_CAPACITY_KWH
+    from app.export_routes import get_export_agile_seo_stats
     duration = request.args.get('duration', type=float) or EXPORT_BLOCK_DURATION_HOURS
     capacity = request.args.get('capacity', type=float) or EXPORT_DEFAULT_CAPACITY_KWH
-    inc_vat = request.args.get('inc_vat', 'true').lower() not in ('false', '0', 'no')
+    region_name = region_name_from_code(region_code) or region_slug
+    uk_date_iso = get_uk_now().date().isoformat()
+    seo_stats = get_export_agile_seo_stats(region_code, duration)
+    seo = _build_export_agile_seo(
+        region_name=region_name,
+        region_slug=region_slug,
+        uk_date_iso=uk_date_iso,
+        daily_avg=seo_stats.get("daily_avg"),
+        best_block_avg=seo_stats.get("best_block_avg"),
+    )
     return render_template(
         'export/agile.html',
         page_name='export_agile',
         regions=_regions_list_with_slugs(),
         region_slug=region_slug,
-        region_name=region_name_from_code(region_code) or region_slug,
+        region_name=region_name,
         duration=duration,
         capacity=capacity,
-        inc_vat=inc_vat,
         block_duration=EXPORT_BLOCK_DURATION_HOURS,
+        seo_title=seo["seo_title"],
+        seo_description=seo["seo_description"],
+        canonical_url=seo["canonical_url"],
+        seo_site_url=seo["seo_site_url"],
+        seo_dataset_name=seo["seo_dataset_name"],
+        seo_dataset_description=seo["seo_dataset_description"],
+        og_image_url=seo["og_image_url"],
+        twitter_image_url=seo["twitter_image_url"],
+        seo_date_modified=seo["date_modified"],
+        include_structured_data=True,
     )
 
 
@@ -1074,7 +1139,6 @@ def export_agile_go():
 
     duration = request.values.get('duration', type=float)
     capacity = request.values.get('capacity', type=float)
-    inc_vat = request.values.get('inc_vat', 'true').lower() not in ('false', '0', 'no')
 
     from app.export_stats import EXPORT_BLOCK_DURATION_HOURS, EXPORT_DEFAULT_CAPACITY_KWH
     params = {}
@@ -1082,8 +1146,6 @@ def export_agile_go():
         params['duration'] = duration
     if capacity is not None and abs(capacity - EXPORT_DEFAULT_CAPACITY_KWH) > 1e-9:
         params['capacity'] = capacity
-    if not inc_vat:
-        params['inc_vat'] = 'false'
 
     return redirect(url_for('main.export_agile_region', region_slug=target_slug, **params))
 
