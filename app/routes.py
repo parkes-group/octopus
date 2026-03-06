@@ -13,7 +13,7 @@ from app.vote_manager import VoteManager
 from app.region_request_tracker import RegionRequestTracker
 from app.region_slugs import region_code_from_slug, region_slug_from_code, region_name_from_code
 from urllib.parse import urlparse, parse_qs
-from datetime import timezone
+from datetime import date, timezone
 import logging
 import os
 from pathlib import Path
@@ -1224,6 +1224,7 @@ def blog_is_octopus_agile_really_cheaper():
     Blog post: evidence-led explainer based on 2025 national stats.
     """
     published = "2026-01-31"
+    date_modified = date.today().isoformat()
     canonical_url = _production_url(url_for("main.blog_is_octopus_agile_really_cheaper"))
 
     # Pull analysis numbers from the generated stats JSON (not hard-coded).
@@ -1256,7 +1257,7 @@ def blog_is_octopus_agile_really_cheaper():
         canonical_url=canonical_url,
         page_url=canonical_url,
         date_published=published,
-        date_modified=published,
+        date_modified=date_modified,
         author_name="AgilePricing.co.uk",
         stats_daily_avg_p_per_kwh=daily_avg,
         stats_cheapest_block_avg_p_per_kwh=cheapest_block_avg,
@@ -1290,10 +1291,12 @@ def feature_vote():
         if not feature_id:
             return jsonify({'error': 'Feature ID required'}), 400
         
-        # Validate feature ID exists in config
-        valid_feature_ids = [item['id'] for item in Config.FEATURE_VOTING_ITEMS]
-        if feature_id not in valid_feature_ids:
+        # Validate feature ID exists in config and is not delivered
+        item = next((i for i in Config.FEATURE_VOTING_ITEMS if i.get('id') == feature_id), None)
+        if not item:
             return jsonify({'error': 'Invalid feature ID'}), 400
+        if item.get('delivered'):
+            return jsonify({'error': 'This feature has been delivered and is no longer accepting votes'}), 400
         
         # Record the vote
         votes = VoteManager.record_vote(feature_id)

@@ -59,7 +59,7 @@
     <nav class="blog-toc mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}" aria-label="On this page">
       <h2 class="h5 mb-2">On this page</h2>
       <ul class="mb-0">
-        <li><a href="#tldr">TL;DR</a></li>
+        <li><a href="#tldr">Summary</a></li>
         <li><a href="#why-trust">Why trust this analysis (and how to verify it)</a></li>
         <li><a href="#timing-not-volume">Timing matters more than volume</a></li>
         <li><a href="#what-2025-shows">What 2025 national data shows</a></li>
@@ -84,7 +84,7 @@
     </section>
 
     <section id="tldr" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
-      <h2 class="h4">TL;DR</h2>
+      <h2 class="h4">Summary</h2>
       <ul class="mb-0">
         <li><strong>Cheaper for some households</strong> (if you can avoid expensive windows)</li>
         <li><strong>More expensive for others</strong> (if your usage is concentrated in peak hours)</li>
@@ -93,13 +93,13 @@
     </section>
 
     <section id="why-trust" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
-      <h2 class="h4">Why trust this analysis (and how to verify it)</h2>
+      <h2 class="h4">Why trust this analysis</h2>
       <p>
-        This post is deliberately sceptical: Agile is not “always cheaper”, and some households do lose money on it.
+        This post is deliberately sceptical: Agile is not “always cheaper”, and for some households is more expensive that price cap tariffs.
         The goal here is to explain <em>why</em> that happens using transparent, reproducible numbers.
       </p>
       <p>
-        <strong>AgilePricing exists to answer a single question accurately: is Agile cheaper for this household, in this region, right now?</strong>
+        <strong>AgilePricing helps you to answer a single question accurately: is Agile cheaper for this household, in this region, right now?</strong>
       </p>
       <p class="mb-0">
         AgilePricing exists to help you verify the trade‑offs using <strong>live, regional</strong> Agile prices:
@@ -109,13 +109,13 @@
     </section>
 
     <section class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
-      <h2 class="h4">A trust-first starting point: who Agile often doesn’t suit</h2>
+      <h2 class="h4">Who Agile often doesn’t suit</h2>
       <p>
-        Agile is not a hack and it is not a guaranteed saving. It rewards certain usage patterns—and penalises others.
+        Agile is not a hack and it is not a guaranteed saving. It rewards certain usage patterns—and penalises others. This is why it is not always cheaper.
       </p>
       <p class="mb-0">
         If your household uses a large share of electricity in the early evening (cooking, lights, appliances, and in some homes
-        heating or hot water), Agile often does <em>not</em> suit you—especially in winter.
+        heating or hot water), and cannot switch some or all of this to cheaper periods, Agile often does <em>not</em> suit you—especially in winter.
       </p>
     </section>
 
@@ -128,7 +128,7 @@
     </section>
 
     <section id="what-2025-shows" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
-      <h2>What 2025 national data shows (no hype)</h2>
+      <h2>What 2025 national data shows</h2>
       <p>Using the 2025 national average:</p>
       <ul>
         <li><strong>Daily average Agile price:</strong> {{ stats_daily_avg_p_per_kwh }}p/kWh</li>
@@ -138,8 +138,8 @@
         <li><strong>Peak premium vs off-peak:</strong> {{ stats_peak_premium_pct }}%</li>
       </ul>
       <p class="mb-0">
-        Those figures are why Agile is not “always cheaper”: the same tariff contains both bargain windows and expensive spikes.
-        If your usage lands in the spikes, the average doesn’t protect you.
+        Those figures are why Agile is can be cheaper: the same tariff contains both bargain windows and expensive spikes.
+        If your the bulk of your usage lands in the spikes, the average doesn’t protect you however if you can shift some or all of your usage to cheaper periods, you can save money.
       </p>
     </section>
 
@@ -220,10 +220,13 @@
       <p>
         The honest summary is simple: Octopus Agile is not always cheaper. It rewards households that can avoid expensive peak hours—especially winter evenings—and it penalises those that can’t.
       </p>
-      <p class="mb-0">
+      <p>
         National averages explain how Agile behaves — but they should never decide your tariff.
         The correct way to assess Agile is to look at your region’s live prices and compare them to when your household actually uses electricity.
         Start on the <a href="{{ url_for('main.index') }}">homepage</a> to detect your region by postcode, then review today’s cheapest and worst windows using the regional pricing tools.
+      </p>
+      <p class="mb-0">
+        <strong>Thinking of switching to Octopus?</strong> Use our <a href="{{ octopus_referral_url }}" target="_blank" rel="noopener noreferrer">referral link</a> and you'll get <strong>£50 credit</strong> when you join.
       </p>
     </section>
 
