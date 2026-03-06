@@ -103,7 +103,7 @@ function initStickyCTA() {
  * Handles click voting with sessionStorage and displays percentage results.
  */
 function initFeatureVoting() {
-    const voteButtons = document.querySelectorAll('.feature-vote-btn');
+    const voteButtons = document.querySelectorAll('.feature-vote-btn:not([data-delivered="true"])');
     const voteMessage = document.querySelector('.feature-vote-message');
     const suggestionForm = document.querySelector('.feature-suggestion-form');
     const suggestionInput = document.querySelector('.feature-suggestion-input');
@@ -340,7 +340,7 @@ function loadVotePercentages() {
  * Update vote results display with percentages.
  */
 function updateVoteResults(percentages) {
-    const voteButtons = document.querySelectorAll('.feature-vote-btn');
+    const voteButtons = document.querySelectorAll('.feature-vote-btn:not([data-delivered="true"])');
     
     voteButtons.forEach(button => {
         const featureId = button.getAttribute('data-feature');

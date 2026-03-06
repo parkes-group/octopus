@@ -102,7 +102,9 @@ class Config:
             "id": "agile_export_info",
             "title": "Agile export information",
             "description": "Show Agile export rates (outgoing) + guidance.",
-            "display_order": 3
+            "display_order": 3,
+            "delivered": True,
+            "delivered_message": "You wanted it — we delivered it!"
         }
     ]
     

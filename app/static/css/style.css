@@ -532,6 +532,27 @@ footer a:focus {
     cursor: not-allowed;
 }
 
+.feature-vote-btn.feature-delivered {
+    cursor: default;
+    border-color: var(--bs-success);
+    background-color: rgba(25, 135, 84, 0.08);
+}
+
+.feature-vote-btn.feature-delivered:hover {
+    transform: none;
+    box-shadow: none;
+    background-color: rgba(25, 135, 84, 0.08);
+    color: #212529;
+}
+
+.feature-vote-btn.feature-delivered:hover .text-muted {
+    color: #6c757d !important;
+}
+
+.feature-vote-btn.feature-delivered:hover .text-success {
+    color: var(--bs-success) !important;
+}
+
 .feature-vote-btn.btn-success {
     background-color: var(--success-color);
     border-color: var(--success-color);

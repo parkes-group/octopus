@@ -8,6 +8,20 @@
             <div class="row g-3 mb-4">
                 {% for item in config.FEATURE_VOTING_ITEMS|sort(attribute='display_order') %}
                 <div class="col-12 col-md-6">
+                    {% if item.get('delivered') %}
+                    <div class="feature-vote-btn feature-delivered btn btn-outline-secondary w-100 h-100 p-3 p-md-4 text-start" data-delivered="true">
+                        <div class="d-flex align-items-start">
+                            <div class="flex-grow-1">
+                                <h3 class="h6 mb-2">{{ item.title }}</h3>
+                                <p class="mb-1 small text-muted">{{ item.description }}</p>
+                                <p class="mb-0 small fw-semibold text-success">{{ item.get('delivered_message', 'You wanted it — we delivered it!') }}</p>
+                            </div>
+                            <div class="ms-3 flex-shrink-0">
+                                <span class="badge bg-success">✓ Delivered</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
                     <button 
                         type="button" 
                         class="feature-vote-btn btn btn-outline-primary w-100 h-100 p-3 p-md-4 text-start"
@@ -38,6 +52,7 @@
                             </div>
                         </div>
                     </button>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
