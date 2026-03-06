@@ -306,6 +306,19 @@
         {% endif %}
     </section>
 
+    <!-- Import Cross-Link Section -->
+    <section class="mb-4">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Importing electricity too?</h2>
+                <p class="mb-3">
+                    If you are on the Octopus Agile import tariff, you can view the cheapest electricity windows for charging EVs, batteries, or appliances.
+                </p>
+                <a href="{{ url_for('main.prices_region', region_slug=region_slug) }}" class="btn btn-outline-primary">View import prices for this region</a>
+            </div>
+        </div>
+    </section>
+
     {% include 'components/_feature_suggestion.html' %}
 </article>
 {% endblock %}
@@ -639,7 +652,7 @@
                 renderBlockCard('card-worst-block', worst, 'worst-block-price', 'worst-block-diff', 'worst-block-diff-val', 'worst-block-diff-lbl', 'worst-block-time', 'worst-block-cost', 'worst-block-status', 'text-danger');
                 renderBlockCard('card-best-remaining', bestRemaining, 'best-remaining-price', 'best-remaining-diff', 'best-remaining-diff-val', 'best-remaining-diff-lbl', 'best-remaining-time', 'best-remaining-cost', 'best-remaining-status', 'text-primary');
 
-                if (best && !bestRemaining) {
+                if (data.show_no_remaining_row) {
                     document.getElementById('no-remaining-row').style.display = '';
                 }
 

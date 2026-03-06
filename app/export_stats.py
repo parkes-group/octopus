@@ -242,70 +242,15 @@ def calculate_export_blocks_per_day(
         best_remaining_block = None
         if current_time_utc and best_block and best_block.get("slots"):
             best_block_slots_utc = {slot["valid_from"] for slot in best_block["slots"]}
-
-            remaining_prices = []
-            remaining_prices_future = []
-            for price in day_prices:
-                try:
-                    vf = price["valid_from"]
-                    vt = price["valid_to"]
-                    dt_str = (vf or "").replace("Z", "+00:00") if isinstance(vf, str) else vf
-                    to_str = (vt or "").replace("Z", "+00:00") if isinstance(vt, str) else vt
-                    price_time_utc = datetime.fromisoformat(dt_str)
-                    price_end_utc = datetime.fromisoformat(to_str)
-                    if price_time_utc.tzinfo is None:
-                        price_time_utc = price_time_utc.replace(tzinfo=timezone.utc)
-                    if price_end_utc.tzinfo is None:
-                        price_end_utc = price_end_utc.replace(tzinfo=timezone.utc)
-
-                    if price["valid_from"] in best_block_slots_utc:
-                        continue
-                    if price_end_utc > current_time_utc:
-                        remaining_prices.append(price)
-                        if price_time_utc >= current_time_utc:
-                            remaining_prices_future.append(price)
-                except (KeyError, ValueError, TypeError):
-                    continue
-
-            remaining_prices.sort(key=lambda x: x.get("valid_from", ""))
-            remaining_prices_future.sort(key=lambda x: x.get("valid_from", ""))
-
-            requested_slots = int(duration_hours * 2)
-            MAX_PAST_FRACTION = 0.20
-
-            def _calc_block(pool):
-                if not pool:
-                    return None, None
-                max_slots = min(requested_slots, len(pool))
-                for slots_try in range(max_slots, 0, -1):
-                    duration_try = slots_try / 2.0
-                    candidate = PriceCalculator.find_worst_block(pool, duration_try)
-                    if candidate:
-                        return candidate, slots_try
-                return None, None
-
-            best_remaining_block, slots_used = _calc_block(remaining_prices)
-
-            if best_remaining_block and slots_used is not None:
-                try:
-                    start_val = best_remaining_block.get("start_time") or (
-                        best_remaining_block.get("slots") or [{}]
-                    )[0].get("valid_from")
-                    if start_val:
-                        if isinstance(start_val, datetime):
-                            start_utc = start_val if start_val.tzinfo else start_val.replace(tzinfo=timezone.utc)
-                        else:
-                            start_dt_str = (str(start_val) or "").replace("Z", "+00:00")
-                            start_utc = datetime.fromisoformat(start_dt_str)
-                            if start_utc.tzinfo is None:
-                                start_utc = start_utc.replace(tzinfo=timezone.utc)
-                        elapsed_seconds = max(0.0, (current_time_utc - start_utc).total_seconds())
-                        duration_seconds = (slots_used / 2.0) * 3600.0
-                        past_fraction = (elapsed_seconds / duration_seconds) if duration_seconds > 0 else 0.0
-                        if past_fraction > MAX_PAST_FRACTION:
-                            best_remaining_block, slots_used = _calc_block(remaining_prices_future)
-                except Exception:
-                    pass
+            best_remaining_block, _ = PriceCalculator.calculate_remaining_block_for_day(
+                day_prices,
+                best_block,
+                best_block_slots_utc,
+                current_time_utc,
+                duration_hours,
+                PriceCalculator.find_worst_block,
+                "best remaining",
+            )
 
         date_display = date_obj.strftime("%d/%m/%y")
         results.append({

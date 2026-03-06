@@ -570,6 +570,7 @@ def index():
                 if not slug:
                     logger.warning(f"Region slug resolution failed for code: {submitted_region}")
                     return redirect(url_for('main.prices', region=submitted_region, product=selected_product_code))
+                session['region_slug'] = slug
                 latest_code = _select_latest_agile_product_code(agile_products)
                 if latest_code and selected_product_code == latest_code:
                     return redirect(url_for('main.prices_region', region_slug=slug))
@@ -677,6 +678,9 @@ def prices():
     # Backward compatibility: region code via query string.
     region_slug = region_slug_from_code(region) if region else None
     if not region_slug:
+        # If region known from session (e.g. from prior postcode), redirect to region page
+        if session.get('region_slug'):
+            return redirect(url_for('main.prices_region', region_slug=session['region_slug']))
         flash('Please select a region.', 'error')
         return redirect(url_for('main.index'))
 
@@ -690,6 +694,7 @@ def prices():
     )
     if response is not None:
         return response
+    session['region_slug'] = region_slug
     return render_template('prices.html', **context)
 
 @bp.route('/prices/<region_slug>')
@@ -715,6 +720,7 @@ def prices_region(region_slug):
     )
     if response is not None:
         return response
+    session['region_slug'] = region_slug
     return render_template('prices.html', **context)
 
 @bp.route('/prices/go', methods=['GET', 'POST'])
@@ -1003,6 +1009,10 @@ def about():
 @bp.route('/export', methods=['GET', 'POST'])
 def export_index():
     """Export tariff overview: postcode form (like index), pre-selects Agile Outgoing, redirects to export/agile."""
+    # If region known from session, redirect to region page (postcode persistence)
+    if request.method == 'GET' and session.get('region_slug'):
+        return redirect(url_for('main.export_agile_region', region_slug=session['region_slug']))
+
     postcode_form = ExportPostcodeForm()
     show_region_dropdown = False
     error_message = None
@@ -1019,6 +1029,7 @@ def export_index():
                 _track_region_request_on_post(submitted_region)
                 slug = region_slug_from_code(submitted_region)
                 if slug:
+                    session['region_slug'] = slug
                     return redirect(url_for('main.export_agile_region', region_slug=slug))
             error_message = "Invalid region selected. Please try again."
             show_region_dropdown = True
@@ -1037,6 +1048,7 @@ def export_index():
                     _track_region_request_on_post(region_result)
                     slug = region_slug_from_code(region_result)
                     if slug:
+                        session['region_slug'] = slug
                         return redirect(url_for('main.export_agile_region', region_slug=slug))
                     error_message = "Unable to determine region. Please select below."
                     show_region_dropdown = True
@@ -1113,6 +1125,7 @@ def export_agile_region(region_slug):
     stats_export_2025 = StatsLoader.get_stats_for_display_export(region_code=region_code, year=2025)
     stats_export_2026 = StatsLoader.get_stats_for_display_export(region_code=region_code, year=2026)
 
+    session['region_slug'] = region_slug
     return render_template(
         'export/agile.html',
         page_name='export_agile',

@@ -448,9 +448,10 @@ def get_blocks():
         return pct, "higher" if pct > 0 else "lower"
 
     # Only show best_remaining when best block has started (like prices page)
-    show_best_remaining = best_remaining and best and best.get("start_time_uk") and current_uk
-    if show_best_remaining and best["start_time_uk"] > current_uk:
-        show_best_remaining = False
+    best_block_has_started = best and best.get("start_time_uk") and current_uk and best["start_time_uk"] <= current_uk
+    show_best_remaining = best_remaining and best_block_has_started
+    # Only show "no remaining" when best block has passed but there's no best_remaining (not when best block is still upcoming)
+    show_no_remaining_row = best and not best_remaining and best_block_has_started
 
     dp_best, lbl_best = _diff_pct(best["average_price"], daily_avg) if best else (None, None)
     dp_worst, lbl_worst = _diff_pct(worst["average_price"], daily_avg) if worst else (None, None)
@@ -518,7 +519,8 @@ def get_blocks():
             if slot.valid_from in slot_times:
                 worst_block_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
                 worst_block_indices.append(i)
-        if best_remaining and best_remaining.get("slots"):
+        # Only include best_remaining in chart when we're showing the card (best block has started)
+        if show_best_remaining and best_remaining and best_remaining.get("slots"):
             slot_times = {s["valid_from"] for s in best_remaining["slots"]}
             if slot.valid_from in slot_times:
                 best_remaining_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
@@ -627,6 +629,7 @@ def get_blocks():
         "best_block_times_by_date": best_block_times_by_date,
         "worst_block_times_by_date": worst_block_times_by_date,
         "best_remaining_times_by_date": best_remaining_times_by_date,
+        "show_no_remaining_row": show_no_remaining_row,
         "highest_price_times_by_date": highest_price_times_by_date,
         "summary_below": summary_below,
         "today_stats": today_stats,

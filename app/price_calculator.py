@@ -500,7 +500,143 @@ class PriceCalculator:
                 logger.warning(f"Error filtering price by date: {e}")
                 continue
         return filtered
-    
+
+    @staticmethod
+    def calculate_remaining_block_for_day(
+        day_prices,
+        best_block,
+        best_block_slots_utc,
+        current_time_utc,
+        duration_hours,
+        find_block_fn,
+        block_name="remaining",
+    ):
+        """
+        Find the "remaining" block for a day: next best block excluding the absolute best.
+        Shared logic for import (cheapest_remaining) and export (best_remaining).
+
+        Args:
+            day_prices: Sorted list of price dicts for the day
+            best_block: The day's absolute best block (cheapest for import, highest for export)
+            best_block_slots_utc: Set of valid_from strings for slots in best_block
+            current_time_utc: Current time UTC for filtering
+            duration_hours: Block duration (e.g. 3.5)
+            find_block_fn: PriceCalculator.find_cheapest_block (import) or find_worst_block (export)
+            block_name: For logging (e.g. "cheapest remaining", "best remaining")
+
+        Returns:
+            (block_dict, slots_used) or (None, None)
+        """
+        if not current_time_utc or not best_block or not best_block.get("slots"):
+            return None, None
+
+        remaining_prices = []
+        remaining_prices_future = []
+
+        for price in day_prices:
+            try:
+                valid_from_str = price.get("valid_from")
+                valid_to_str = price.get("valid_to")
+                if valid_from_str is None or valid_to_str is None:
+                    continue
+                dt_str = (str(valid_from_str) or "").replace("Z", "+00:00")
+                to_dt_str = (str(valid_to_str) or "").replace("Z", "+00:00")
+                price_time_utc = datetime.fromisoformat(dt_str)
+                price_end_utc = datetime.fromisoformat(to_dt_str)
+                if price_time_utc.tzinfo is None:
+                    price_time_utc = price_time_utc.replace(tzinfo=timezone.utc)
+                if price_end_utc.tzinfo is None:
+                    price_end_utc = price_end_utc.replace(tzinfo=timezone.utc)
+
+                if price.get("valid_from") in best_block_slots_utc:
+                    continue
+
+                if price_end_utc > current_time_utc:
+                    remaining_prices.append(price)
+                    if price_time_utc >= current_time_utc:
+                        remaining_prices_future.append(price)
+            except (KeyError, ValueError, TypeError) as e:
+                logger.warning(f"Error processing price for {block_name} block: {e}")
+                continue
+
+        remaining_prices.sort(key=lambda x: x.get("valid_from", ""))
+        remaining_prices_future.sort(key=lambda x: x.get("valid_from", ""))
+
+        requested_slots = int(duration_hours * 2)
+        if requested_slots < 1:
+            return None, None
+
+        MAX_PAST_FRACTION = 0.20
+
+        def _calc_block(prices_pool):
+            if not prices_pool:
+                return None, None
+            max_slots = min(requested_slots, len(prices_pool))
+            for slots_try in range(max_slots, 0, -1):
+                duration_try = slots_try / 2.0
+                candidate = find_block_fn(prices_pool, duration_try)
+                if candidate:
+                    return candidate, slots_try
+            return None, None
+
+        remaining_block, slots_used = _calc_block(remaining_prices)
+
+        if remaining_block and slots_used is not None:
+            try:
+                start_str = remaining_block.get("start_time") or (
+                    (remaining_block.get("slots") or [{}])[0].get("valid_from")
+                )
+                if start_str:
+                    start_dt_str = (str(start_str) or "").replace("Z", "+00:00")
+                    start_utc = datetime.fromisoformat(start_dt_str)
+                    if start_utc.tzinfo is None:
+                        start_utc = start_utc.replace(tzinfo=timezone.utc)
+                    elapsed_seconds = max(0.0, (current_time_utc - start_utc).total_seconds())
+                    duration_seconds = (slots_used / 2.0) * 3600.0
+                    past_fraction = (elapsed_seconds / duration_seconds) if duration_seconds > 0 else 0.0
+                    if past_fraction > MAX_PAST_FRACTION:
+                        logger.debug(
+                            f"{block_name.capitalize()} block already {past_fraction:.0%} elapsed; "
+                            "finding future-only block instead"
+                        )
+                        remaining_block, slots_used = _calc_block(remaining_prices_future)
+            except Exception as e:
+                logger.warning(f"Error tempering {block_name} block: {e}")
+
+        if remaining_block and slots_used is not None and remaining_block.get("slots"):
+            remaining_block_slots_list = [slot["valid_from"] for slot in remaining_block["slots"]]
+            remaining_block_slots = set(remaining_block_slots_list)
+            remaining_prices_set = {p["valid_from"] for p in remaining_prices} | {
+                p["valid_from"] for p in remaining_prices_future
+            }
+            if remaining_block_slots - remaining_prices_set:
+                logger.warning(
+                    f"{block_name.capitalize()} block contains slots not in remaining_prices"
+                )
+                return None, None
+            if best_block_slots_utc and (remaining_block_slots & best_block_slots_utc):
+                logger.warning(f"{block_name.capitalize()} block overlaps with best block")
+                return None, None
+            if len(remaining_block_slots_list) != slots_used:
+                logger.error(
+                    f"{block_name.capitalize()} block has {len(remaining_block_slots_list)} slots, expected {slots_used}"
+                )
+                return None, None
+            start_uk = remaining_block.get("start_time_uk")
+            end_uk = remaining_block.get("end_time_uk")
+            if start_uk and end_uk:
+                time_diff = end_uk - start_uk
+                expected_hours = (slots_used / 2.0) if slots_used else duration_hours
+                actual_hours = time_diff.total_seconds() / 3600
+                if abs(actual_hours - expected_hours) > 0.25:
+                    logger.error(
+                        f"{block_name.capitalize()} block duration mismatch: "
+                        f"expected {expected_hours}h, got {actual_hours:.2f}h"
+                    )
+                    return None, None
+
+        return remaining_block, slots_used
+
     @staticmethod
     def calculate_cheapest_per_day(prices, duration_hours, current_time_utc=None):
         """
@@ -564,183 +700,27 @@ class PriceCalculator:
             if worst_block:
                 logger.debug(f"Worst block for {date_obj}: {worst_block.get('start_time_uk')} to {worst_block.get('end_time_uk')}, {len(worst_block.get('slots', []))} slots")
             
-            # Calculate cheapest remaining block for this day
-            # This should exclude slots already in the cheapest_block for this day
+            # Calculate cheapest remaining block for this day (uses shared logic with export)
             cheapest_remaining_block = None
             if current_time_utc:
-                # Build set of cheapest block slot valid_from strings for exclusion
                 cheapest_block_slots_utc = set()
-                if cheapest_block and cheapest_block.get('slots'):
-                    cheapest_block_slots_utc = {slot['valid_from'] for slot in cheapest_block['slots']}
+                if cheapest_block and cheapest_block.get("slots"):
+                    cheapest_block_slots_utc = {slot["valid_from"] for slot in cheapest_block["slots"]}
                     logger.debug(f"Excluding cheapest block slots on {date_obj}: {sorted(cheapest_block_slots_utc)}")
-                
-                # Filter remaining slots:
-                # - Exclude slots in the day's absolute cheapest block (so "remaining" means "next best")
-                # - Prefer blocks that are still ongoing or upcoming. This includes the current
-                #   half-hour slot (which technically started in the past, but hasn't finished yet).
-                #
-                # Critical behaviour:
-                # - If the cheapest remaining block has already started, we can still show it
-                #   (so the UI can indicate "you're currently in the block"), but if more than
-                #   20% of the block has elapsed we fall back to the true next block in the future.
-                # - If the selected duration is longer than the time remaining in the UK day,
-                #   shrink the block duration to whatever remains (in 30-minute increments).
-                remaining_prices = []  # slots with valid_to > now (current + future)
-                remaining_prices_future = []  # slots with valid_from >= now (future only)
-                excluded_count = 0
-                future_excluded_count = 0
-                
-                for price in day_prices:
-                    try:
-                        # Parse price time first
-                        valid_from_str = price['valid_from']
-                        if valid_from_str.endswith('Z'):
-                            dt_str = valid_from_str.replace('Z', '+00:00')
-                        else:
-                            dt_str = valid_from_str
-                        
-                        price_time_utc = datetime.fromisoformat(dt_str)
-                        if price_time_utc.tzinfo is None:
-                            price_time_utc = price_time_utc.replace(tzinfo=timezone.utc)
-
-                        valid_to_str = price['valid_to']
-                        if valid_to_str.endswith('Z'):
-                            to_dt_str = valid_to_str.replace('Z', '+00:00')
-                        else:
-                            to_dt_str = valid_to_str
-
-                        price_end_utc = datetime.fromisoformat(to_dt_str)
-                        if price_end_utc.tzinfo is None:
-                            price_end_utc = price_end_utc.replace(tzinfo=timezone.utc)
-                        
-                        # Skip if in cheapest block
-                        if price['valid_from'] in cheapest_block_slots_utc:
-                            excluded_count += 1
-                            if price_time_utc >= current_time_utc:
-                                future_excluded_count += 1
-                            continue
-                        
-                        # Include slots that haven't finished yet (current slot + future slots)
-                        if price_end_utc > current_time_utc:
-                            remaining_prices.append(price)
-                            if price_time_utc >= current_time_utc:
-                                remaining_prices_future.append(price)
-                    except (KeyError, ValueError, TypeError) as e:
-                        logger.warning(f"Error processing price for remaining block on {date_obj}: {e}")
-                        continue
-                
-                logger.debug(
-                    f"Filtered remaining prices for {date_obj}: {len(remaining_prices)} remaining "
-                    f"(excluded {excluded_count} total, {future_excluded_count} future)"
+                cheapest_remaining_block, _ = PriceCalculator.calculate_remaining_block_for_day(
+                    day_prices,
+                    cheapest_block,
+                    cheapest_block_slots_utc,
+                    current_time_utc,
+                    duration_hours,
+                    PriceCalculator.find_cheapest_block,
+                    "cheapest remaining",
                 )
-                
-                # Ensure remaining_prices are sorted by time (should already be, but verify)
-                remaining_prices.sort(key=lambda x: x.get('valid_from', ''))
-                remaining_prices_future.sort(key=lambda x: x.get('valid_from', ''))
-                
-                # Calculate cheapest remaining block from filtered prices
-                requested_slots = int(duration_hours * 2)
-                if requested_slots >= 1:
-                    MAX_PAST_FRACTION = 0.20
-
-                    def _calc_block(prices_pool):
-                        """Return (block, slots_used) by shrinking until contiguous block exists."""
-                        if not prices_pool:
-                            return None, None
-                        max_slots = min(requested_slots, len(prices_pool))
-                        for slots_try in range(max_slots, 0, -1):
-                            duration_try = slots_try / 2.0
-                            candidate = PriceCalculator.find_cheapest_block(prices_pool, duration_try)
-                            if candidate:
-                                return candidate, slots_try
-                        return None, None
-
-                    # If there isn't enough time left today for the requested duration,
-                    # use whatever remains (down to 0.5h). Also handle gaps created by
-                    # excluding the absolute cheapest block by shrinking until a contiguous
-                    # block exists.
-                    cheapest_remaining_block, slots_used = _calc_block(remaining_prices)
-
-                    # Temper: if we've already missed too much of the "remaining" block,
-                    # fall back to the true next block (future-only start times).
-                    if cheapest_remaining_block and slots_used is not None:
-                        try:
-                            start_str = cheapest_remaining_block.get('start_time')
-                            start_dt_str = (start_str or "").replace('Z', '+00:00')
-                            start_utc = datetime.fromisoformat(start_dt_str)
-                            if start_utc.tzinfo is None:
-                                start_utc = start_utc.replace(tzinfo=timezone.utc)
-
-                            elapsed_seconds = max(0.0, (current_time_utc - start_utc).total_seconds())
-                            duration_seconds = (slots_used / 2.0) * 3600.0
-                            past_fraction = (elapsed_seconds / duration_seconds) if duration_seconds > 0 else 0.0
-
-                            if past_fraction > MAX_PAST_FRACTION:
-                                logger.debug(
-                                    f"Cheapest remaining block for {date_obj} already {past_fraction:.0%} elapsed; "
-                                    f"finding future-only block instead"
-                                )
-                                cheapest_remaining_block, slots_used = _calc_block(remaining_prices_future)
-                        except Exception as e:
-                            logger.warning(f"Error tempering cheapest remaining block on {date_obj}: {e}")
-                            # If tempering fails, keep the original candidate rather than dropping data.
-
-                    if cheapest_remaining_block and slots_used is not None:
-                        logger.debug(
-                            f"Cheapest remaining block for {date_obj}: "
-                            f"{cheapest_remaining_block.get('start_time_uk')} to {cheapest_remaining_block.get('end_time_uk')} "
-                            f"({slots_used} slots)"
-                        )
-                    
-                    # Verify the remaining block doesn't overlap with cheapest block and has correct duration
-                    if cheapest_remaining_block and cheapest_remaining_block.get('slots'):
-                        remaining_block_slots_list = [slot['valid_from'] for slot in cheapest_remaining_block['slots']]
-                        remaining_block_slots = set(remaining_block_slots_list)
-                        
-                        # First check: verify all slots are actually in remaining_prices (should be, but verify)
-                        # Note: the block may come from remaining_prices_future after tempering.
-                        remaining_prices_set = {p['valid_from'] for p in remaining_prices} | {p['valid_from'] for p in remaining_prices_future}
-                        invalid_slots = remaining_block_slots - remaining_prices_set
-                        if invalid_slots:
-                            logger.warning(f"Cheapest remaining block on {date_obj} contains slots not in remaining_prices: {sorted(invalid_slots)}")
-                            cheapest_remaining_block = None
-                        # Second check: verify no overlap with cheapest block
-                        elif cheapest_block_slots_utc and (remaining_block_slots & cheapest_block_slots_utc):
-                            overlap = remaining_block_slots & cheapest_block_slots_utc
-                            logger.warning(f"Cheapest remaining block overlaps with cheapest block on {date_obj}: overlap={sorted(overlap)}")
-                            logger.debug(f"  Cheapest block slots: {sorted(cheapest_block_slots_utc)}")
-                            logger.debug(f"  Remaining block slots: {sorted(remaining_block_slots)}")
-                            cheapest_remaining_block = None
-                        # Third check: verify correct number of slots
-                        elif slots_used is not None and len(remaining_block_slots_list) != slots_used:
-                            logger.error(
-                                f"Cheapest remaining block on {date_obj} has {len(remaining_block_slots_list)} slots, "
-                                f"expected {slots_used}. Slots: {sorted(remaining_block_slots_list)}"
-                            )
-                            cheapest_remaining_block = None
-                        else:
-                            # Additional validation: verify the block times make sense (critical check)
-                            start_uk = cheapest_remaining_block.get('start_time_uk')
-                            end_uk = cheapest_remaining_block.get('end_time_uk')
-                            if start_uk and end_uk:
-                                # Calculate time difference - this is the KEY validation
-                                time_diff = end_uk - start_uk
-                                expected_hours = (slots_used / 2.0) if slots_used is not None else duration_hours
-                                actual_hours = time_diff.total_seconds() / 3600
-                                # Allow small tolerance for half-hour boundaries (0.25 hours = 15 minutes)
-                                if abs(actual_hours - expected_hours) > 0.25:
-                                    logger.error(f"CRITICAL: Cheapest remaining block on {date_obj} duration mismatch: expected {expected_hours}h, got {actual_hours:.2f}h. Times: {start_uk} to {end_uk}")
-                                    logger.error(f"  Block slots count: {len(remaining_block_slots_list)}, Slots (UTC): {sorted(remaining_block_slots_list)}")
-                                    # Log the actual slot times to diagnose
-                                    if cheapest_remaining_block.get('slots'):
-                                        slot_times_uk = [utc_to_uk(slot['valid_from']) for slot in cheapest_remaining_block['slots']]
-                                        logger.error(f"  Slot times (UK): {[str(st) for st in sorted(slot_times_uk)]}")
-                                    cheapest_remaining_block = None
-                                else:
-                                    logger.debug(f"Cheapest remaining block for {date_obj}: {start_uk} to {end_uk}, {len(remaining_block_slots_list)} slots ({actual_hours:.2f}h)")
-                            else:
-                                logger.warning(f"Cheapest remaining block for {date_obj} missing time information")
-                                cheapest_remaining_block = None
+                if cheapest_remaining_block:
+                    logger.debug(
+                        f"Cheapest remaining block for {date_obj}: "
+                        f"{cheapest_remaining_block.get('start_time_uk')} to {cheapest_remaining_block.get('end_time_uk')}"
+                    )
             
             date_display = date_obj.strftime('%d/%m/%y')
             day_result = {

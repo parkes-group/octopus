@@ -790,6 +790,19 @@
             {% include 'components/_stats_2025_regional.html' %}
         {% endwith %}
     </section>
+
+    <!-- Export Cross-Link Section -->
+    <section class="mb-4">
+        <div class="card border-primary">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Do you export solar power?</h2>
+                <p class="mb-3">
+                    You can also view Agile Outgoing export prices for your region to see when exporting electricity pays the most.
+                </p>
+                <a href="{{ url_for('main.export_agile_region', region_slug=region_slug) }}" class="btn btn-outline-primary">View export prices for this region</a>
+            </div>
+        </div>
+    </section>
     
     {% include 'components/_feature_suggestion.html' %}
     
