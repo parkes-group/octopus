@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{# ------------------------------------------------------------------------- #}
+{# On-page SEO: Best time to export on Octopus Agile Outgoing                #}
+{# Title <= 60 chars. Meta description <= 160 chars.                         #}
+{# ------------------------------------------------------------------------- #}
+{% block seo_title %}Best Time to Export on Octopus Agile Outgoing{% endblock %}
+{% block seo_description %}Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_title %}Best Time to Export on Octopus Agile Outgoing{% endblock %}
+{% block og_description %}Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_url %}{{ page_url }}{% endblock %}
+{% block twitter_title %}Best Time to Export on Octopus Agile Outgoing{% endblock %}
+{% block twitter_description %}Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.{% endblock %}
+
+{% block head %}
+  {# ----------------------------------------------------------------------- #}
+  {# Structured data (BlogPosting JSON-LD)                                   #}
+  {# ----------------------------------------------------------------------- #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Best Time to Export Power on Octopus Agile Outgoing",
+    "description": "Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.",
+    "datePublished": "{{ date_published }}",
+    "dateModified": "{{ date_modified }}",
+    "author": {
+      "@type": "Organization",
+      "name": "{{ author_name }}"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "{{ page_url }}"
+    },
+    "url": "{{ page_url }}"
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<article class="row blog-post">
+  <div class="col-12">
+    <header class="mb-4">
+      <h1>Best Time to Export Power on Octopus Agile Outgoing</h1>
+      <p class="text-muted mb-2"><strong>Last updated:</strong> {{ date_modified }}</p>
+      <p class="mb-0 text-muted">
+        This guide explains when <strong>Octopus Agile Outgoing</strong> export prices are typically highest, how they vary through the day, and how to use our tools to check <strong>export prices for your region</strong>.
+      </p>
+    </header>
+
+    {% set panel_a = "blog-panel blog-panel-a" %}
+    {% set panel_b = "blog-panel blog-panel-b" %}
+
+    <nav class="blog-toc mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}" aria-label="On this page">
+      <h2 class="h5 mb-2">On this page</h2>
+      <ul class="mb-0">
+        <li><a href="#what-is-agile-outgoing">What Is Octopus Agile Outgoing?</a></li>
+        <li><a href="#why-prices-change">Why Export Prices Change Throughout the Day</a></li>
+        <li><a href="#typical-best-times">Typical Best Times to Export Solar Power</a></li>
+        <li><a href="#what-2025-shows">What 2025 Export Data Shows</a></li>
+        <li><a href="#check-your-region">How to Check Export Prices for Your Region</a></li>
+        <li><a href="#batteries">How Batteries Can Increase Export Income</a></li>
+        <li><a href="#switch">Should You Switch to Octopus Agile Outgoing?</a></li>
+      </ul>
+    </nav>
+
+    <section id="what-is-agile-outgoing" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>What Is Octopus Agile Outgoing?</h2>
+      <p>
+        <strong>Octopus Agile Outgoing</strong> is a half-hourly export tariff for households with solar panels. Instead of a fixed rate for every unit you export, you receive a price that changes every 30 minutes.
+      </p>
+      <p>
+        Export prices follow wholesale electricity markets. When demand is high and supply is tight, you can earn more. When there is surplus renewable generation, prices can fall and sometimes even go <strong>negative</strong>, meaning you effectively pay to export.
+      </p>
+      <p class="mb-0">
+        To see live <strong>Octopus Agile Outgoing prices</strong> for your area, <a href="{{ url_for('main.export_index') }}">check Agile export prices for your region</a>.
+      </p>
+    </section>
+
+    <section id="why-prices-change" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>Why Export Prices Change Throughout the Day</h2>
+      <p>
+        Several factors drive <strong>octopus export prices time of day</strong>:
+      </p>
+      <ul>
+        <li><strong>Solar generation</strong> — When the sun is strong, many homes export at once. Supply rises and export rates often drop.</li>
+        <li><strong>Electricity demand</strong> — Peak demand (late afternoon and evening) pushes wholesale prices up. Exporting then usually earns more.</li>
+        <li><strong>Wholesale market pricing</strong> — Agile Outgoing reflects wholesale rates. Spikes and dips flow through to what you earn.</li>
+      </ul>
+      <p class="mb-0">
+        Understanding these patterns helps you time exports to maximise income.
+      </p>
+    </section>
+
+    <section id="typical-best-times" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>Typical Best Times to Export Solar Power</h2>
+      <p>
+        For many regions, the <strong>best time to export solar UK</strong> tends to be in the <strong>afternoon and evening</strong>, when grid demand rises and solar output starts to fall.
+      </p>
+      <p>
+        Late afternoon (around 4pm–7pm) often sees higher <strong>agile outgoing export rates</strong> because:
+      </p>
+      <ul>
+        <li>People return home and use more electricity</li>
+        <li>Solar generation drops as the sun sets</li>
+        <li>Grid demand peaks, pushing wholesale prices up</li>
+      </ul>
+      <p>
+        Patterns vary by season. Winter evenings can be especially lucrative. Summer midday exports may earn less when solar is abundant. Always <a href="{{ url_for('main.export_index') }}">check export prices for your region</a> to see current patterns.
+      </p>
+      <div class="alert alert-info mt-3 mb-0" role="note">
+        <strong>Tip:</strong> Export prices are often highest in late afternoon and evening when grid demand increases.
+      </div>
+    </section>
+
+    <section id="what-2025-shows" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>What 2025 Export Data Shows</h2>
+      {% if stats_export_2025 %}
+      <p>
+        Based on <strong>2025 national Agile Outgoing data</strong> across all UK regions, the numbers illustrate how much timing matters:
+      </p>
+      <ul>
+        <li><strong>Daily average export price (2025):</strong> {{ "%.2f"|format(stats_export_2025.daily_average_price) }}p/kWh</li>
+        <li><strong>Best 3.5-hour block average (2025):</strong> {{ "%.2f"|format(stats_export_2025.best_block_price) }}p/kWh</li>
+        <li><strong>Worst 3.5-hour block average (2025):</strong> {{ "%.2f"|format(stats_export_2025.worst_block_price) }}p/kWh</li>
+        <li><strong>Potential annual earnings vs daily average (2025):</strong> £{{ "%.2f"|format(stats_export_2025.earnings_vs_daily_avg) }} extra ({{ "%.1f"|format(stats_export_2025.earnings_vs_daily_avg_pct) }}% higher in best block)</li>
+        {% if stats_export_2025.negative_pricing and stats_export_2025.negative_pricing.total_hours %}
+        <li><strong>Negative export hours (2025):</strong> {{ "%.1f"|format(stats_export_2025.negative_pricing.total_hours) }} hours when you pay to export</li>
+        {% endif %}
+      </ul>
+      <p>
+        These <strong>2025 statistics</strong> assume {{ "%.1f"|format(stats_export_2025.assumptions.daily_kwh) }} kWh/day export with {{ "%.0f"|format(stats_export_2025.assumptions.get('best_block_usage_percent', 35.0)) }}% in the best 3.5h blocks. Exporting in the right windows can significantly boost income compared with spreading exports evenly.
+      </p>
+      <p class="mb-0">
+        For live, region-specific <strong>Octopus Agile Outgoing prices</strong>, <a href="{{ url_for('main.export_index') }}">check export prices for your region</a>.
+      </p>
+      <div class="alert alert-secondary mt-3 mb-0" role="note">
+        <small>
+          <strong>Note:</strong> These 2025 figures are national averages. Your region may differ. Use our tools to see your local rates.
+        </small>
+      </div>
+      {% else %}
+      <p>
+        National export statistics for 2025 are generated from Octopus Agile Outgoing data. For live, region-specific prices, <a href="{{ url_for('main.export_index') }}">check export prices for your region</a>.
+      </p>
+      {% endif %}
+    </section>
+
+    <section id="check-your-region" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>How to Check Export Prices for Your Region</h2>
+      <p>
+        <strong>Octopus Agile Outgoing prices</strong> vary by UK region. National averages are useful, but your own region’s data matters most.
+      </p>
+      <p>
+        On our site you can enter your postcode and view:
+      </p>
+      <ul>
+        <li><strong>Current export prices</strong> — Half-hourly rates for today and tomorrow</li>
+        <li><strong>Cheapest and most expensive export windows</strong> — When to avoid exporting vs when to prioritise it</li>
+      </ul>
+      <p class="mb-0">
+        <a href="{{ url_for('main.export_index') }}">Go to the export tools</a> to see live <strong>agile outgoing export rates</strong> for your area.
+      </p>
+    </section>
+
+    <section id="batteries" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>How Batteries Can Increase Export Income</h2>
+      <p>
+        A home battery can help you earn more from Agile Outgoing:
+      </p>
+      <ul>
+        <li><strong>Charge when import prices are low</strong> — Use cheap overnight or midday rates to fill the battery.</li>
+        <li><strong>Export when prices spike</strong> — Discharge to the grid during high export windows instead of low ones.</li>
+      </ul>
+      <p>
+        To plan charging, use our <a href="{{ url_for('main.prices') }}">import price tools</a> to see when electricity is cheapest. Then align export with the best <a href="{{ url_for('main.export_index') }}">export price windows</a>.
+      </p>
+      <p class="mb-0">
+        Combining import and export views gives you a full picture of when to charge and when to export.
+      </p>
+    </section>
+
+    <section id="switch" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>Should You Switch to Octopus Agile Outgoing?</h2>
+      <p>
+        <strong>Octopus Agile Outgoing</strong> can suit solar owners who want to maximise export income. Pros include:
+      </p>
+      <ul>
+        <li><strong>Higher peak export prices</strong> — When rates spike, you can earn more than fixed export tariffs.</li>
+        <li><strong>Potential to earn more</strong> — With good timing, total export income can exceed fixed-tariff earnings.</li>
+      </ul>
+      <p>
+        If you’re thinking about switching to Octopus, you can use our <a href="{{ octopus_referral_url }}" target="_blank" rel="noopener noreferrer">referral link</a> which usually gives both of us a credit bonus when you join.
+      </p>
+      <p class="mb-0">
+        <strong>Thinking of switching?</strong> Use our <a href="{{ octopus_referral_url }}" target="_blank" rel="noopener noreferrer">referral link</a> and you’ll get <strong>£50 credit</strong> when you join.
+      </p>
+    </section>
+  </div>
+</article>
+{% endblock %}

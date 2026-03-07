@@ -66,5 +66,11 @@
         <changefreq>monthly</changefreq>
         <priority>0.6</priority>
     </url>
+    <url>
+        <loc>{{ site_url }}/blog/best-time-to-export-octopus-agile-outgoing</loc>
+        <lastmod>{{ lastmod }}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
 </urlset>
 

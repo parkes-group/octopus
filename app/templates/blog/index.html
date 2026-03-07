@@ -7,16 +7,100 @@
 {% block og_description %}Evidence-led explainers using real Octopus Agile pricing data.{% endblock %}
 {% block og_url %}{{ canonical_url }}{% endblock %}
 
+{% block head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "{{ site_url }}/#website",
+      "url": "{{ site_url }}/",
+      "name": "Agile Pricing",
+      "description": "Tools and analysis for Agile Octopus electricity pricing in the UK.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Parkes Group Enterprise Ltd"
+      },
+      "inLanguage": "en-GB"
+    },
+    {
+      "@type": "Blog",
+      "@id": "{{ site_url }}/blog#blog",
+      "name": "Agile Pricing Blog",
+      "url": "{{ site_url }}/blog",
+      "description": "Evidence-led explainers based on real half-hourly UK electricity prices.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Parkes Group Enterprise Ltd"
+      }
+    },
+    {
+      "@type": "CollectionPage",
+      "@id": "{{ site_url }}/blog#webpage",
+      "url": "{{ site_url }}/blog",
+      "name": "Agile Pricing Blog",
+      "description": "Evidence-led explainers using real Octopus Agile pricing data.",
+      "isPartOf": {
+        "@id": "{{ site_url }}/#website"
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "Agile Octopus electricity prices"
+        },
+        {
+          "@type": "Thing",
+          "name": "UK electricity tariffs"
+        }
+      ],
+      "mainEntity": {
+        "@id": "{{ site_url }}/blog#blog"
+      },
+      "inLanguage": "en-GB"
+    },
+    {% for post in posts %}
+    {
+      "@type": "BlogPosting",
+      "@id": "{{ site_url }}{{ post.url }}#post",
+      "headline": {{ post.title|tojson }},
+      "description": {{ post.excerpt|tojson }},
+      "datePublished": "{{ post.published }}",
+      "dateModified": "{{ post.published }}",
+      "author": {
+        "@type": "Organization",
+        "name": "Parkes Group Enterprise Ltd"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Parkes Group Enterprise Ltd"
+      },
+      "url": "{{ site_url }}{{ post.url }}",
+      "isPartOf": {
+        "@id": "{{ site_url }}/blog#blog"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{ site_url }}{{ post.url }}"
+      },
+      "keywords": {{ post.keywords|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="row blog-index">
   <div class="col-12">
-    <h1>Blog</h1>
+    <h1>Agile Pricing Blogs</h1>
     <p class="text-muted mb-4">Evidence-led explainers based on real half-hourly UK electricity prices.</p>
 
     {% for post in posts %}
       <article class="mb-4">
         <h2 class="h4 mb-1">
-          <a href="{{ url_for('main.blog_is_octopus_agile_really_cheaper') }}">{{ post.title }}</a>
+          <a href="{{ post.url }}">{{ post.title }}</a>
         </h2>
         <div class="text-muted small mb-2">{{ post.published }}</div>
         <p class="mb-0">{{ post.excerpt }}</p>

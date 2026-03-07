@@ -1203,11 +1203,21 @@ def blog_index():
     """
     posts = [
         {
+            "title": "Best Time to Export on Octopus Agile Outgoing",
+            "slug": "best-time-to-export-octopus-agile-outgoing",
+            "published": date.today().isoformat(),
+            "excerpt": "Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.",
+            "url": url_for("main.blog_best_time_to_export_octopus_agile_outgoing"),
+            "keywords": ["Octopus Agile Outgoing", "solar export prices", "best time to export solar UK"],
+        },
+        {
             "title": "Is Octopus Agile really cheaper?",
             "slug": "is-octopus-agile-really-cheaper",
             "published": "2026-01-31",
-            "excerpt": "Octopus Agile is not always cheaper. Using 2025 national pricing data, this explains who wins, who loses, and why winter evenings are the danger zone.",
-        }
+            "excerpt": "Using real 2025 Agile Octopus pricing data, this analysis explains who saves money and when prices spike.",
+            "url": url_for("main.blog_is_octopus_agile_really_cheaper"),
+            "keywords": ["Octopus Agile pricing", "is Octopus Agile cheaper", "Agile tariff analysis UK"],
+        },
     ]
     return render_template(
         "blog/index.html",
@@ -1276,6 +1286,32 @@ def blog_is_octopus_agile_really_cheaper():
         stats_peak_window_start=peak_window.get("start"),
         stats_peak_window_end=peak_window.get("end"),
     )
+
+
+@bp.route("/blog/best-time-to-export-octopus-agile-outgoing")
+def blog_best_time_to_export_octopus_agile_outgoing():
+    """
+    Blog post: best time to export on Octopus Agile Outgoing.
+    SEO article for solar owners about export price patterns.
+    """
+    from app.stats_loader import StatsLoader
+
+    published = date.today().isoformat()
+    date_modified = date.today().isoformat()
+    canonical_url = _production_url(url_for("main.blog_best_time_to_export_octopus_agile_outgoing"))
+    stats_export_2025 = StatsLoader.get_stats_for_display_export(region_code="national", year=2025)
+
+    return render_template(
+        "blog/best-time-to-export-octopus-agile-outgoing.html",
+        page_name="blog",
+        canonical_url=canonical_url,
+        page_url=canonical_url,
+        date_published=published,
+        date_modified=date_modified,
+        author_name="AgilePricing.co.uk",
+        stats_export_2025=stats_export_2025,
+    )
+
 
 @bp.route('/feature-vote', methods=['POST'])
 def feature_vote():
