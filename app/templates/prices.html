@@ -596,10 +596,7 @@
                 <!-- Summary BELOW cards -->
                 {% set position = 'below' %}
                 {% include 'components/_daily_price_summary.html' %}
-                <!-- Bookmark Tip -->
-                <div class="alert alert-success small mt-2 mb-4 text-center">
-                    🔖 <strong>Tip:</strong> Bookmark this page to check the cheapest Agile Octopus prices for your region each day.
-                </div>
+          
                 {% if is_tomorrow %}
                     </div><!-- End tomorrow section container -->
                 {% endif %}
@@ -622,6 +619,18 @@
         {% endif %}
     </section>
     
+        <!-- Export Cross-Link Section -->
+        <section class="mb-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Do you export? Switch to export prices?</h2>
+                    <p class="lead">
+                        <small>You can also view Agile Outgoing export prices for your region to see when exporting electricity pays the most.</small>
+                    </p>
+                    <a href="{{ url_for('main.export_agile_region', region_slug=region_slug) }}" class="btn btn-outline-primary">Switch to export prices for this region</a>
+                </div>
+            </div>
+        </section>
     <!-- Section 1: User Inputs -->
     <section class="mb-4">
         
@@ -698,8 +707,6 @@
         
     </section>
 
-    {% include 'components/_feature_voting.html' %}
-
     <!-- Section 3: Price Chart -->
     <section class="mb-4">
         <h2 class="h5 mb-3">Price Chart</h2>
@@ -718,6 +725,7 @@
         {% endif %}
     </section>
     
+    {% include 'components/_feature_voting.html' %}
 
     <!-- Section 4: Price Table -->
     <section class="mb-4">
@@ -791,18 +799,6 @@
         {% endwith %}
     </section>
 
-    <!-- Export Cross-Link Section -->
-    <section class="mb-4">
-        <div class="card border-primary">
-            <div class="card-body">
-                <h2 class="h5 mb-3">Do you export solar power?</h2>
-                <p class="mb-3">
-                    You can also view Agile Outgoing export prices for your region to see when exporting electricity pays the most.
-                </p>
-                <a href="{{ url_for('main.export_agile_region', region_slug=region_slug) }}" class="btn btn-outline-primary">View export prices for this region</a>
-            </div>
-        </div>
-    </section>
     
     {% include 'components/_feature_suggestion.html' %}
     

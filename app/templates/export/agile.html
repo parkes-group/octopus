@@ -213,6 +213,19 @@
         </div>
     </section>
 
+        <!-- Import Cross-Link Section -->
+        <section class="mb-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Importing on Agile? Switch to import prices</h2>
+                    <p class="lead">
+                        <small>If you are on the Octopus Agile import tariff, you can view the cheapest electricity windows for charging EVs, batteries, or appliances.</small> 
+                    </p>
+                    <a href="{{ url_for('main.prices_region', region_slug=region_slug) }}" class="btn btn-outline-primary">Switch to import prices for this region</a>
+                </div>
+            </div>
+        </section>
+
     <!-- Section 3: Change Block Duration, Usage or Region Options (matches prices page) -->
     <section class="mb-4">
         <div class="card mb-4">
@@ -247,8 +260,6 @@
         </div>
     </section>
 
-    {% include 'components/_feature_voting.html' %}
-
     <!-- Section 4: Price Chart (matches prices page) -->
     <section class="mb-4">
         <h2 class="h5 mb-3">Price Chart</h2>
@@ -264,6 +275,8 @@
         </div>
     </section>
 
+    {% include 'components/_feature_voting.html' %}
+    
     <!-- Section 5: All Prices (Half-Hourly) (matches prices page) -->
     <section class="mb-4">
         <h2 class="h5 mb-3">All Prices (Half-Hourly)</h2>
@@ -304,19 +317,6 @@
         {% else %}
         <p class="text-muted">Year-to-date export statistics will appear here when available for this region.</p>
         {% endif %}
-    </section>
-
-    <!-- Import Cross-Link Section -->
-    <section class="mb-4">
-        <div class="card border-primary">
-            <div class="card-body">
-                <h2 class="h5 mb-3">Importing electricity too?</h2>
-                <p class="mb-3">
-                    If you are on the Octopus Agile import tariff, you can view the cheapest electricity windows for charging EVs, batteries, or appliances.
-                </p>
-                <a href="{{ url_for('main.prices_region', region_slug=region_slug) }}" class="btn btn-outline-primary">View import prices for this region</a>
-            </div>
-        </div>
     </section>
 
     {% include 'components/_feature_suggestion.html' %}
