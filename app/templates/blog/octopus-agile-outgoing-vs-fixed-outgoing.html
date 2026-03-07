@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{# ------------------------------------------------------------------------- #}
+{# On-page SEO: Agile Outgoing vs Fixed Outgoing Octopus                     #}
+{# Title <= 60 chars. Meta description <= 160 chars.                        #}
+{# ------------------------------------------------------------------------- #}
+{% block seo_title %}Agile Outgoing vs Fixed Outgoing Octopus (12p): Which Export Tariff Pays More?{% endblock %}
+{% block seo_description %}Compare Octopus Agile Outgoing vs Fixed Outgoing export tariffs. Learn which solar export tariff pays more and how to maximise your solar income.{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block og_title %}Agile Outgoing vs Fixed Outgoing Octopus (12p): Which Export Tariff Pays More?{% endblock %}
+{% block og_description %}Compare Octopus Agile Outgoing vs Fixed Outgoing export tariffs. Learn which solar export tariff pays more and how to maximise your solar income.{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_url %}{{ page_url }}{% endblock %}
+{% block twitter_title %}Agile Outgoing vs Fixed Outgoing Octopus (12p): Which Export Tariff Pays More?{% endblock %}
+{% block twitter_description %}Compare Octopus Agile Outgoing vs Fixed Outgoing export tariffs. Learn which solar export tariff pays more and how to maximise your solar income.{% endblock %}
+
+{% block head %}
+  {# ----------------------------------------------------------------------- #}
+  {# Structured data (BlogPosting JSON-LD)                                   #}
+  {# ----------------------------------------------------------------------- #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "@id": "{{ page_url }}#article",
+    "headline": "Agile Outgoing vs Fixed Outgoing Octopus: Which Export Tariff Pays More?",
+    "description": "Compare Octopus Agile Outgoing vs Fixed Outgoing export tariffs. Learn which solar export tariff pays more and how to maximise your solar income.",
+    "datePublished": "{{ date_published }}",
+    "dateModified": "{{ date_modified }}",
+    "author": {
+      "@type": "Organization",
+      "name": "Parkes Group Enterprise Ltd"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Parkes Group Enterprise Ltd",
+      "url": "{{ site_url }}"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "{{ page_url }}"
+    },
+    "url": "{{ page_url }}",
+    "isPartOf": {
+      "@type": "Blog",
+      "@id": "{{ site_url }}/blog#blog"
+    },
+    "articleSection": "Energy Tariffs",
+    "keywords": [
+      "agile outgoing vs fixed outgoing octopus",
+      "octopus export tariff comparison",
+      "fixed outgoing octopus 12p",
+      "is agile outgoing worth it",
+      "octopus agile outgoing review"
+    ],
+    "inLanguage": "en-GB",
+    "about": {
+      "@type": "Thing",
+      "name": "Octopus export tariff comparison"
+    }
+  }
+  </script>
+{% endblock %}
+
+{% block content %}
+<article class="row blog-post">
+  <div class="col-12">
+    <header class="mb-4">
+      <h1>Agile Outgoing vs Fixed Outgoing Octopus: Which Export Tariff Pays More?</h1>
+      <p class="text-muted mb-2"><strong>Last updated:</strong> {{ date_modified }}</p>
+      <p class="mb-0 text-muted">
+        This guide compares <strong>Octopus Agile Outgoing</strong> and <strong>Fixed Outgoing</strong> export tariffs. Learn which pays more for your solar exports and how to use our tools to check live prices for your region.
+      </p>
+    </header>
+
+    {% set panel_a = "blog-panel blog-panel-a" %}
+    {% set panel_b = "blog-panel blog-panel-b" %}
+
+    <nav class="blog-toc mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}" aria-label="On this page">
+      <h2 class="h5 mb-2">On this page</h2>
+      <ul class="mb-0">
+        <li><a href="#what-is-fixed">What Is Fixed Outgoing Octopus?</a></li>
+        <li><a href="#what-is-agile">What Is Agile Outgoing?</a></li>
+        <li><a href="#comparison">Agile Outgoing vs Fixed Outgoing — Quick Comparison</a></li>
+        <li><a href="#when-agile-pays-more">When Agile Outgoing Pays More</a></li>
+        <li><a href="#when-fixed-better">When Fixed Outgoing May Be Better</a></li>
+        <li><a href="#check-prices">How to Check Export Prices for Your Region</a></li>
+        <li><a href="#combining">Combining Agile Import and Export</a></li>
+        <li><a href="#switch">Should You Switch to Octopus?</a></li>
+      </ul>
+    </nav>
+
+    <section id="what-is-fixed" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>What Is Fixed Outgoing Octopus?</h2>
+      <p>
+        <strong>Fixed Outgoing</strong> (also known as Outgoing Octopus) is a simple export tariff. You receive a fixed rate for every unit of electricity you export to the grid—currently around <strong>12p per kWh</strong>.
+      </p>
+      <p>
+        The price is the same regardless of time of day or season. It is simple and predictable.
+      </p>
+      <p class="mb-0">
+        Fixed Outgoing suits people who want stable income and users without batteries who prefer not to monitor export prices.
+      </p>
+    </section>
+
+    <section id="what-is-agile" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>What Is Agile Outgoing?</h2>
+      <p>
+        <strong>Agile Outgoing</strong> is a half-hourly export tariff. Export prices change every 30 minutes and follow the wholesale electricity market.
+      </p>
+      <p>
+        When demand is high, prices can be higher than fixed tariffs. When supply exceeds demand, prices can fall—and occasionally go <strong>negative</strong>, meaning you pay to export.
+      </p>
+      <p class="mb-0">
+        <a href="{{ url_for('main.export_index') }}">Check the latest Agile Outgoing export prices for your region</a> to see current rates.
+      </p>
+    </section>
+
+    <section id="comparison" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>Agile Outgoing vs Fixed Outgoing — Quick Comparison</h2>
+      <p>
+        Here is a quick <strong>octopus export tariff comparison</strong>:
+      </p>
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Tariff</th>
+              <th>Typical Export Price</th>
+              <th>Risk Level</th>
+              <th>Best For</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Fixed Outgoing</strong></td>
+              <td>~12p per kWh</td>
+              <td>Low</td>
+              <td>Simple predictable export</td>
+            </tr>
+            <tr>
+              <td><strong>Agile Outgoing</strong></td>
+              <td>Variable (0–30p+)</td>
+              <td>Medium</td>
+              <td>Maximising solar income</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mb-0">
+        <strong>Fixed outgoing Octopus 12p</strong> gives certainty. Agile Outgoing can earn more when you time exports well—but involves more variability.
+      </p>
+    </section>
+
+    <section id="when-agile-pays-more" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>When Agile Outgoing Pays More</h2>
+      <p>
+        <strong>Is Agile Outgoing worth it?</strong> In many market conditions, yes. Agile export performs well when:
+      </p>
+      <ul>
+        <li><strong>Evening grid demand peaks</strong> — Late afternoon and evening often see higher wholesale prices.</li>
+        <li><strong>Winter supply shortages</strong> — Colder months can push export rates above fixed levels.</li>
+        <li><strong>High wholesale prices</strong> — Spikes flow through to Agile Outgoing.</li>
+      </ul>
+      <p class="mb-0">
+        <a href="{{ url_for('main.export_index') }}">Check the latest export prices for your region</a> to see current patterns.
+      </p>
+    </section>
+
+    <section id="when-fixed-better" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>When Fixed Outgoing May Be Better</h2>
+      <p>
+        Fixed Outgoing can be the better choice when:
+      </p>
+      <ul>
+        <li><strong>Export prices are frequently low</strong> — If Agile rates often sit below 12p, fixed may earn more.</li>
+        <li><strong>You prefer predictable income</strong> — No need to monitor half-hourly prices.</li>
+        <li><strong>You don't want to monitor prices</strong> — Set-and-forget suits some households.</li>
+      </ul>
+      <p class="mb-0">
+        Your region and export timing matter. Use our tools to compare.
+      </p>
+    </section>
+
+    <section id="check-prices" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>How to Check Export Prices for Your Region</h2>
+      <p>
+        Our export tool lets you see live prices for your area. You can:
+      </p>
+      <ul>
+        <li><strong>Enter your postcode</strong> — We detect your region.</li>
+        <li><strong>View the latest export prices</strong> — Half-hourly rates for today and tomorrow.</li>
+        <li><strong>See daily high and low export windows</strong> — When to prioritise or avoid exporting.</li>
+      </ul>
+      <p class="mb-0">
+        <a href="{{ url_for('main.export_index') }}">Go to the export tools</a> to check your region.
+      </p>
+    </section>
+
+    <section id="combining" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_b }}">
+      <h2>Combining Agile Import and Export</h2>
+      <p>
+        Some solar + battery users combine both tariffs:
+      </p>
+      <ul>
+        <li><strong>Charge batteries when import prices are low</strong> — Use cheap overnight or midday rates.</li>
+        <li><strong>Export when prices spike</strong> — Discharge to the grid during high export windows.</li>
+      </ul>
+      <p class="mb-0">
+        <a href="{{ url_for('main.prices') }}">Check the cheapest Agile import windows here</a> to plan charging. Then align export with the best <a href="{{ url_for('main.export_index') }}">export price windows</a>.
+      </p>
+    </section>
+
+    <section id="switch" class="blog-section mb-4 p-3 p-lg-4 rounded-3 {{ panel_a }}">
+      <h2>Should You Switch to Octopus?</h2>
+      <p>
+        <strong>Agile Outgoing</strong> can outperform fixed tariffs in many market conditions. But it involves more variability. Your choice depends on your setup and how much you want to optimise.
+      </p>
+      <p>
+        If you're considering switching to Octopus Energy for Agile or export tariffs, you can use our <a href="{{ octopus_referral_url }}" target="_blank" rel="noopener noreferrer">referral link</a>. Octopus typically gives both of us a credit bonus when you sign up.
+      </p>
+      <p>
+        <a href="{{ octopus_referral_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Switch to Octopus Energy</a>
+      </p>
+      <p class="mb-0 text-muted small">
+        Use our referral link for £50 credit when you join.
+      </p>
+    </section>
+  </div>
+</article>
+{% endblock %}

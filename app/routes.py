@@ -1203,6 +1203,14 @@ def blog_index():
     """
     posts = [
         {
+            "title": "Agile Outgoing vs Fixed Outgoing Octopus (12p): Which Export Tariff Pays More?",
+            "slug": "octopus-agile-outgoing-vs-fixed-outgoing",
+            "published": date.today().isoformat(),
+            "excerpt": "Compare Octopus Agile Outgoing vs Fixed Outgoing export tariffs. Learn which solar export tariff pays more and how to maximise your solar income.",
+            "url": url_for("main.blog_octopus_agile_outgoing_vs_fixed_outgoing"),
+            "keywords": ["agile outgoing vs fixed outgoing octopus", "octopus export tariff comparison", "fixed outgoing octopus 12p", "is agile outgoing worth it", "octopus agile outgoing review"],
+        },
+        {
             "title": "Best Time to Export on Octopus Agile Outgoing",
             "slug": "best-time-to-export-octopus-agile-outgoing",
             "published": date.today().isoformat(),
@@ -1310,6 +1318,27 @@ def blog_best_time_to_export_octopus_agile_outgoing():
         date_modified=date_modified,
         author_name="AgilePricing.co.uk",
         stats_export_2025=stats_export_2025,
+    )
+
+
+@bp.route("/blog/octopus-agile-outgoing-vs-fixed-outgoing")
+def blog_octopus_agile_outgoing_vs_fixed_outgoing():
+    """
+    Blog post: Agile Outgoing vs Fixed Outgoing export tariff comparison.
+    SEO article for solar owners comparing export tariffs.
+    """
+    published = date.today().isoformat()
+    date_modified = date.today().isoformat()
+    canonical_url = _production_url(url_for("main.blog_octopus_agile_outgoing_vs_fixed_outgoing"))
+
+    return render_template(
+        "blog/octopus-agile-outgoing-vs-fixed-outgoing.html",
+        page_name="blog",
+        canonical_url=canonical_url,
+        page_url=canonical_url,
+        date_published=published,
+        date_modified=date_modified,
+        author_name="AgilePricing.co.uk",
     )
 
 
