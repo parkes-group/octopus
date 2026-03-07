@@ -1183,6 +1183,14 @@ def robots_txt():
     response.mimetype = 'text/plain'
     return response
 
+
+@bp.route('/7076f23e094c443591bfc7d374e6cba2.txt')
+def index_now_verification():
+    """Serve IndexNow verification file for Bing/Yandex URL submission."""
+    response = make_response(render_template('7076f23e094c443591bfc7d374e6cba2.txt'))
+    response.mimetype = 'text/plain'
+    return response
+
 @bp.route('/sitemap.xml')
 def sitemap_xml():
     """Serve sitemap.xml for search engines."""
