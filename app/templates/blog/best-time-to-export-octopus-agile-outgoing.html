@@ -22,19 +22,41 @@
   {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
+    "@id": "{{ page_url }}#article",
     "headline": "Best Time to Export Power on Octopus Agile Outgoing",
     "description": "Discover the best time of day to export solar power using Octopus Agile Outgoing. Learn when export prices are highest and how to maximise your solar income.",
     "datePublished": "{{ date_published }}",
     "dateModified": "{{ date_modified }}",
     "author": {
       "@type": "Organization",
-      "name": "{{ author_name }}"
+      "name": "Parkes Group Enterprise Ltd"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Parkes Group Enterprise Ltd",
+      "url": "{{ site_url }}"
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
       "@id": "{{ page_url }}"
     },
-    "url": "{{ page_url }}"
+    "url": "{{ page_url }}",
+    "isPartOf": {
+      "@type": "Blog",
+      "@id": "{{ site_url }}/blog#blog"
+    },
+    "articleSection": "Energy Tariffs",
+    "keywords": [
+      "Octopus Agile Outgoing",
+      "best time to export solar UK",
+      "Agile export prices",
+      "solar export electricity tariff UK"
+    ],
+    "inLanguage": "en-GB",
+    "about": {
+      "@type": "Thing",
+      "name": "Octopus Agile electricity export pricing"
+    }
   }
   </script>
 {% endblock %}
