@@ -5,103 +5,131 @@
 {% block head %}
 <!-- Page-specific Structured Data (JSON-LD) -->
 <script type="application/ld+json">
-{
-    "@context": "https://schema.org",
-    "@graph": [
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+    
         {
-            "@type": "WebPage",
-            "@id": "{{ site_url }}/#webpage",
-            "url": "{{ site_url }}/",
-            "name": "Octopus Agile Pricing | Agile Prices | Cheapest Prices UK",
-            "description": "Find the cheapest Agile Octopus electricity prices for your UK region. Discover optimal usage windows for appliances, home batteries and EVs to reduce electricity costs.",
-            "inLanguage": "en-GB",
-            "isPartOf": {
-                "@type": "WebSite",
-                "name": "{{ site_name }}",
-                "url": "{{ site_url }}"
-            },
-            "about": {
-                "@type": "Thing",
-                "name": "Octopus Agile Tariff Electricity Pricing"
-            }
+          "@type": "WebSite",
+          "@id": "https://www.agilepricing.co.uk/#website",
+          "url": "https://www.agilepricing.co.uk/",
+          "name": "Agile Pricing",
+          "description": "Tool for analysing Agile Octopus electricity prices and finding the cheapest energy usage windows in the UK.",
+          "publisher": {
+            "@type": "Organization",
+            "name": "Parkes Group Enterprise Ltd"
+          },
+          "inLanguage": "en-GB"
         },
+    
         {
-            "@type": "SoftwareApplication",
-            "name": "{{ site_name }}",
-            "applicationCategory": "UtilityApplication",
-            "operatingSystem": "Web",
-            "description": "{{ site_description }}",
-            "url": "{{ site_url }}",
+          "@type": "WebPage",
+          "@id": "https://www.agilepricing.co.uk/#webpage",
+          "url": "https://www.agilepricing.co.uk/",
+          "name": "Octopus Agile Pricing | Cheapest Electricity Times UK",
+          "description": "Find the cheapest Agile Octopus electricity prices for your UK region. Discover optimal usage windows for appliances, home batteries and EVs.",
+          "isPartOf": {
+            "@id": "https://www.agilepricing.co.uk/#website"
+          },
+          "about": {
+            "@type": "Thing",
+            "name": "Agile Octopus electricity pricing"
+          },
+          "inLanguage": "en-GB"
+        },
+    
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://www.agilepricing.co.uk/#software",
+          "name": "Agile Pricing | Octopus Energy Pricing Assistant",
+          "applicationCategory": "UtilityApplication",
+          "applicationSubCategory": "Energy price optimisation",
+          "operatingSystem": "Web",
+          "url": "https://www.agilepricing.co.uk",
+          "description": "Free web tool that analyses Agile Octopus half-hourly electricity prices and identifies the cheapest usage windows for UK households.",
+          "provider": {
+            "@type": "Organization",
+            "name": "Parkes Group Enterprise Ltd",
             "areaServed": {
-                "@type": "Country",
-                "name": "United Kingdom"
-            },
-            "purpose": "Energy price optimisation for UK households on Octopus Agile tariff",
-            "provider": {
-                "@type": "Organization",
-                "name": "Parkes Group Enterprise Ltd"
-            },
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "GBP"
-            },
-            "featureList": [
-                "Find cheapest times to use electricity",
-                "Calculate cheapest continuous blocks",
-                "Compare prices across UK regions",
-                "Estimate charging costs",
-                "View interactive price charts"
-            ]
+              "@type": "Country",
+              "name": "United Kingdom"
+            }
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "GBP"
+          },
+          "featureList": [
+            "Find cheapest times to use electricity",
+            "Calculate cheapest continuous price blocks",
+            "Compare Agile Octopus prices across UK regions",
+            "Estimate EV and battery charging costs",
+            "Interactive half-hour electricity price charts"
+          ]
         },
+    
         {
-            "@type": "FAQPage",
-            "mainEntity": [
-                {
-                    "@type": "Question",
-                    "name": "How can I save money on Agile Octopus electricity?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Agile Octopus prices change every 30 minutes. By using energy during the cheapest time blocks each day, you can reduce electricity costs significantly. This tool helps you identify the cheapest usage windows for home batteries, EVs, and flexible appliances."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What is the cheapest time to use electricity on Agile Octopus?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "The cheapest time varies daily and by region. Our tool analyses half-hourly prices from Octopus Energy's API to identify the cheapest 30-minute slot and cheapest continuous blocks (e.g., 3.5 hours) each day for your UK region."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "How does Agile Pricing help me find the cheapest electricity prices?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Enter your UK postcode to automatically detect your pricing region. We analyse official Octopus Energy data to show you the cheapest time blocks, compare them to daily averages, and estimate costs based on your usage. The tool is free to use and uses up-to-date 30 minute priceing from Octopus."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "Is Agile Pricing free to use?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "Yes, Agile Pricing is completely free to use. Simply enter your UK postcode to see the cheapest electricity prices for your region. No registration or payment required."
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "What is a cheapest remaining block?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "The cheapest remaining block is the cheapest continuous time period still available in the day (from now onwards). This helps you plan future energy use, such as charging batteries or EVs later in the day when prices are lowest."
-                    }
-                }
-            ]
+          "@type": "Dataset",
+          "@id": "https://www.agilepricing.co.uk/#dataset",
+          "name": "UK Agile Octopus Half-Hour Electricity Price Dataset",
+          "description": "Half-hourly electricity pricing data from Octopus Energy's Agile tariff used to identify cheapest usage windows for UK households.",
+          "url": "https://www.agilepricing.co.uk/",
+          "creator": {
+            "@type": "Organization",
+            "name": "Octopus Energy"
+          },
+          "provider": {
+            "@type": "Organization",
+            "name": "Parkes Group Enterprise Ltd"
+          },
+          "temporalCoverage": "P1D",
+          "spatialCoverage": {
+            "@type": "Country",
+            "name": "United Kingdom"
+          },
+          "keywords": [
+            "Agile Octopus prices",
+            "electricity price data",
+            "UK electricity tariff data",
+            "half-hour electricity prices"
+          ]
+        },
+    
+        {
+          "@type": "FAQPage",
+          "@id": "https://www.agilepricing.co.uk/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "How can I save money on Agile Octopus electricity?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Agile Octopus prices change every 30 minutes. By using electricity during the cheapest time blocks each day you can reduce costs. Agile Pricing identifies the cheapest usage windows for appliances, EV charging and home batteries."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What is the cheapest time to use electricity on Agile Octopus?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The cheapest time varies daily and by region. Agile Pricing analyses half-hourly prices from the Octopus Energy API to identify the cheapest slots and cheapest continuous blocks."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is Agile Pricing free to use?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. The tool is completely free. Enter your UK postcode to see the cheapest Agile Octopus electricity prices for your region."
+              }
+            }
+          ]
         }
-    ]
-}
-</script>
+    
+      ]
+    }
+    </script>
 {% endblock %}
 
 {% block content %}
