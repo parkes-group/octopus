@@ -26,6 +26,7 @@ from app.export_stats import (
     EXPORT_BLOCK_DURATION_HOURS,
     EXPORT_DEFAULT_CAPACITY_KWH,
 )
+from app.price_calculator import PriceCalculator
 from app.region_slugs import region_code_from_slug
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def get_export_agile_seo_stats(region_code: str, duration_hours: float = 3.5) ->
             return {"daily_avg": None, "best_block_avg": None}
         uk_now = get_uk_now()
         current_time_utc = uk_now.astimezone(timezone.utc)
-        today_uk = datetime.now(timezone.utc).date()
+        today_uk = uk_now.date()
         today_iso = today_uk.isoformat()
         blocks_per_day = calculate_export_blocks_per_day(prices_for_calc, duration_hours, current_time_utc)
         today_data = next((d for d in blocks_per_day if d["date_iso"] == today_iso), None)
@@ -390,9 +391,11 @@ def get_blocks():
 
     uk_now = get_uk_now()
     current_time_utc = uk_now.astimezone(timezone.utc)
+    today_uk = uk_now.date()
+    # Drop past UK-local days (match import page behaviour when cache spans yesterday+today)
+    prices_for_calc = PriceCalculator.filter_prices_from_uk_date(prices_for_calc, today_uk)
     blocks_per_day = calculate_export_blocks_per_day(prices_for_calc, duration, current_time_utc)
 
-    today_uk = datetime.now(timezone.utc).date()
     today_iso = today_uk.isoformat()
     tomorrow_iso = (today_uk + timedelta(days=1)).isoformat()
 
@@ -470,9 +473,9 @@ def get_blocks():
         best_remaining_json = None
 
     # Build prices list for table and chart (same shape as import prices page)
-    # Sort slots by valid_from ascending for chronological display
+    # Use filtered prices (past UK days dropped) for display
     from app.timezone_utils import utc_to_uk, format_uk_datetime_short, format_uk_time
-    slots_sorted = sorted(tariff.slots, key=lambda s: s.valid_from or "")
+    prices_sorted = sorted(prices_for_calc, key=lambda p: p.get("valid_from", ""))
     prices_out = []
     best_block_times_by_date = {}
     worst_block_times_by_date = {}
@@ -485,20 +488,23 @@ def get_blocks():
     best_remaining_indices = []
     chart_previous_date = None
 
-    for i, slot in enumerate(slots_sorted):
-        val = slot.value_inc_vat if inc_vat else slot.value_exc_vat
-        dt_uk = utc_to_uk(slot.valid_from)
+    for i, p in enumerate(prices_sorted):
+        # _slots_to_price_dicts stores the correct value (inc or exc) in value_inc_vat based on inc_vat param
+        val = p["value_inc_vat"]
+        valid_from = p.get("valid_from")
+        valid_to = p.get("valid_to")
+        dt_uk = utc_to_uk(valid_from)
         date_iso = dt_uk.date().isoformat()
         date_uk = dt_uk.strftime("%d/%m/%y")
         time_uk = dt_uk.strftime("%H:%M")
-        dt_end = utc_to_uk(slot.valid_to)
+        dt_end = utc_to_uk(valid_to)
         prices_out.append({
             "date_iso": date_iso,
             "date_uk": date_uk,
             "time_uk": time_uk,
             "value_inc_vat": round(val, 2),
-            "valid_from": slot.valid_from,
-            "valid_to": slot.valid_to,
+            "valid_from": valid_from,
+            "valid_to": valid_to,
             "datetime_uk": dt_uk.isoformat(),
             "datetime_uk_end": dt_end.isoformat(),
         })
@@ -511,19 +517,19 @@ def get_blocks():
         chart_prices.append(val)
         if best and best.get("slots"):
             slot_times = {s["valid_from"] for s in best["slots"]}
-            if slot.valid_from in slot_times:
-                best_block_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
+            if valid_from in slot_times:
+                best_block_times_by_date.setdefault(date_iso, []).append(valid_from)
                 best_block_indices.append(i)
         if worst and worst.get("slots"):
             slot_times = {s["valid_from"] for s in worst["slots"]}
-            if slot.valid_from in slot_times:
-                worst_block_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
+            if valid_from in slot_times:
+                worst_block_times_by_date.setdefault(date_iso, []).append(valid_from)
                 worst_block_indices.append(i)
         # Only include best_remaining in chart when we're showing the card (best block has started)
         if show_best_remaining and best_remaining and best_remaining.get("slots"):
             slot_times = {s["valid_from"] for s in best_remaining["slots"]}
-            if slot.valid_from in slot_times:
-                best_remaining_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
+            if valid_from in slot_times:
+                best_remaining_times_by_date.setdefault(date_iso, []).append(valid_from)
                 best_remaining_indices.append(i)
         # Tomorrow's best/worst (per-day context)
         if tomorrow_data and date_iso == tomorrow_iso:
@@ -531,13 +537,13 @@ def get_blocks():
             t_w = tomorrow_data.get("worst_block")
             if t_b and t_b.get("slots"):
                 t_b_times = {s["valid_from"] for s in t_b["slots"]}
-                if slot.valid_from in t_b_times:
-                    best_block_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
+                if valid_from in t_b_times:
+                    best_block_times_by_date.setdefault(date_iso, []).append(valid_from)
                     best_block_indices.append(i)
             if t_w and t_w.get("slots"):
                 t_w_times = {s["valid_from"] for s in t_w["slots"]}
-                if slot.valid_from in t_w_times:
-                    worst_block_times_by_date.setdefault(date_iso, []).append(slot.valid_from)
+                if valid_from in t_w_times:
+                    worst_block_times_by_date.setdefault(date_iso, []).append(valid_from)
                     worst_block_indices.append(i)
 
     # Highest single slot per day (for "Highest" badge like "Lowest" on import)
@@ -550,7 +556,6 @@ def get_blocks():
         highest_price_times_by_date[d] = p["valid_from"]
 
     # Today's min, max, avg for summary
-    today_uk = datetime.now(timezone.utc).date()
     today_iso = today_uk.isoformat()
     today_prices = [p["value_inc_vat"] for p in prices_out if p["date_iso"] == today_iso]
     today_stats = {}
